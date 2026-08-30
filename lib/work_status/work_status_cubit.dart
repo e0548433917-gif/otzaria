@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:otzaria/work_status/work_status_item.dart';
 
@@ -56,7 +58,17 @@ class WorkStatusState {
 class WorkStatusCubit extends Cubit<WorkStatusState> {
   WorkStatusCubit() : super(const WorkStatusState());
 
+  final Map<String, Timer> _autoDismissTimers = {};
+
   void upsert(WorkStatusItem item) {
+    _autoDismissTimers.remove(item.id)?.cancel();
+    final autoDismissAfter = item.autoDismissAfter;
+    if (autoDismissAfter != null) {
+      _autoDismissTimers[item.id] = Timer(
+        autoDismissAfter,
+        () => remove(item.id),
+      );
+    }
     final isNewItem = !state.items.containsKey(item.id);
     final newItems = Map<String, WorkStatusItem>.from(state.items)
       ..[item.id] = item;
@@ -69,6 +81,7 @@ class WorkStatusCubit extends Cubit<WorkStatusState> {
   }
 
   void remove(String id) {
+    _autoDismissTimers.remove(id)?.cancel();
     final newItems = Map<String, WorkStatusItem>.from(state.items)..remove(id);
     emit(
       state.copyWith(
@@ -76,6 +89,15 @@ class WorkStatusCubit extends Cubit<WorkStatusState> {
         isDismissed: newItems.isEmpty ? false : state.isDismissed,
       ),
     );
+  }
+
+  @override
+  Future<void> close() {
+    for (final timer in _autoDismissTimers.values) {
+      timer.cancel();
+    }
+    _autoDismissTimers.clear();
+    return super.close();
   }
 
   void dismiss() {

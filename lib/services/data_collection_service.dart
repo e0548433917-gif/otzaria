@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:otzaria/data/sqlite/sqlite3_api.dart' as sqlite3;
@@ -9,17 +11,20 @@ import 'package:otzaria/data/data_providers/sqlite_data_provider.dart';
 class DataCollectionService {
   /// Read library version from the database (schema_meta).
   /// Returns "unknown" if not found or cannot be read.
-  Future<String> readLibraryVersion() async {
+  ///
+  /// [databasePath] — נתיב ה-DB לקריאה. ברירת המחדל נגזרת מ-Settings.
+  Future<String> readLibraryVersion({String? databasePath}) async {
     try {
-      // Try reading from schema_meta table first (db_meta הוסר ב-v3)
-      final dbProvider = SqliteDataProvider.instance;
-      if (await dbProvider.databaseExists()) {
+      // הבדיקה על הנתיב שנפתח כאן ולא על SqliteDataProvider, שה-_dbPath שלו
+      // מאוכלס רק ב-initialize() — תהליך headless לא מאתחל אותו.
+      final dbPath = databasePath ?? DatabaseConstants.getDatabasePath();
+      if (await File(dbPath).exists()) {
         sqlite3.Database? db;
         try {
           // קריאה בלבד — נפתח read-only כדי לתמוך ב-seforim.db על מדיה
           // לקריאה-בלבד ולא ליצור קובצי WAL צדדיים.
           db = sqlite3.sqlite3.open(
-            DatabaseConstants.getDatabasePath(),
+            dbPath,
             mode: sqlite3.OpenMode.readOnly,
           );
           final result = db.select(

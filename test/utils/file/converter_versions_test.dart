@@ -15,6 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:otzaria/utils/file/docx_to_otzaria.dart';
 import 'package:otzaria/utils/file/document_format.dart';
 import 'package:otzaria/utils/file/epub_to_otzaria.dart';
+import 'package:otzaria/utils/file/html_to_otzaria.dart';
 import 'package:otzaria/utils/file/legacy_word_properties.dart';
 import 'package:otzaria/utils/file/legacy_word_to_otzaria.dart';
 import 'package:otzaria/utils/file/markdown_to_otzaria.dart';
@@ -27,13 +28,14 @@ import 'package:otzaria/utils/text/inline_style.dart';
 /// ‎`ooxml`‎ ו-‎`word-xml`‎ חולקים טביעה — Flat OPC מגיע לאותו מנוע ומייצר פלט
 /// זהה בייט-בבייט. אי-שוויון ביניהם הוא סימן שהמנוע הותקף מכיוון אחד בלבד.
 const Map<String, ({int version, String fingerprint})> _pinned = {
-  'ooxml': (version: 13, fingerprint: 'f6749e468f69bdcc'),
-  'word-xml': (version: 1013, fingerprint: 'f6749e468f69bdcc'),
-  'odt': (version: 6, fingerprint: 'e7114c864beedc1d'),
-  'rtf': (version: 5, fingerprint: 'cfa322a43935a572'),
-  'legacy-word': (version: 8, fingerprint: 'f7aa849f4d28e297'),
-  'epub': (version: 15, fingerprint: 'a999c6001cd8c4f4'),
-  'markdown': (version: 7, fingerprint: 'e0ac8348b37de4b8'),
+  'ooxml': (version: 14, fingerprint: 'f6749e468f69bdcc'),
+  'word-xml': (version: 1014, fingerprint: 'f6749e468f69bdcc'),
+  'odt': (version: 7, fingerprint: 'e7114c864beedc1d'),
+  'rtf': (version: 6, fingerprint: 'cfa322a43935a572'),
+  'legacy-word': (version: 9, fingerprint: 'e39829bc7e2dd94f'),
+  'epub': (version: 16, fingerprint: 'a999c6001cd8c4f4'),
+  'markdown': (version: 8, fingerprint: 'e0ac8348b37de4b8'),
+  'html': (version: 2, fingerprint: '022fd0030315b79f'),
 };
 
 /// `sha256` ולא `hashCode` — הטביעה חייבת להיות זהה בין הרצות ובין גרסאות
@@ -176,6 +178,40 @@ Uint8List _sampleEpub() => _zip({
 
 Uint8List _sampleMarkdown() => _utf8('# כותרת\n\n**מודגש** ורגיל\n');
 
+/// מסמך HTML שנוגע בכל שורה בחוזה — כולל מה שחייב להימחק (סקריפט, מטפל
+/// אירועים, `javascript:`, עיצוב שאינו נתמך) ומה שחייב להישמר לצדו.
+Uint8List _sampleHtml() => _utf8(
+  '<html><head><meta charset="utf-8"><script>alert(1)</script>'
+  '<style>body{color:red}</style></head>'
+  '<body>'
+  '<h1>כותרת</h1>'
+  '<p onclick="x()" style="text-align: center">'
+  '<b>מודגש</b> ו<span style="color: #c00000">צבוע</span>'
+  '<span style="background-color: yellow">מסומן</span></p>'
+  '<p style="display:none">מוסתר</p>'
+  '<p><span style="font-family: \'SBL Hebrew\', serif; font-size:130%; '
+  'font-weight:600">מעוצב</span>'
+  '<span style="transform:rotate(5deg); position:absolute">מתקדם</span></p>'
+  '<p><a href="javascript:x()">חסום</a>'
+  '<a href="https://otzaria.org">פתוח</a>'
+  '<a href="book://ברכות#דף ב:">ספר</a>'
+  '<a href="#יעד">פנימי</a></p>'
+  '<p>מילה<sup class="footnote-marker">1</sup>'
+  '<i class="footnote">גוף ההערה</i> המשך</p>'
+  '<p><ruby>אנפין<rt>פנים</rt></ruby></p>'
+  '<ol type="a"><li>ראשון<ul><li>מקונן</li></ul></li></ol>'
+  '<ol reversed><li>שני</li><li>ראשון</li></ol>'
+  '<table cellpadding="6"><caption>כיתוב</caption>'
+  '<tr><th colspan="2" bgcolor="#eeeeee">תא</th></tr></table>'
+  '<hr style="border-top:3px solid #8b0000;">'
+  '<blockquote>ציטוט</blockquote>'
+  '<details open><summary>הצג</summary>מוסתר-מתקפל</details>'
+  '<img src="https://tracker.example/p.png">'
+  '<div style="border:1px solid #8b0000; padding:10px">תיבה</div>'
+  '<div id="יעד" dir="ltr"><p>English</p></div>'
+  '</body></html>',
+);
+
 void main() {
   const title = 'ספר';
 
@@ -193,6 +229,7 @@ void main() {
     'legacy-word': _legacyMarkupSample(),
     'epub': epubToText(_sampleEpub(), title),
     'markdown': markdownBytesToHtml(_sampleMarkdown(), title),
+    'html': htmlToText(_sampleHtml(), title),
   };
 
   final versions = <String, int>{
@@ -203,6 +240,7 @@ void main() {
     'legacy-word': kLegacyWordConverterVersion,
     'epub': kEpubConverterVersion,
     'markdown': kMarkdownConverterVersion,
+    'html': kHtmlConverterVersion,
   };
 
   for (final name in _pinned.keys) {

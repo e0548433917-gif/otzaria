@@ -24,6 +24,7 @@ void main() {
     test('מזהה את כל הסיומות המוכרות', () {
       const cases = {
         'a.txt': DocumentFormat.txt,
+        'a.text': DocumentFormat.text,
         'a.pdf': DocumentFormat.pdf,
         'a.epub': DocumentFormat.epub,
         'a.md': DocumentFormat.md,
@@ -37,6 +38,7 @@ void main() {
         'a.wbk': DocumentFormat.wbk,
         'a.rtf': DocumentFormat.rtf,
         'a.odt': DocumentFormat.odt,
+        'a.xhtml': DocumentFormat.xhtml,
       };
       cases.forEach((path, expected) {
         expect(documentFormatFromExtension(path), expected, reason: path);
@@ -156,9 +158,10 @@ void main() {
 
     test('requiresConversion — לא TXT ולא PDF', () {
       expect(DocumentFormat.txt.requiresConversion, isFalse);
+      expect(DocumentFormat.text.requiresConversion, isFalse);
       expect(DocumentFormat.pdf.requiresConversion, isFalse);
       for (final format in DocumentFormat.values) {
-        if (format == DocumentFormat.txt || format == DocumentFormat.pdf) {
+        if (format.isPlainText || format == DocumentFormat.pdf) {
           continue;
         }
         expect(format.requiresConversion, isTrue, reason: format.name);
@@ -197,7 +200,7 @@ void main() {
       final inDb = DocumentFormat.values
           .where((f) => f.canStoreLinesInDb)
           .toSet();
-      expect(inDb, {DocumentFormat.txt});
+      expect(inDb, {DocumentFormat.txt, DocumentFormat.text});
     });
 
     test('needsContentSniffing רק לסיומות שאינן מעידות על הפורמט', () {
@@ -249,6 +252,7 @@ void main() {
       for (final path in ['ספר.docx', 'ספר.DOCX', 'ספר.DocX']) {
         expect(isSupportedBookFile(path), isTrue, reason: path);
       }
+      expect(isSupportedBookFile('ספר.text'), isTrue);
     });
 
     test('isSupportedBookFile דוחה סיומת שאינה ב-registry', () {

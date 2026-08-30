@@ -327,7 +327,7 @@ void main() {
       final lines = result.split('\n');
 
       expect(lines, contains('1. אב'));
-      expect(lines, contains('    1. בן'));
+      expect(lines, contains('\u00a0\u00a0\u00a0\u00a01. בן'));
     });
 
     test('טבלה מקוננת מרונדרת בתוך התא ולא משוטחת לשורות הטבלה החיצונית', () {

@@ -12,6 +12,7 @@ import 'package:flutter/services.dart' show FontLoader;
 import 'package:path/path.dart' as p;
 import 'package:system_fonts/system_fonts.dart' show SystemFonts;
 import 'package:otzaria/utils/file/font_file_reader.dart';
+import 'package:otzaria/utils/file/sfnt_metadata_reader.dart';
 import 'package:otzaria/utils/file/system_font_locator.dart';
 
 /// סיווג גופן לפי סגנון: עם תגיות (serif) או חלק (sans-serif).
@@ -191,23 +192,27 @@ class AppFonts {
 
   static SystemFontScanResult _scanSystemFonts() {
     try {
-      final faces = <MapEntry<String, Uint8List>>[];
-      for (final path in SystemFontLocator.installedFontPaths()) {
-        final bytes = _readFontBytesSync(path);
-        if (bytes == null) continue;
-        faces.add(MapEntry(path, bytes));
-      }
-      return _buildScan(faces);
+      return _buildScan(_installedFacesLazily());
     } catch (_) {
       // אם אין גישה לגופני מערכת מסיבה כלשהי, נחזיר תוצאה ריקה.
       return const SystemFontScanResult.empty();
     }
   }
 
+  /// עצל בכוונה: הבייטים של כל גופן משתחררים לפני קריאת הבא, במקום להחזיק
+  /// את כל הגופנים המותקנים בזיכרון בבת אחת (מאות MB במחשב עם Office).
+  static Iterable<MapEntry<String, Uint8List>> _installedFacesLazily() sync* {
+    for (final path in SystemFontLocator.installedFontPaths()) {
+      final bytes = SfntMetadataReader.readSync(path);
+      if (bytes == null) continue;
+      yield MapEntry(path, bytes);
+    }
+  }
+
   /// מקבץ קבצי גופן למשפחות לפי שם המשפחה מטבלת ה-name (לא לפי שם הקובץ —
   /// התקנה פר-משתמש שומרת שמות קבצים שרירותיים שהמשתמש אינו מזהה).
   static SystemFontScanResult _buildScan(
-    List<MapEntry<String, Uint8List>> faces,
+    Iterable<MapEntry<String, Uint8List>> faces,
   ) {
     final builders = <String, _FamilyAccumulator>{};
     final aliases = <String, String>{};
@@ -563,6 +568,20 @@ class AppFonts {
     'Rubik': 'fonts/Rubik-VariableFont_wght.ttf',
   };
 
+  /// קובץ ה-face הבולד של גופן מובנה, למשפחות שנרשמו ב-pubspec עם קובץ נפרד.
+  /// צרכן חיצוני שמקבל רק את ה-regular (WebView של תוסף) מסנתז בולד מרוח.
+  static const Map<String, String> boldFontPaths = {
+    'FrankRuhlCLM': 'fonts/FrankRuehlCLM-Bold.ttf',
+  };
+
+  /// ה-faces של גופן מערכת שאותר בסריקה, או null כשאינו מוכר.
+  /// דורש שהקאש יהיה חם — ראו [warmUpSystemFontsCache].
+  static SystemFontFamilyFaces? systemFamilyFaces(String fontFamily) =>
+      _systemFamiliesCache?[fontFamily];
+
+  /// בייטים של קובץ גופן מהדיסק, או null כשאינו קריא.
+  static Uint8List? readFontBytes(String path) => _readFontBytesSync(path);
+
   /// מיפוי גופנים לשמות בעברית (לשימוש בהדפסה)
   /// מחושב אוטומטית מ-availableFonts, רק עבור גופנים עם קבצים
   static Map<String, String> get fontLabels => {
@@ -670,7 +689,7 @@ class AppFonts {
       final map = SystemFonts().getFontMap();
       final selfPath = map[fontFamily];
       if (selfPath == null) return;
-      final selfBytes = _readFontBytesSync(selfPath);
+      final selfBytes = SfntMetadataReader.readSync(selfPath);
       if (selfBytes == null) return;
       final selfInfo = _sfntFaceInfo(selfBytes);
       if (selfInfo == null) return;
@@ -811,6 +830,8 @@ class AppFonts {
 
   /// שם המשפחה מטבלת ה-name. מעדיף typographic family (nameID 16) על-פני
   /// שם המשפחה הבסיסי (nameID 1), כך ש-Regular ו-Bold מקבלים שם זהה.
+  /// בכל nameID מועדפת רשומת Windows (platform 3) — Windows מקבץ לפיה, ובגופני
+  /// Medium רבים רשומות פלטפורמה 0/1 נושאות את שם הבסיס וממזגות משפחות שונות.
   static String _readSfntFamilyName(
     Uint8List data,
     int nameOffset,
@@ -823,7 +844,9 @@ class AppFonts {
     final recordsBase = nameOffset + 6;
     if (recordsBase + count * 12 > data.length) return '';
 
+    String? typographicWindows;
     String? typographic;
+    String? basicWindows;
     String? basic;
     for (int i = 0; i < count; i++) {
       final rec = recordsBase + i * 12;
@@ -849,12 +872,21 @@ class AppFonts {
       }
       if (decoded.trim().isEmpty) continue;
       if (nameId == 16) {
-        typographic ??= decoded;
+        if (platformId == 3) {
+          typographicWindows ??= decoded;
+        } else {
+          typographic ??= decoded;
+        }
       } else {
-        basic ??= decoded;
+        if (platformId == 3) {
+          basicWindows ??= decoded;
+        } else {
+          basic ??= decoded;
+        }
       }
     }
-    return (typographic ?? basic ?? '').trim();
+    return (typographicWindows ?? typographic ?? basicWindows ?? basic ?? '')
+        .trim();
   }
 
   @visibleForTesting

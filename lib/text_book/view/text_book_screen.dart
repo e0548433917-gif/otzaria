@@ -37,6 +37,8 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:otzaria/text_book/bloc/text_book_event.dart';
 import 'package:otzaria/text_book/bloc/text_book_state.dart';
 import 'package:otzaria/data/repository/data_repository.dart';
+import 'package:otzaria/library/bloc/library_bloc.dart';
+import 'package:otzaria/library/bloc/library_state.dart';
 import 'package:otzaria/library/services/parallel_editions_service.dart';
 import 'package:otzaria/data/data_providers/book_database_resolver.dart';
 import 'package:otzaria/data/data_providers/database_library_provider.dart';
@@ -75,7 +77,14 @@ import 'package:otzaria/widgets/navigation/book_view_actions.dart';
 import 'package:otzaria/plugins/services/plugin_toolbar_registry.dart';
 import 'package:otzaria/plugins/bloc/plugin_system_bloc.dart';
 import 'package:otzaria/plugins/utils/plugin_toolbar_actions.dart';
+import 'package:otzaria/plugins/services/context_menu_registry.dart';
+import 'package:otzaria/plugins/services/plugin_runtime_dispatcher.dart';
+import 'package:otzaria/plugins/utils/plugin_context_menu_entries.dart';
 import 'package:otzaria/plugins/utils/reader_location_resolver.dart';
+import 'package:otzaria/search/models/search_configuration.dart';
+import 'package:otzaria/text_book/view/selection/plugin_selection_payload.dart';
+import 'package:otzaria/widgets/smart_text/render_settings.dart';
+import 'package:otzaria/core/messages/plugin_messages.dart';
 import 'package:otzaria/tools/shamor_zachor/providers/shamor_zachor_data_provider.dart';
 import 'package:otzaria/tools/shamor_zachor/providers/shamor_zachor_progress_provider.dart';
 import 'package:otzaria/tools/shamor_zachor/models/book_model.dart';
@@ -252,6 +261,7 @@ class _TextBookViewerBlocState extends State<TextBookViewerBloc>
   final NavPanelSearchHost _searchHost = NavPanelSearchHost();
   late final ValueNotifier<double> _sidebarWidth;
   late final StreamSubscription<SettingsState> _settingsSub;
+  StreamSubscription<LibraryState>? _libraryReloadSub;
   int? _sidebarTabIndex; // אינדקס הכרטיסייה בסרגל הצדי
   // עוקב אחרי מצב הפאנל הצדדי כדי לבקש פוקוס לשדה החיפוש רק ברגע שהפאנל
   // נפתח (false→true) ולא בכל rebuild - אחרת היה גונב פוקוס מתוכן הספר.
@@ -772,6 +782,26 @@ class _TextBookViewerBlocState extends State<TextBookViewerBloc>
     // ה-PDF (_hasPdfBook), לא על התוכן — לכן נדחה ל-_resolveCompanionPdf
     // שנקרא ברגע שהספר נטען (ראו ה-listener של ה-BlocConsumer).
 
+    // רענון ספרייה (למשל אחרי התקנת קבצי התלמוד) עשוי להוסיף מהדורות
+    // מקבילות — מאתרים מחדש כדי שהכפתור יופיע בלי לפתוח את הטאב מחדש.
+    // עץ בלי LibraryBloc (בדיקות widget) פשוט מוותר על הרענון.
+    try {
+      final libraryBloc = context.read<LibraryBloc>();
+      var previousLibraryState = libraryBloc.state;
+      _libraryReloadSub = libraryBloc.stream.listen((libState) {
+        final completed = LibraryState.reloadCompleted(
+          previousLibraryState,
+          libState,
+        );
+        previousLibraryState = libState;
+        if (!completed || !mounted) return;
+        _hasResolvedCompanionPdf = false;
+        _resolveCompanionPdf();
+      });
+    } on ProviderNotFoundException {
+      // בדיקות widget בונות את המסך בלי LibraryBloc.
+    }
+
     final pendingSidebarTab = Settings.getValue<int>(
       'key-sidebar-tab-index-pending',
     );
@@ -1056,6 +1086,7 @@ class _TextBookViewerBlocState extends State<TextBookViewerBloc>
     _pageShapeSidebarTabNotifier.dispose();
     _pageShapeOpenSettingsNotifier.dispose();
     _settingsSub.cancel();
+    _libraryReloadSub?.cancel();
     super.dispose();
   }
 
@@ -3240,6 +3271,28 @@ bool _handleGlobalKeyEvent(
     }
   }
 
+  // קיצורי מקלדת שתוספים הצהירו עליהם (מניפסט / app.registerShortcut) —
+  // פקודות שלהם או פעולות תפריט הלחיצה הימנית על טקסט.
+  if (ShortcutValidator.declaredPluginShortcutKeys.isNotEmpty) {
+    for (final entry in ShortcutValidator.pluginShortcuts.entries) {
+      final shortcut = ShortcutValidator.getShortcutValue(entry.key) ?? '';
+      if (shortcut.isNotEmpty &&
+          ShortcutHelper.matchesShortcut(event, shortcut)) {
+        unawaited(
+          _dispatchPluginShortcut(
+            context: context,
+            state: state,
+            target: entry.value,
+            selectedText: selectedTextForNote,
+            selectedLineIndex: selectedLineForNote,
+            selectedColumn: selectedColumnForNote,
+          ),
+        );
+        return true;
+      }
+    }
+  }
+
   // קיצורים קבועים (לא ניתנים להתאמה אישית).
   // ב-Mac מקבלים גם את Cmd (Meta) כי זו המוסכמה בפלטפורמה.
   final isCtrlOrCmd = ShortcutHelper.isPlainCtrlOrCmdPressed;
@@ -3317,6 +3370,167 @@ bool _handleGlobalKeyEvent(
   }
 
   return false;
+}
+
+/// מפעיל קיצור מקלדת שתוסף הצהיר עליו. קיצור שקשור לפעולת תפריט ההקשר
+/// (contextMenuItemId) מפעיל אותה בדיוק כמו לחיצה ימנית על הפריט; קיצור
+/// עם פקודה חופשית (command) שולח לתוסף אירוע `app.command`.
+Future<void> _dispatchPluginShortcut({
+  required BuildContext context,
+  required TextBookLoaded state,
+  required PluginShortcutTarget target,
+  required String? selectedText,
+  required int? selectedLineIndex,
+  required int? selectedColumn,
+}) async {
+  if (target.contextMenuItemId != null) {
+    await _dispatchContextMenuShortcut(
+      context: context,
+      state: state,
+      target: target,
+      selectedText: selectedText,
+      selectedLineIndex: selectedLineIndex,
+      selectedColumn: selectedColumn,
+    );
+    return;
+  }
+  if (target.command == null) return;
+  await PluginRuntimeDispatcher.instance.dispatchEventToPlugin(
+    target.pluginId,
+    'app.command',
+    {'command': target.command, 'shortcutId': target.shortcutId},
+    preferBackground: true,
+  );
+}
+
+/// מפעיל פעולת תפריט הקשר של תוסף דרך קיצור מקלדת, בדיוק כמו לחיצה ימנית
+/// על הפריט. הפעולה דורשת טקסט מסומן בספר הפתוח.
+Future<void> _dispatchContextMenuShortcut({
+  required BuildContext context,
+  required TextBookLoaded state,
+  required PluginShortcutTarget target,
+  required String? selectedText,
+  required int? selectedLineIndex,
+  required int? selectedColumn,
+}) async {
+  final item = ContextMenuRegistry.instance.findItem(
+    target.pluginId,
+    target.contextMenuItemId ?? '',
+  );
+  if (item == null) return;
+
+  // נקרא לפני ה-await כדי לא להחזיק BuildContext מעבר לגבול אסינכרוני.
+  final textBookBloc = context.read<TextBookBloc>();
+  final settingsState = context.read<SettingsBloc>().state;
+  final selectionActionDispatcher = pluginSelectionActionDispatcherOf(context);
+
+  final text = selectedText ?? '';
+  final sectionIndex = selectedLineIndex;
+  if (text.trim().isEmpty || sectionIndex == null || sectionIndex < 0) {
+    UiSnack.showError(PluginMessages.selectTextForContextMenuAction);
+    return;
+  }
+
+  final contextName = state.showPageShapeView
+      ? 'reader-page-shape-selection'
+      : 'reader-selection';
+  if (!item.contexts.contains(contextName)) {
+    UiSnack.showError(PluginMessages.contextMenuActionUnavailableHere);
+    return;
+  }
+  if (!ContextMenuRegistry.instance.isItemVisible(
+    target.pluginId,
+    item.id,
+  )) {
+    UiSnack.showError(PluginMessages.contextMenuActionUnavailableHere);
+    return;
+  }
+
+  final selectedLineCount = text.split('\n').length;
+  List<String>? fullContentLines;
+  if (selectedLineCount > 1) {
+    final fullContent = await textBookBloc.repository.getBookContent(
+      state.book,
+    );
+    fullContentLines = await splitContentLines(fullContent);
+  }
+
+  // השורה המסומנת נטענה בהכרח, אבל ברשימה חלקית (חימום/שחרור) עשויים
+  // להיות placeholders ריקים — נופלים אז לקריאת התוכן המלא מה-repository.
+  var rawText = sectionIndex < state.content.length
+      ? state.content[sectionIndex]
+      : '';
+  if (rawText.isEmpty) {
+    fullContentLines ??= await splitContentLines(
+      await textBookBloc.repository.getBookContent(state.book),
+    );
+    if (sectionIndex < fullContentLines.length) {
+      rawText = fullContentLines[sectionIndex];
+    }
+  }
+  if (rawText.isEmpty) {
+    UiSnack.showError(PluginMessages.contextMenuActionUnavailableHere);
+    return;
+  }
+
+  final renderSettings = RenderSettings(
+    removeNikud: state.removeNikud,
+    removePunctuation: state.removePunctuation,
+    removeTeamim: !settingsState.showTeamim,
+    replaceHolyNames: settingsState.replaceHolyNames,
+    searchText: state.searchText,
+    searchOptions: state.searchOptions,
+    alternativeWords: state.alternativeWords,
+    spacingValues: state.spacingValues,
+    isFuzzySearch: state.searchMode == SearchMode.fuzzy,
+    searchMode: state.searchMode,
+    searchDistance: state.searchDistance,
+    matchPolicy: state.matchPolicy,
+    fontSize: state.fontSize,
+    fontFamily: settingsState.fontFamily,
+    fontWeight: settingsState.fontBold ? FontWeight.bold : null,
+    lineHeight: settingsState.lineHeight,
+  );
+
+  final Map<String, dynamic> selection;
+  if (selectedLineCount > 1 && fullContentLines != null) {
+    final endIndex = min(
+      sectionIndex + selectedLineCount,
+      fullContentLines.length,
+    );
+    selection = buildPluginMultiSectionSelectionPayload(
+      state: state,
+      rawTexts: fullContentLines.sublist(sectionIndex, endIndex),
+      selectedText: text,
+      firstSectionIndex: sectionIndex,
+      startHint: selectedColumn,
+      settings: renderSettings,
+    );
+  } else {
+    selection = buildPluginSelectionPayload(
+      state: state,
+      rawText: rawText,
+      selectedText: text,
+      sectionIndex: sectionIndex,
+      startHint: selectedColumn,
+      settings: renderSettings,
+    );
+  }
+
+  final renderedSelectedText =
+      (selection['renderedSelectedText'] ?? selection['text'] ?? '').toString();
+  if (!item.isVisibleForSelection(renderedSelectedText)) {
+    UiSnack.showError(PluginMessages.contextMenuActionUnavailableForSelection);
+    return;
+  }
+
+  await dispatchPluginContextMenuItemClick(
+    dispatcher: PluginRuntimeDispatcher.instance,
+    pluginId: target.pluginId,
+    item: item,
+    selection: selection,
+    selectionActionDispatcher: selectionActionDispatcher,
+  );
 }
 
 /// Helper function to add bookmark from keyboard shortcut

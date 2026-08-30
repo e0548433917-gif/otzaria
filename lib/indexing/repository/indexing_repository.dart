@@ -44,6 +44,43 @@ class IndexingRepository {
 
   IndexingRepository(this._tantivyDataProvider);
 
+  bool _paused = false;
+  Completer<void>? _resumeGate;
+  bool _economyIndexing = false;
+
+  bool get isPaused => _paused;
+  bool get isEconomyIndexing => _economyIndexing;
+
+  /// משהה את לולאת האינדוקס לפני הספר הבא; הספר שבעיבוד מסתיים כרגיל.
+  void pauseIndexing() {
+    if (_paused) return;
+    _paused = true;
+    _resumeGate = Completer<void>();
+  }
+
+  void resumeIndexing() {
+    _paused = false;
+    _resumeGate?.complete();
+    _resumeGate = null;
+  }
+
+  /// מצב חסכוני: תקציב writer מוקטן במנוע — פחות threads ופחות זיכרון.
+  /// חל מיד גם על אינדוקס שרץ כעת, ונשמר לריצות הבאות באותה הפעלה.
+  Future<void> setEconomyIndexing(bool enabled) async {
+    final engine = await _tantivyDataProvider.engine;
+    await engine.setEconomyIndexing(enabled: enabled);
+    _economyIndexing = enabled;
+  }
+
+  Future<void> _waitWhilePaused() async {
+    while (_paused && _tantivyDataProvider.isIndexing.value) {
+      await (_resumeGate?.future ?? Future<void>.value());
+    }
+  }
+
+  @visibleForTesting
+  Future<void> waitWhilePausedForTesting() => _waitWhilePaused();
+
   @visibleForTesting
   static IndexingFailure classifyFailureForTesting(
     Book book,
@@ -289,6 +326,7 @@ class IndexingRepository {
       bookLoop:
       for (var bookIndex = 0; bookIndex < allBooks.length; bookIndex++) {
         final book = allBooks[bookIndex];
+        await _waitWhilePaused();
         if (!_tantivyDataProvider.isIndexing.value) {
           debugPrint('⚠️ אינדוקס בוטל על ידי המשתמש');
           cancelled = true;
@@ -1361,6 +1399,7 @@ class IndexingRepository {
     try {
       await _setDbReadBoost(true);
       for (final book in books) {
+        await _waitWhilePaused();
         if (!_tantivyDataProvider.isIndexing.value) {
           cancelled = true;
           break;
@@ -1501,6 +1540,8 @@ class IndexingRepository {
   /// Cancels the ongoing indexing process.
   void cancelIndexing() {
     _tantivyDataProvider.isIndexing.value = false;
+    // ביטול בזמן השהיה מעיר את הלולאה כדי שתפגוש את דגל הביטול.
+    resumeIndexing();
   }
 
   /// Clears the index and resets the list of indexed books.

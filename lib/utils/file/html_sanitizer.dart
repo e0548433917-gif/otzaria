@@ -88,6 +88,7 @@ class BookHtmlSanitizer {
         node.attributes.remove(attribute);
       }
     }
+    _sanitizeClass(node);
     if (tag == 'a') {
       _sanitizeUrlAttribute(node, 'href', allowDataImages: false);
     } else if (tag == 'img') {
@@ -95,6 +96,23 @@ class BookHtmlSanitizer {
     }
     for (final child in node.nodes.toList()) {
       _sanitizeNode(child);
+    }
+  }
+
+  void _sanitizeClass(Element node) {
+    final value = node.attributes['class'];
+    if (value == null) return;
+    final safe = value
+        .split(RegExp(r'\s+'))
+        .where((name) =>
+            name == 'footnote-marker' ||
+            name == 'footnote' ||
+            name.startsWith('language-'))
+        .toList();
+    if (safe.isEmpty) {
+      node.attributes.remove('class');
+    } else {
+      node.attributes['class'] = safe.join(' ');
     }
   }
 

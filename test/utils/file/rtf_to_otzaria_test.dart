@@ -514,7 +514,7 @@ void main() {
       expect(_convert(_doc(r'{\ulwave א}\par')), contains('underline wavy'));
       expect(
         _convert(_doc(r'{\ulth א}\par')),
-        contains('text-decoration-thickness: 2px'),
+        contains('text-decoration-thickness: 200%'),
       );
     });
 

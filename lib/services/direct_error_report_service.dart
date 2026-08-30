@@ -24,15 +24,23 @@ class DirectReportDeliveryResult {
   final DirectReportDeliveryStatus status;
   final String message;
 
+  /// השרת קלט את הדיווח אך לא שלח מייל, כי תוכן זהה כבר נשלח בעבר.
+  final bool isDuplicate;
+
   const DirectReportDeliveryResult._({
     required this.status,
     required this.message,
+    this.isDuplicate = false,
   });
 
-  factory DirectReportDeliveryResult.sent(String message) {
+  factory DirectReportDeliveryResult.sent(
+    String message, {
+    bool isDuplicate = false,
+  }) {
     return DirectReportDeliveryResult._(
       status: DirectReportDeliveryStatus.sent,
       message: message,
+      isDuplicate: isDuplicate,
     );
   }
 
@@ -258,6 +266,12 @@ class DirectErrorReportService {
     if (attemptResult.isSuccess) {
       await _saveSentReport(report);
       unawaited(flushPendingReports(onlyAutomaticRetry: true));
+      if (attemptResult.isDuplicate) {
+        return DirectReportDeliveryResult.sent(
+          ReportMessages.duplicateReport(directReportTargetLabel),
+          isDuplicate: true,
+        );
+      }
       if (_isSefariaReport(report)) {
         return DirectReportDeliveryResult.sent(ReportMessages.sentToSefaria);
       }
@@ -411,7 +425,9 @@ class DirectErrorReportService {
           .timeout(_timeout);
 
       if (response.statusCode == HttpStatus.ok) {
-        return const _SendAttemptResult.success();
+        return _SendAttemptResult.success(
+          isDuplicate: _isDuplicateResponse(response.body),
+        );
       }
 
       if (_isPermanentHttpFailure(response.statusCode)) {
@@ -442,21 +458,39 @@ class DirectErrorReportService {
   bool _isPermanentHttpFailure(int statusCode) {
     return statusCode == HttpStatus.badRequest || statusCode == 422;
   }
+
+  /// השרת מחזיר 200 עם duplicate:true כשתוכן זהה כבר נשלח — הדיווח נקלט
+  /// אך לא נשלח מייל, ואסור להציג למשתמש "נשלח בהצלחה".
+  static bool _isDuplicateResponse(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      return decoded is Map<String, dynamic> && decoded['duplicate'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
 }
 
 class _SendAttemptResult {
   final bool isSuccess;
   final String message;
   final _SendAttemptFailureType? failureType;
+  final bool isDuplicate;
 
   const _SendAttemptResult._({
     required this.isSuccess,
     required this.message,
     this.failureType,
+    this.isDuplicate = false,
   });
 
-  const _SendAttemptResult.success()
-    : this._(isSuccess: true, message: '', failureType: null);
+  const _SendAttemptResult.success({bool isDuplicate = false})
+    : this._(
+        isSuccess: true,
+        message: '',
+        failureType: null,
+        isDuplicate: isDuplicate,
+      );
 
   bool get isPermanentFailure =>
       !isSuccess && failureType == _SendAttemptFailureType.permanent;

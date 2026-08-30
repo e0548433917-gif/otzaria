@@ -274,4 +274,83 @@ void main() {
       expect(LinkTypes.isVirtualSource(null), isFalse);
     });
   });
+
+  group('LinkTypes.referenceTypes (דו-כיווניות, סכמה 3)', () {
+    /// תמונת מצב ידנית של ConnectionType בצד הקוטליני. היא תופסת מחיקה או
+    /// חפיפה בסיווג — לא הוספה של סוג חדש בקוטלין, שלא תגיע לכאן מעצמה.
+    const generatorTypes = <String>{
+      'COMMENTARY',
+      'SUPER_COMMENTARY',
+      'TARGUM',
+      'REFERENCE',
+      'SOURCE',
+      'MIDRASH',
+      'QUOTATION',
+      'MESORAT_HASHAS',
+      'EIN_MISHPAT',
+      'DIBUR_HAMATCHIL',
+      'PARSHANUT',
+      'MISHNAH_IN_TALMUD',
+      'RELATED',
+      'OTHER',
+      'LINKER',
+      'SIFREI_MITZVOT',
+      'ESSAY',
+      'ALLUSION',
+      'LITURGY',
+      'ELUCIDATION',
+      'EXPLICATION',
+      'LAW',
+      'SUMMARY',
+    };
+
+    test('כל סוג של הגנרטור מסווג — תלוי-טקסט, הפניה, או חד-כיווני מוצהר', () {
+      const oneDirectional = {'SOURCE', 'LINKER'};
+      final unclassified = generatorTypes
+          .where(
+            (t) =>
+                !LinkTypes.dependentTextTypes.contains(t) &&
+                !LinkTypes.referenceTypes.contains(t) &&
+                !oneDirectional.contains(t),
+          )
+          .toList();
+      expect(unclassified, isEmpty, reason: 'סוגים ללא סיווג: $unclassified');
+    });
+
+    test('אין ב-referenceTypes ערך שהגנרטור אינו יכול לכתוב', () {
+      // ערכים כמו QUOTATION_AUTO ממופים לסוג אחר לפני האחסון, ולכן היו
+      // פרמטרים מתים בשאילתה.
+      expect(LinkTypes.referenceTypes.difference(generatorTypes), isEmpty);
+    });
+
+    test('הקטגוריות זרות זו לזו', () {
+      expect(
+        LinkTypes.dependentTextTypes.intersection(LinkTypes.referenceTypes),
+        isEmpty,
+      );
+    });
+
+    test('SOURCE ו-LINKER אינם דו-כיווניים', () {
+      // SOURCE וירטואלי ואינו נשמר; LINKER אינו עובר דרך ה-mask המיוצא ולכן
+      // לא ניתן לדעת אם צדו הוסתר. הנימוק אינו נפח — ל-OTHER יש יותר קישורים.
+      expect(LinkTypes.referenceTypes, isNot(contains(LinkTypes.source)));
+      expect(LinkTypes.referenceTypes, isNot(contains(LinkTypes.linker)));
+    });
+  });
+
+  group('LinkTypes.inverseQueryTypes', () {
+    test('בלי תמיכת דיכוי — בדיוק ההתנהגות הקודמת', () {
+      final types = LinkTypes.inverseQueryTypes(bidirectional: false);
+      expect(types.toSet(), LinkTypes.dependentTextTypes);
+    });
+
+    test('עם תמיכת דיכוי — מתווספים קישורי ההפניה', () {
+      final types = LinkTypes.inverseQueryTypes(bidirectional: true);
+      expect(
+        types.toSet(),
+        LinkTypes.dependentTextTypes.union(LinkTypes.referenceTypes),
+      );
+      expect(types.length, types.toSet().length, reason: 'בלי כפילויות');
+    });
+  });
 }

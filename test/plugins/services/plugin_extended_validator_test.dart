@@ -330,6 +330,8 @@ void main() {
         'plugin.backgroundDone',
         'feedback.report',
         'feedback.hasReporterEmail',
+        'ui.print',
+        'ui.exportPdf',
       };
       final missing = PluginExtendedValidator.knownApiMethods
           .where((m) => !noManifestPermission.contains(m))

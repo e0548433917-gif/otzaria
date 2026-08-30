@@ -646,23 +646,3 @@ class TextBookLoaded extends TextBookState {
     permanentHighlightLine,
   ];
 }
-
-/// האם ההבדל בין שני מצבים נוגע במשהו מלבד רשימת השורות הגלויות.
-///
-/// משמש כ-`buildWhen` בעץ תצוגת הספר. `visibleIndices` מתעדכן כמעט בכל
-/// תזוזת גלילה, ואף חלק מהתצוגה אינו נגזר ממנו — מי שצריך את המיקום הנוכחי
-/// קורא אותו חי מ-`positionsListener` דרך `resolveTopmostSourceLine`.
-///
-/// [previous] ו-[current] הם המצב הקודם והנוכחי של ה-bloc.
-/// מחזיר `true` כשצריך לבנות מחדש. ההשוואה עוברת דרך `copyWith`, ולכן שדה
-/// שיתווסף ל-props ולא ל-`copyWith` יישבר כאן בשקט — ראו את בדיקת הסחיפה
-/// ב-`test/text_book/view/visible_indices_rebuild_gate_test.dart`.
-bool textBookStateDiffersBeyondVisibleIndices(
-  TextBookState previous,
-  TextBookState current,
-) {
-  if (previous is! TextBookLoaded || current is! TextBookLoaded) {
-    return true;
-  }
-  return previous.copyWith(visibleIndices: current.visibleIndices) != current;
-}

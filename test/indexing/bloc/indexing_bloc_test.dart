@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:otzaria/data/data_providers/tantivy_data_provider.dart';
@@ -275,6 +277,169 @@ void main() {
       expect: () => [const IndexingComplete()],
     );
   });
+
+  group('השהיה ומצב חסכוני', () {
+    const inProgress = IndexingInProgress(
+      booksProcessed: 3,
+      totalBooks: 10,
+      isCreatingIndex: true,
+    );
+
+    blocTest<IndexingBloc, IndexingState>(
+      'PauseIndexing משהה את ה-repository ומסמן isPaused ב-state',
+      seed: () => inProgress,
+      build: _FakeIndexingBloc.new,
+      act: (bloc) => bloc.add(PauseIndexing()),
+      expect: () => [
+        const IndexingInProgress(
+          booksProcessed: 3,
+          totalBooks: 10,
+          isCreatingIndex: true,
+          isPaused: true,
+        ),
+      ],
+      verify: (bloc) => expect(repositoryOf(bloc).pauseCalls, 1),
+    );
+
+    blocTest<IndexingBloc, IndexingState>(
+      'PauseIndexing מחוץ לריצה אינו עושה דבר',
+      build: _FakeIndexingBloc.new,
+      act: (bloc) => bloc.add(PauseIndexing()),
+      expect: () => <IndexingState>[],
+      verify: (bloc) => expect(repositoryOf(bloc).pauseCalls, 0),
+    );
+
+    blocTest<IndexingBloc, IndexingState>(
+      'ResumeIndexing אחרי השהיה מחזיר לריצה ומנקה את הדגל',
+      seed: () => inProgress,
+      build: _FakeIndexingBloc.new,
+      act: (bloc) => bloc
+        ..add(PauseIndexing())
+        ..add(ResumeIndexing()),
+      expect: () => [
+        const IndexingInProgress(
+          booksProcessed: 3,
+          totalBooks: 10,
+          isCreatingIndex: true,
+          isPaused: true,
+        ),
+        const IndexingInProgress(
+          booksProcessed: 3,
+          totalBooks: 10,
+          isCreatingIndex: true,
+        ),
+      ],
+      verify: (bloc) => expect(repositoryOf(bloc).resumeCalls, 1),
+    );
+
+    blocTest<IndexingBloc, IndexingState>(
+      'SetEconomyIndexing מעביר את הדגל ל-repository ומשתקף ב-state',
+      seed: () => inProgress,
+      build: _FakeIndexingBloc.new,
+      act: (bloc) => bloc.add(const SetEconomyIndexing(true)),
+      expect: () => [
+        const IndexingInProgress(
+          booksProcessed: 3,
+          totalBooks: 10,
+          isCreatingIndex: true,
+          isEconomy: true,
+        ),
+      ],
+      verify: (bloc) => expect(repositoryOf(bloc).economyValues, [true]),
+    );
+
+    blocTest<IndexingBloc, IndexingState>(
+      'SetEconomyIndexing באותו ערך אינו פולט state כפול',
+      seed: () => inProgress,
+      build: _FakeIndexingBloc.new,
+      act: (bloc) => bloc
+        ..add(const SetEconomyIndexing(true))
+        ..add(const SetEconomyIndexing(true)),
+      expect: () => [
+        const IndexingInProgress(
+          booksProcessed: 3,
+          totalBooks: 10,
+          isCreatingIndex: true,
+          isEconomy: true,
+        ),
+      ],
+      verify: (bloc) => expect(repositoryOf(bloc).economyValues, [true]),
+    );
+
+    blocTest<IndexingBloc, IndexingState>(
+      'כשל בהחלפת המנוע אינו משנה את המצב המוצג',
+      seed: () => inProgress,
+      build: () => _FakeIndexingBloc(
+        _FakeIndexingRepository()..economyError = StateError('engine failed'),
+      ),
+      act: (bloc) => bloc.add(const SetEconomyIndexing(true)),
+      expect: () => <IndexingState>[],
+      verify: (bloc) => expect(repositoryOf(bloc).economyValues, [true]),
+    );
+
+    test('בקשות מצב חסכוני ממתינות לקודמת להן', () async {
+      final gate = Completer<void>();
+      final repository = _FakeIndexingRepository()..economyGate = gate;
+      final bloc = _FakeIndexingBloc(repository);
+
+      bloc
+        ..add(const SetEconomyIndexing(true))
+        ..add(const SetEconomyIndexing(false));
+      await Future<void>.delayed(Duration.zero);
+      expect(repository.economyValues, [true]);
+
+      gate.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(repository.economyValues, [true, false]);
+      await bloc.close();
+    });
+
+    blocTest<IndexingBloc, IndexingState>(
+      'המצב החסכוני מחוץ לריצה נשמר ומשתקף בריצה הבאה',
+      build: _FakeIndexingBloc.new,
+      act: (bloc) async {
+        bloc.add(const SetEconomyIndexing(true));
+        await Future<void>.delayed(Duration.zero);
+        bloc.add(StartIndexing(libraryWithBooks(2)));
+      },
+      expect: () => [
+        const IndexingInProgress(
+          booksProcessed: 0,
+          totalBooks: 2,
+          isCreatingIndex: false,
+          isEconomy: true,
+        ),
+        const IndexingComplete(),
+      ],
+      verify: (bloc) => expect(repositoryOf(bloc).economyValues, [true]),
+    );
+
+    blocTest<IndexingBloc, IndexingState>(
+      'ריצה חדשה אחרי השהיה מתחילה ללא השהיה',
+      seed: () => inProgress,
+      build: _FakeIndexingBloc.new,
+      act: (bloc) async {
+        bloc.add(PauseIndexing());
+        await Future<void>.delayed(Duration.zero);
+        bloc.add(StartIndexing(libraryWithBooks(2)));
+      },
+      expect: () => [
+        const IndexingInProgress(
+          booksProcessed: 3,
+          totalBooks: 10,
+          isCreatingIndex: true,
+          isPaused: true,
+        ),
+        const IndexingInProgress(
+          booksProcessed: 0,
+          totalBooks: 2,
+          isCreatingIndex: false,
+        ),
+        const IndexingComplete(),
+      ],
+      verify: (bloc) => expect(repositoryOf(bloc).resumeCalls, 1),
+    );
+  });
 }
 
 class _FakeIndexingBloc extends IndexingBloc {
@@ -304,6 +469,11 @@ class _FakeIndexingRepository extends IndexingRepository {
   int reindexCalls = 0;
   int reconcileCalls = 0;
   int cancelCalls = 0;
+  int pauseCalls = 0;
+  int resumeCalls = 0;
+  final economyValues = <bool>[];
+  Object? economyError;
+  Completer<void>? economyGate;
   int clearCalls = 0;
   int awaitReadyCalls = 0;
 
@@ -379,6 +549,26 @@ class _FakeIndexingRepository extends IndexingRepository {
   @override
   void cancelIndexing() {
     cancelCalls++;
+  }
+
+  @override
+  void pauseIndexing() {
+    pauseCalls++;
+    super.pauseIndexing();
+  }
+
+  @override
+  void resumeIndexing() {
+    resumeCalls++;
+    super.resumeIndexing();
+  }
+
+  @override
+  Future<void> setEconomyIndexing(bool enabled) async {
+    economyValues.add(enabled);
+    await economyGate?.future;
+    final error = economyError;
+    if (error != null) throw error;
   }
 
   @override

@@ -41,3 +41,16 @@ class AltTocFlatEntry {
     required this.refTokens,
   });
 }
+
+/// פילטר ההתאמה של ה-fallback הגלובלי — משותף למסלול המקומי (main isolate)
+/// ול-worker isolate, כדי שהסמנטיקה תישאר זהה בשני המסלולים.
+///
+/// [maxRefTokens] מגביל את אורך הערך (מסלול מילה בודדת); `null` = ללא הגבלה.
+bool altTocFlatMatches(
+  List<String> refTokens,
+  List<String> queryTokens, {
+  int? maxRefTokens,
+}) {
+  if (maxRefTokens != null && refTokens.length > maxRefTokens) return false;
+  return queryTokens.every(refTokens.contains);
+}

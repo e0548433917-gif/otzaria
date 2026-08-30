@@ -151,6 +151,30 @@ class AppPaths {
     );
   }
 
+  /// סימון פנימי שספרייה נטענה בהצלחה אי-פעם. יושב באחסון הפנימי ולכן שורד
+  /// ניקוי מטמון (שמוחק ספרייה על כרטיס SD) אך נמחק עם הסרת האפליקציה.
+  static Future<void> markLibraryLoadedOnce() async {
+    try {
+      final marker = File(
+        p.join(await getDataRootPath(), 'library_loaded.marker'),
+      );
+      if (!await marker.exists()) await marker.create(recursive: true);
+    } catch (_) {}
+  }
+
+  /// האם הספרייה שעל כרטיס ה-SD נמחקה — הייתה ספרייה (לפי הסימון הפנימי),
+  /// המשתמש בחר כרטיס SD, ועכשיו הספרייה ריקה. משמש להסבר במסך הספרייה הריקה.
+  static Future<bool> wasSdLibraryWiped() async {
+    if (!Platform.isAndroid) return false;
+    final override = Settings.getValue<String>(
+      SettingsRepository.keyAndroidLibraryRoot,
+    );
+    if (override == null || override.isEmpty) return false;
+    return File(
+      p.join(await getDataRootPath(), 'library_loaded.marker'),
+    ).exists();
+  }
+
   /// האם ההתקנה ב-Windows מערכתית (כמנהל). מקור אמת יחיד — גם למנגנון
   /// העדכון, שגוזר ממנו את דגלי המתקין השקט.
   ///

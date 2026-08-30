@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_settings_screens/flutter_settings_screens.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -645,6 +646,57 @@ Future<void> main() async {
         tester.getTopLeft(find.text('כתובת_0')),
         initialTopLeft,
         reason: 'אסור לגלול את רשימת התוצאות אם היעד כבר גלוי',
+      );
+    },
+    skip: !engineReady,
+  );
+
+  testWidgets(
+    'חיצים מהמקלדת מדפדפים בין התוצאות בלי לעזוב את שדה החיפוש',
+    (tester) async {
+      // visibleIndices = [0] → התוצאה הראשונה נבחרת אוטומטית.
+      await pumpSearchWithResults(
+        tester: tester,
+        visibleIndices: const [0],
+        results: [
+          TextSearchResult(snippet: 'a', index: 0, query: 'x', address: 'א'),
+          TextSearchResult(snippet: 'b', index: 5, query: 'x', address: 'ב'),
+          TextSearchResult(snippet: 'c', index: 10, query: 'x', address: 'ג'),
+        ],
+      );
+
+      InkWell buttonInkWell(String tooltip) => tester.widget<InkWell>(
+        find.descendant(
+          of: find.byTooltip(tooltip),
+          matching: find.byType(InkWell),
+        ),
+      );
+
+      // הפוקוס נשאר בשדה מההקלדה; שני חיצים למטה מגיעים לתוצאה האחרונה.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      tester.takeException();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      tester.takeException();
+
+      expect(
+        buttonInkWell('התוצאה הבאה').onTap,
+        isNull,
+        reason: 'אחרי שני חיצים למטה הבחירה על התוצאה האחרונה',
+      );
+
+      // חץ למעלה חוזר אחורה — הכפתור "הבאה" שב להיות פעיל.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pump();
+      tester.takeException();
+      expect(buttonInkWell('התוצאה הבאה').onTap, isNotNull);
+
+      // הפוקוס לא יצא מהשדה — אפשר להמשיך להקליד.
+      expect(
+        tester.binding.focusManager.primaryFocus?.context
+            ?.findAncestorWidgetOfExactType<TextField>(),
+        isNotNull,
       );
     },
     skip: !engineReady,

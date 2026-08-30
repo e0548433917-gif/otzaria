@@ -661,7 +661,7 @@ void main() {
           'style:text-underline-style="solid" '
           'style:text-underline-width="bold"',
         ),
-        contains('text-decoration-thickness: 2px'),
+        contains('text-decoration-thickness: 200%'),
       );
       expect(
         withStyle(

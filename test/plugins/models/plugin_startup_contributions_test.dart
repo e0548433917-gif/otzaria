@@ -34,6 +34,14 @@ void main() {
               },
             },
           ],
+          'shortcuts': [
+            {
+              'id': 's1',
+              'label': 'קיצור',
+              'key': 'ctrl+alt+x',
+              'command': 'runCommand',
+            },
+          ],
           'publishedData': [
             {
               'type': 'calendar.event',
@@ -60,6 +68,8 @@ void main() {
     expect(startup.isEmpty, isFalse);
     expect(startup.toolbarItems.single['id'], 'b1');
     expect(startup.contextMenuItems.single['showWhen'], isA<Map>());
+    expect(startup.shortcuts.single['id'], 's1');
+    expect(startup.shortcuts.single['key'], 'ctrl+alt+x');
     expect(startup.publishedData.single['key'], 'k1');
     expect(startup.programs.single['id'], 'p1');
     expect(startup.activationEvents, [
@@ -76,6 +86,9 @@ void main() {
           'toolbarItems': [
             {'id': 'b1', 'title': 'כפתור', 'icon': 'apps_24_regular'},
           ],
+          'shortcuts': [
+            {'id': 's1', 'label': 'קיצור', 'contextMenuItemId': 'm1'},
+          ],
           'activationEvents': ['app.startup'],
           'keepAlive': true,
         },
@@ -85,6 +98,7 @@ void main() {
     final reparsed = PluginManifest.fromJson(original.toJson());
     expect(reparsed.startup, isNotNull);
     expect(reparsed.startup!.toolbarItems.single['id'], 'b1');
+    expect(reparsed.startup!.shortcuts.single['contextMenuItemId'], 'm1');
     expect(reparsed.startup!.activationEvents, ['app.startup']);
     expect(reparsed.startup!.keepAlive, isTrue);
     expect(reparsed.startup!.contextMenuItems, isEmpty);

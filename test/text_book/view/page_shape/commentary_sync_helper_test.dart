@@ -267,6 +267,84 @@ void main() {
     });
   });
 
+  group('shouldMoveCommentary', () {
+    test('בחירת טקסט על אותה שורה נבחרת אינה מזיזה את המפרש', () {
+      // ‏UpdateSelectedTextForNote נפלט בכל תזוזת עכבר בזמן גרירת סימון. תזוזה
+      // בכל אחת מהן הרעידה את המפרשים בצורת הדף (issue #976).
+      expect(
+        CommentarySyncHelper.shouldMoveCommentary(
+          targetIndex: 12,
+          selectedMainIndex: 5,
+          lastSyncedIndex: 12,
+          lastSyncedMainIndex: 5,
+        ),
+        isFalse,
+      );
+    });
+
+    test('לחיצה על שורה אחרת שממופה לאותו יעד כן מזיזה', () {
+      // המפרש נצמד לקישור הקודם, ולכן שורות סמוכות חולקות יעד. לחיצה חדשה
+      // צריכה להחזיר את המפרש למקומו גם אחרי שהמשתמש גלל בו ידנית.
+      expect(
+        CommentarySyncHelper.shouldMoveCommentary(
+          targetIndex: 12,
+          selectedMainIndex: 6,
+          lastSyncedIndex: 12,
+          lastSyncedMainIndex: 5,
+        ),
+        isTrue,
+      );
+    });
+
+    test('יעד חדש מזיז את המפרש', () {
+      expect(
+        CommentarySyncHelper.shouldMoveCommentary(
+          targetIndex: 20,
+          selectedMainIndex: 5,
+          lastSyncedIndex: 12,
+          lastSyncedMainIndex: 5,
+        ),
+        isTrue,
+      );
+    });
+
+    test('גלילה ללא בחירה על יעד שסונכרן אינה מזיזה', () {
+      expect(
+        CommentarySyncHelper.shouldMoveCommentary(
+          targetIndex: 12,
+          selectedMainIndex: null,
+          lastSyncedIndex: 12,
+          lastSyncedMainIndex: null,
+        ),
+        isFalse,
+      );
+    });
+
+    test('ביטול הבחירה על אותו יעד מזיז — הגלילה חוזרת לעקוב אחר הנראה', () {
+      expect(
+        CommentarySyncHelper.shouldMoveCommentary(
+          targetIndex: 12,
+          selectedMainIndex: null,
+          lastSyncedIndex: 12,
+          lastSyncedMainIndex: 5,
+        ),
+        isTrue,
+      );
+    });
+
+    test('סנכרון ראשוני תמיד מזיז', () {
+      expect(
+        CommentarySyncHelper.shouldMoveCommentary(
+          targetIndex: 0,
+          selectedMainIndex: null,
+          lastSyncedIndex: null,
+          lastSyncedMainIndex: null,
+        ),
+        isTrue,
+      );
+    });
+  });
+
   group('isHeaderLine', () {
     test('מזהה כותרות בכל הרמות', () {
       for (final level in [1, 2, 3, 4, 5, 6]) {

@@ -19,6 +19,7 @@ const Map<String, String> apiCallToPermissionHint = {
   'library.getLinkContent': 'library.content.read',
   'library.getCommentators': pluginLinksReadPermission,
   'library.getLinks': pluginLinksReadPermission,
+  'library.getRawLinks': pluginLinksReadPermission,
   'library.getLinkTargetsSummary': pluginLinksReadPermission,
 
   // app.*
@@ -29,6 +30,9 @@ const Map<String, String> apiCallToPermissionHint = {
   'app.getLocale': 'app.info.read',
   'app.getGrantedPermissions': 'app.info.read',
   'app.getConnectivity': 'app.info.read',
+  'app.registerShortcut': 'app.shortcuts',
+  'app.unregisterShortcut': 'app.shortcuts',
+  'app.updateShortcut': 'app.shortcuts',
 
   // feedback.*
   'feedback.sendEmail': 'feedback.send_email',
@@ -95,6 +99,33 @@ const Map<String, String> apiCallToPermissionHint = {
   'reader.setActiveCommentators': 'reader.open',
   'reader.scrollToSection': 'reader.open',
   'reader.getHighlightCapabilities': 'reader.open',
+
+  // network.* — הגישה נבדקת באדפטר לפי היעד; יעד localhost בלבד דורש
+  // `network.localhost` במקום `network.access`.
+  'network.fetch': 'network.access',
+  'network.fetchStream': 'network.access',
+  'network.download': 'network.access',
+};
+
+/// קריאות API שאינן דורשות הרשאת manifest — הגבול נאכף במקום אחר. הצהרה
+/// עליהן ב-`permissions` שוברת התקנה, ולכן מקבלת הודעת שגיאה משלה.
+const Set<String> apiCallsWithoutPermission = {
+  'feedback.report',
+  'feedback.hasReporterEmail',
+  'network.fetch',
+  'network.fetchStream',
+  'network.download',
+  'fs.extractZip',
+  'fs.deleteFile',
+  'fs.writeFile',
+  'fs.readFile',
+  'fs.listDir',
+  'fs.makeDir',
+  'fs.deleteEntry',
+  'fs.stat',
+  'plugin.backgroundDone',
+  'ui.print',
+  'ui.exportPdf',
 };
 
 /// קריאת רשימת הסימניות של המשתמש. נפרדת מהכתיבה, בעקבות התקדים של
@@ -139,6 +170,9 @@ const pluginNetworkAccessPermission = 'network.access';
 /// הרשאת בחירת תיקייה (`ui.pickFolder`) — פוצלה מ-ui.feedback כי התיקייה
 /// שנבחרת היא גבול ההסכמה של פעולות הקבצים (fs.extractZip / fs.deleteFile).
 const pluginFolderAccessPermission = 'fs.folder_access';
+
+/// הרשאת דפדפן לקריאת לוח ההעתקה מתוך WebView של התוסף; כבויה כברירת מחדל.
+const pluginClipboardReadPermission = 'clipboard.read';
 
 /// הרשאות בסיס — מוענקות לכל תוסף אוטומטית, בלי הצהרה במניפסט ובלי הצגה
 /// למשתמש. הצהרה קיימת נסבלת לתאימות לאחור (הוולידטור רק ממליץ להסירה).
@@ -194,6 +228,10 @@ const pluginValidPermissions = <String>[
   /// תרומות עלייה דקלרטיביות (contributes.startup) — פקדים, תפריטי הקשר
   /// ונתונים שנקראים ע"י Flutter בעלייה, בלי להריץ קוד של התוסף.
   pluginStartupContributionsPermission,
+
+  /// רישום קיצורי מקלדת לתוסף — מהמניפסט (`contributes.startup.shortcuts`)
+  /// או בזמן ריצה (`app.registerShortcut`).
+  'app.shortcuts',
 
   // ===== ספרייה =====
   /// חיפוש וקריאת רשימת ספרים
@@ -253,6 +291,10 @@ const pluginValidPermissions = <String>[
 
   /// יצירת קיצור דרך (deep-link) בשולחן העבודה / תפריט ההתחל
   'ui.create_shortcut',
+
+  // ===== לוח העתקה =====
+  /// קריאת תוכן לוח ההעתקה של מערכת ההפעלה מתוך דף התוסף
+  pluginClipboardReadPermission,
 
   // ===== קבצים אישיים =====
   /// בחירה וקריאה של קבצים אישיים שהמשתמש בוחר במפורש (PDF/טקסט וכו').

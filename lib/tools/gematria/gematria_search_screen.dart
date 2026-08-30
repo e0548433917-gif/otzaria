@@ -19,6 +19,16 @@ import 'package:otzaria/widgets/text/otzaria_search_field.dart';
 import 'package:otzaria/widgets/feedback/tool_empty_state.dart';
 import 'package:otzaria/widgets/widgets_exports.dart';
 
+String _bookNameWithoutTextExtension(String fileName) {
+  final lower = fileName.toLowerCase();
+  for (final extension in ['.txt', '.text']) {
+    if (lower.endsWith(extension)) {
+      return fileName.substring(0, fileName.length - extension.length).trim();
+    }
+  }
+  return fileName.trim();
+}
+
 class GematriaSearchScreen extends StatefulWidget {
   const GematriaSearchScreen({super.key});
 
@@ -86,7 +96,7 @@ class GematriaSearchScreenState extends State<GematriaSearchScreen> {
 
   int _getBookOrder(String fileName) {
     // חילוץ שם הספר מהנתיב
-    final bookName = fileName.replaceAll('.txt', '').trim();
+    final bookName = _bookNameWithoutTextExtension(fileName);
     final index = _tanachOrder.indexOf(bookName);
     return index >= 0 ? index : 999; // ספרים לא מוכרים בסוף
   }
@@ -296,7 +306,7 @@ class GematriaSearchScreenState extends State<GematriaSearchScreen> {
           final relativePath = result.file
               .replaceFirst(libraryPath, '')
               .replaceAll('\\', '/');
-          final fileName = relativePath.split('/').last.replaceAll('.txt', '');
+          final fileName = _bookNameWithoutTextExtension(relativePath.split('/').last);
 
           // בניית הנתיב עם מספר הפסוק
           String displayPath = result.path.isNotEmpty ? result.path : fileName;

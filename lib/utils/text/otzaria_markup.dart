@@ -20,7 +20,24 @@ final RegExp _lineBreaks = RegExp(r'[\r\n]+');
 
 /// תמונה מוטמעת. [src] ריק משאיר את התג במקומו — כך מבנה השורות, ועמו
 /// מיקומי ההערות והסימניות, נשמר גם בהמרה חסרת-תמונות.
-String otzariaImage(String src) => '<img src="$src" style="max-width: 100%;"/>';
+///
+/// המאפיינים האופציונליים קיימים עבור פורמט שהמסמך שלו מצהיר עליהם (HTML);
+/// הקוראים האחרים אינם מעבירים אותם, ולכן הפלט שלהם אינו משתנה. **הערכים
+/// חייבים להגיע מאומתים** — הם נכנסים ישירות לתגית.
+String otzariaImage(
+  String src, {
+  String? width,
+  String? height,
+  String? alt,
+  String? title,
+}) {
+  final attributes = StringBuffer();
+  if (width != null) attributes.write(' width="$width"');
+  if (height != null) attributes.write(' height="$height"');
+  if (alt != null) attributes.write(' alt="$alt"');
+  if (title != null) attributes.write(' title="$title"');
+  return '<img src="$src"$attributes style="max-width: 100%;"/>';
+}
 
 /// סימן הערת שוליים. נכתב בנפרד מהגוף עבור ממיר שמרכיב אותם בשלבים.
 ///
@@ -40,3 +57,35 @@ String otzariaTableOpen({String attributes = ''}) =>
 
 /// סגנון תא בטבלה.
 const String otzariaTableCellStyle = 'border: 1px solid #999; padding: 4px 8px';
+
+/// הסכימות שמותר לממיר לכתוב ב-`href`.
+///
+/// זו **רשימת היתר** ולא רשימת חסימה: `javascript:`, `data:text/html`,
+/// `file:` ו-`otzaria://` נופלות מחוצה לה מאליהן, וכך גם כל סכימה שתיווסף
+/// לעולם.
+const Set<String> kAllowedLinkSchemes = {'http', 'https', 'mailto'};
+
+/// `book://שם הספר#כותרת` — קישור לספר אחר בספרייה. סכימה מתועדת לכותבי
+/// ספרים, והקורא פותח בה ספר בלשונית חדשה. `otzaria://` דווקא **אינה**
+/// כאן: היא שמורה לשימוש הפנימי של התוכנה, ומסמך אינו אמור להפעיל דרכה
+/// פעולות באפליקציה.
+const String kBookLinkScheme = 'book';
+
+/// מסנן יעד קישור שהגיע מתוך המסמך, או `null` כשאין לכתוב `<a>` כלל.
+///
+/// escape של המאפיין מונע שבירה של `href="…"` אבל אינו מונע `javascript:` —
+/// ולכן הסכימה נבדקת בנפרד. קישור שנפסל מוצג כטקסט בלבד, בלי לאבד את תוכנו.
+///
+/// [allowBookLinks] נדרש רק לפורמט שהמדריך שלו מתעד את `book://` (HTML);
+/// שאר הממירים אינם מייצרים אותה, והתנהגותם אינה משתנה.
+String? safeLinkTarget(String href, {bool allowBookLinks = false}) {
+  final trimmed = href.trim();
+  if (trimmed.isEmpty) return null;
+  if (trimmed.startsWith('#')) return trimmed; // עוגן פנימי
+  if (trimmed.startsWith('//')) return null;
+  final colon = trimmed.indexOf(':');
+  if (colon < 0) return trimmed; // נתיב יחסי
+  final scheme = trimmed.substring(0, colon).toLowerCase();
+  if (allowBookLinks && scheme == kBookLinkScheme) return trimmed;
+  return kAllowedLinkSchemes.contains(scheme) ? trimmed : null;
+}

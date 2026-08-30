@@ -1834,7 +1834,7 @@ void main() {
       expect(labels[1], 'לוח שנה');
     });
 
-    testWidgets('תוסף שהוסתר מהממשק ונשאר מוצמד מציג "הצג בממשק"', (
+    testWidgets('תוסף שהוסתר מהממשק לא מופיע בכלים גם כשהוא מוצמד', (
       tester,
     ) async {
       final hiddenPinned = _pluginEntry(
@@ -1845,10 +1845,8 @@ void main() {
         tester,
         pluginState: PluginSystemLoaded([hiddenPinned]),
       );
-      await openMenu(tester, 'תוסף נסתר');
 
-      expect(find.text('הצג בממשק'), findsOneWidget);
-      expect(find.text('הסתר מהממשק'), findsNothing);
+      expect(find.text('תוסף נסתר'), findsNothing);
     });
 
     // ההזזה השנייה מגיעה לפני שה-bloc התיישר; בלי בסיס ממתין היא הייתה

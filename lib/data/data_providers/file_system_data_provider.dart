@@ -582,8 +582,8 @@ class FileSystemData {
 
   /// Saves text content to a book file.
   ///
-  /// Only supports plain text files (.txt); a converted format has no source
-  /// to write back to.
+  /// Supports both plain-text extensions (.txt and legacy .text); a converted
+  /// format has no source to write back to.
   /// Creates a backup of the original file before saving.
   Future<void> saveBookText(String title, String content) async {
     await _providerManager.fileSystemProvider.saveBookText(title, content);
@@ -702,7 +702,7 @@ class FileSystemData {
       }
 
       final isPlainText =
-          documentFormatFromExtension(path) == DocumentFormat.txt;
+          documentFormatFromExtension(path)?.isPlainText ?? false;
       final textHead = isPlainText
           ? await file
                 .openRead(0, 4)

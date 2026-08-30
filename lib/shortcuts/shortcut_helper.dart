@@ -77,7 +77,9 @@ class ShortcutHelper {
   }) {
     if (event is! KeyDownEvent) return false;
 
-    final parts = shortcutSetting.toLowerCase().split('+');
+    final normalized = normalizeShortcut(shortcutSetting);
+    if (normalized == null || normalized.isEmpty) return false;
+    final parts = normalized.split('+');
     final hasCtrlToken = parts.contains('ctrl') || parts.contains('control');
     final hasMetaToken = parts.contains('meta');
     final requiresShift = parts.contains('shift');
@@ -139,19 +141,61 @@ class ShortcutHelper {
   ///
   /// קיצור שהוקלט בפריסה לא-לטינית לפני שההקלטה נורמלה נשמר עם התו המקומי
   /// (`ctrl+shift+כ`) ולכן לעולם אינו נתפס — כזה מוחזר כאן כלא-מוכר.
-  static bool isRecognized(String shortcut) {
-    if (shortcut.isEmpty) return true;
+  static bool isRecognized(String shortcut) =>
+      normalizeShortcut(shortcut) != null;
 
-    final parts = shortcut.toLowerCase().split('+');
-    final mainKey = parts.where((p) => !_modifiers.contains(p)).firstOrNull;
-    if (mainKey == null) return false;
+  /// מנרמל קיצור לפורמט הקנוני או מחזיר `null` כשהתחביר אינו חד-משמעי.
+  ///
+  /// בדיוק מקש ראשי אחד מותר, וכל modifier מופיע לכל היותר פעם אחת. כך
+  /// קיצור שמאוחסן/מושווה תמיד מתאר בדיוק את אותו אירוע מקלדת שהוא תופס.
+  static String? normalizeShortcut(String shortcut) {
+    final value = shortcut.trim();
+    if (value.isEmpty) return '';
 
+    final parts = value.toLowerCase().split('+');
+    if (parts.any((part) => part.isEmpty)) return null;
+
+    final ctrlLikeCount = parts
+        .where((part) => part == 'ctrl' || part == 'control')
+        .length;
+    final metaCount = parts.where((part) => part == 'meta').length;
+    if (ctrlLikeCount > 1 || metaCount > 1) return null;
+
+    String? mainKey;
+    final modifiers = <String>{};
+    for (final part in parts) {
+      final modifier = part == 'control' || (_treatCtrlAsMeta && part == 'meta')
+          ? 'ctrl'
+          : part;
+      if (_modifiers.contains(part)) {
+        if (!modifiers.add(modifier) &&
+            !(_treatCtrlAsMeta &&
+                modifier == 'ctrl' &&
+                ctrlLikeCount == 1 &&
+                metaCount == 1)) {
+          return null;
+        }
+      } else if (mainKey == null) {
+        mainKey = part;
+      } else {
+        return null;
+      }
+    }
+    if (mainKey == null || !_isKnownMainKey(mainKey)) return null;
+
+    return [
+      for (final modifier in const ['ctrl', 'shift', 'alt', 'meta'])
+        if (modifiers.contains(modifier)) modifier,
+      mainKey,
+    ].join('+');
+  }
+
+  static bool _isKnownMainKey(String mainKey) {
     if (mainKey.length == 1 &&
         mainKey.codeUnitAt(0) >= 97 &&
         mainKey.codeUnitAt(0) <= 122) {
       return true;
     }
-
     return KeyMap.keyFor(mainKey) != null;
   }
 
@@ -294,7 +338,9 @@ class ShortcutHelper {
     String shortcut, {
     bool mapCtrlToMeta = true,
   }) {
-    final parts = shortcut.toLowerCase().split('+');
+    final normalized = normalizeShortcut(shortcut);
+    if (normalized == null || normalized.isEmpty) return null;
+    final parts = normalized.split('+');
     final hasCtrlToken = parts.contains('ctrl') || parts.contains('control');
     final hasMetaToken = parts.contains('meta');
     final hasShift = parts.contains('shift');

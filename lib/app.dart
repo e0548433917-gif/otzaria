@@ -9,6 +9,7 @@ import 'package:otzaria/core/ui_snack.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:otzaria/navigation/view/main_window_screen.dart';
 import 'package:otzaria/settings/settings_exports.dart';
+import 'package:otzaria/widgets/misc/middle_click_autoscroll.dart';
 import 'package:window_manager/window_manager.dart';
 
 // AppColors הועבר ל-lib/theme/app_colors.dart
@@ -94,6 +95,10 @@ class App extends StatelessWidget {
                 child: content,
               );
             }
+
+            // גלילה אוטומטית בלחיצת גלגל העכבר — עטיפה אחת לכל האפליקציה,
+            // מתחת למסגרת החלון כדי שכפתורי המסגרת יישארו לחיצים.
+            content = MiddleClickAutoScroll(child: content);
 
             if (!useVirtualWindowFrame) {
               return content;

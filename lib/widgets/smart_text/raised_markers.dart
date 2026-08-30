@@ -319,12 +319,16 @@ class RaisedMarkerOverlay extends SingleChildRenderObjectWidget {
   /// רקע הציור של אות מפרש פעילה ([RaisedMarker.active]).
   final Color? activeBackground;
 
+  /// צבע האות הפעילה; ברירת המחדל היא onPrimaryContainer.
+  final Color? activeForeground;
+
   const RaisedMarkerOverlay({
     super.key,
     required this.markers,
     required this.baseStyle,
     this.linkColor,
     this.activeBackground,
+    this.activeForeground,
     required super.child,
   });
 
@@ -341,6 +345,7 @@ class RaisedMarkerOverlay extends SingleChildRenderObjectWidget {
     required Widget child,
     Color? linkColor,
     Color? activeBackground,
+    Color? activeForeground,
   }) {
     if (markers.isEmpty) return child;
     final colorScheme = Theme.of(context).colorScheme;
@@ -356,6 +361,7 @@ class RaisedMarkerOverlay extends SingleChildRenderObjectWidget {
       baseStyle: style,
       linkColor: linkColor ?? colorScheme.primary,
       activeBackground: activeBackground ?? colorScheme.primaryContainer,
+      activeForeground: activeForeground ?? colorScheme.onPrimaryContainer,
       child: child,
     );
   }
@@ -367,6 +373,7 @@ class RaisedMarkerOverlay extends SingleChildRenderObjectWidget {
         baseStyle,
         linkColor,
         activeBackground,
+        activeForeground,
       );
 
   @override
@@ -378,7 +385,8 @@ class RaisedMarkerOverlay extends SingleChildRenderObjectWidget {
       ..markers = markers
       ..baseStyle = baseStyle
       ..linkColor = linkColor
-      ..activeBackground = activeBackground;
+      ..activeBackground = activeBackground
+      ..activeForeground = activeForeground;
   }
 }
 
@@ -408,12 +416,14 @@ class RenderRaisedMarkerOverlay extends RenderProxyBox {
     this._baseStyle,
     this._linkColor,
     this._activeBackground,
+    this._activeForeground,
   ) : _hasClickableMarkers = _markers.any((marker) => marker.clickable);
 
   List<RaisedMarker> _markers;
   TextStyle _baseStyle;
   Color? _linkColor;
   Color? _activeBackground;
+  Color? _activeForeground;
 
   // מחושב פעם אחת: קטע בלי סימונים לחיצים לא משלם דבר על hit-test.
   bool _hasClickableMarkers;
@@ -455,6 +465,13 @@ class RenderRaisedMarkerOverlay extends RenderProxyBox {
   set activeBackground(Color? value) {
     if (value == _activeBackground) return;
     _activeBackground = value;
+    _disposePainters();
+    markNeedsPaint();
+  }
+
+  set activeForeground(Color? value) {
+    if (value == _activeForeground) return;
+    _activeForeground = value;
     _disposePainters();
     markNeedsPaint();
   }
@@ -508,11 +525,17 @@ class RenderRaisedMarkerOverlay extends RenderProxyBox {
       if (marker.useLinkColor && _linkColor != null) {
         style = style.copyWith(color: _linkColor);
       }
-      if (marker.active) {
+      if (marker.active && _activeBackground != null) {
         style = style.copyWith(
           fontWeight: FontWeight.bold,
           fontVariations: AppFonts.boldFontVariations(style.fontFamily),
           backgroundColor: _activeBackground,
+          color: _activeForeground ?? style.color,
+        );
+      } else if (marker.active) {
+        style = style.copyWith(
+          fontWeight: FontWeight.bold,
+          fontVariations: AppFonts.boldFontVariations(style.fontFamily),
         );
       }
       final painter = TextPainter(
@@ -557,10 +580,9 @@ class RenderRaisedMarkerOverlay extends RenderProxyBox {
     super.paint(context, offset);
     if (child == null || _markers.isEmpty) return;
     for (final placement in _resolvePlacements()) {
-      _painterFor(placement.marker).paint(
-        context.canvas,
-        offset + placement.paintRect.topLeft,
-      );
+      _painterFor(
+        placement.marker,
+      ).paint(context.canvas, offset + placement.paintRect.topLeft);
     }
   }
 

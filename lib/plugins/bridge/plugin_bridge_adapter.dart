@@ -74,12 +74,15 @@ import 'package:otzaria/settings/l10n/settings_language.dart';
 import 'package:otzaria/workspaces/bloc/workspace_bloc.dart';
 import 'package:otzaria/plugins/database/plugin_database_service.dart';
 import 'package:otzaria/plugins/utils/reader_location_resolver.dart';
+import 'package:otzaria/plugins/utils/plugin_icon_resolver.dart';
 import 'package:otzaria/plugins/models/plugin_context_menu_item.dart';
 import 'package:otzaria/plugins/models/plugin_toolbar_item.dart';
 import 'package:otzaria/plugins/models/plugin_when_condition.dart';
 import 'package:otzaria/plugins/services/context_menu_registry.dart';
 import 'package:otzaria/plugins/services/plugin_toolbar_registry.dart';
 import 'package:otzaria/plugins/services/plugin_page_launcher.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:otzaria/plugins/services/plugin_print_service.dart';
 import 'package:otzaria/plugins/services/plugin_runtime_dispatcher.dart';
 import 'package:otzaria/plugins/models/plugin_network_allowlist.dart';
 import 'package:otzaria/plugins/services/plugin_network_access_resolver.dart';
@@ -93,6 +96,7 @@ import 'package:otzaria/plugins/services/plugin_fs_service.dart';
 import 'package:otzaria/plugins/services/plugin_file_server.dart';
 import 'package:otzaria/plugins/services/plugin_condition_evaluator.dart';
 import 'package:otzaria/plugins/services/plugin_settings_access_policy.dart';
+import 'package:otzaria/plugins/services/plugin_shortcut_registry.dart';
 import 'package:otzaria/plugins/services/plugin_shortcut_service.dart';
 import 'package:otzaria/plugins/services/plugin_path_safety.dart';
 import 'package:otzaria/plugins/services/plugin_network_fetch_service.dart';
@@ -107,6 +111,11 @@ import 'package:otzaria/plugins/services/plugin_text_occurrence_service.dart';
 import 'package:otzaria/plugins/services/text_source_map_service.dart';
 import 'package:otzaria/search/utils/facet_helper.dart';
 import 'package:otzaria/widgets/smart_text/render_settings.dart';
+
+/// גופן הממשק שאוצריא מוסרת לתוספים: sans מובנה שנשאר חד ב-11-12px.
+/// גופן הקריאה (`fontFamily`) אינו תחליף לו — הוא מצויר ל-25px,
+/// והתגיות שלו נמרחות בכפתור או בתפריט.
+const String kPluginUiFont = 'Rubik';
 
 // ===================================================================
 // Helper: build the main colorScheme roles + typography from Flutter theme
@@ -132,10 +141,10 @@ Map<String, dynamic> buildThemePayloadFromScheme(
 
   final fontFamily =
       Settings.getValue<String>(SettingsRepository.keyFontFamily) ??
-      'Frank Ruhl Libre';
+      AppFonts.defaultFont;
   final commentatorsFontFamily =
       Settings.getValue<String>(SettingsRepository.keyCommentatorsFontFamily) ??
-      'Shofar';
+      AppFonts.defaultCommentatorsFont;
   final fontSize =
       Settings.getValue<double>(SettingsRepository.keyFontSize) ?? 25.0;
   final commentatorsFontSize =
@@ -182,6 +191,7 @@ Map<String, dynamic> buildThemePayloadFromScheme(
     },
     'typography': {
       'fontFamily': fontFamily,
+      'uiFontFamily': kPluginUiFont,
       'fontSize': fontSize,
       'lineHeight': lineHeight,
       'commentatorsFontFamily': commentatorsFontFamily,
@@ -199,34 +209,84 @@ Map<String, dynamic> buildThemePayloadFromScheme(
 // ===================================================================
 final Map<String, String> _fontFaceCache = {};
 
+/// \u05db\u05dc\u05dc `@font-face` \u05d9\u05d7\u05d9\u05d3. [weight] \u05d4\u05d5\u05d0 \u05d3\u05e1\u05e7\u05e8\u05d9\u05e4\u05d8\u05d5\u05e8 \u05d4-CSS: \u05de\u05e9\u05e7\u05dc \u05d1\u05d5\u05d3\u05d3
+/// ("700") \u05d0\u05d5 \u05d8\u05d5\u05d5\u05d7 \u05dc\u05d2\u05d5\u05e4\u05df \u05de\u05e9\u05ea\u05e0\u05d4 ("100 900").
+String _fontFaceRule(String family, Uint8List bytes, String weight) {
+  final b64 = base64Encode(bytes);
+  return "@font-face{font-family:'$family';font-style:normal;"
+      "font-weight:$weight;"
+      "src:url(data:font/ttf;base64,$b64) format('truetype');"
+      'font-display:block;}';
+}
+
+/// \u05d4-faces \u05e9\u05dc \u05d2\u05d5\u05e4\u05df \u05de\u05d5\u05d1\u05e0\u05d4: \u05d4-regular, \u05d5\u05d1\u05de\u05e9\u05e4\u05d7\u05d4 \u05e2\u05dd \u05e7\u05d5\u05d1\u05e5 \u05d1\u05d5\u05dc\u05d3 \u05e0\u05e4\u05e8\u05d3 \u05d2\u05dd \u05d4\u05d5\u05d0.
+/// \u05d2\u05d5\u05e4\u05df \u05de\u05e9\u05ea\u05e0\u05d4 \u05de\u05e7\u05d1\u05dc \u05d8\u05d5\u05d5\u05d7 \u05de\u05e9\u05e7\u05dc\u05d9\u05dd \u2014 \u05d1\u05dc\u05e2\u05d3\u05d9\u05d5 \u05d4-WebView \u05e0\u05e2\u05d5\u05dc \u05e2\u05dc \u05de\u05d5\u05e4\u05e2
+/// \u05d1\u05e8\u05d9\u05e8\u05ea \u05d4\u05de\u05d7\u05d3\u05dc \u05d5\u05de\u05e1\u05e0\u05ea\u05d6 \u05d1\u05d5\u05dc\u05d3 \u05de\u05dc\u05d0\u05db\u05d5\u05ea\u05d9 \u05d5\u05de\u05e8\u05d5\u05d7 \u05d1\u05de\u05e7\u05d5\u05dd \u05dc\u05d4\u05e9\u05ea\u05de\u05e9 \u05d1\u05e6\u05d9\u05e8 \u05d4-wght.
+Future<String> _bundledFontFaceCss(String family) async {
+  final assetPath = AppFonts.fontPaths[family];
+  if (assetPath == null) return '';
+  final isVariable = AppFonts.variableWeightFonts.contains(family);
+  final regular = await rootBundle.load(assetPath);
+  final parts = <String>[
+    _fontFaceRule(
+      family,
+      regular.buffer.asUint8List(),
+      isVariable ? '100 900' : '400',
+    ),
+  ];
+  final boldPath = AppFonts.boldFontPaths[family];
+  if (boldPath != null) {
+    final bold = await rootBundle.load(boldPath);
+    parts.add(_fontFaceRule(family, bold.buffer.asUint8List(), '700'));
+  }
+  return parts.join('\n');
+}
+
+/// \u05d4-faces \u05e9\u05dc \u05d2\u05d5\u05e4\u05df \u05de\u05e2\u05e8\u05db\u05ea \u05e9\u05e0\u05d1\u05d7\u05e8 \u05d1\u05d4\u05d2\u05d3\u05e8\u05d5\u05ea. \u05d0\u05d9\u05e0\u05d5 \u05de\u05d5\u05d1\u05e0\u05d4, \u05d5\u05dc\u05db\u05df \u05d4-WebView
+/// \u05d0\u05d9\u05e0\u05d5 \u05d9\u05db\u05d5\u05dc \u05dc\u05e4\u05ea\u05d5\u05e8 \u05d0\u05ea \u05e9\u05de\u05d5 \u05d0\u05dc\u05d0 \u05d0\u05dd \u05d4\u05d1\u05d9\u05d9\u05d8\u05d9\u05dd \u05e9\u05dc\u05d5 \u05e0\u05e9\u05dc\u05d7\u05d9\u05dd \u05d0\u05d9\u05ea\u05d5.
+Future<String> _systemFontFaceCss(String family) async {
+  await AppFonts.warmUpSystemFontsCache();
+  final faces = AppFonts.systemFamilyFaces(family);
+  if (faces == null) return '';
+  final regular = AppFonts.readFontBytes(faces.regularPath);
+  if (regular == null) return '';
+  final parts = <String>[
+    _fontFaceRule(family, regular, faces.hasWeightAxis ? '100 900' : '400'),
+  ];
+  final boldPath = faces.boldPath;
+  if (boldPath != null) {
+    final bold = AppFonts.readFontBytes(boldPath);
+    if (bold != null) parts.add(_fontFaceRule(family, bold, '700'));
+  }
+  return parts.join('\n');
+}
+
 Future<String> _loadFontFaceCss(String fontFamily) async {
   if (fontFamily.isEmpty) return '';
   final cached = _fontFaceCache[fontFamily];
   if (cached != null) return cached;
-  final assetPath = AppFonts.fontPaths[fontFamily];
-  if (assetPath == null) return '';
   try {
-    final bytes = await rootBundle.load(assetPath);
-    final b64 = base64Encode(bytes.buffer.asUint8List());
-    final css =
-        "@font-face{font-family:'$fontFamily';src:url(data:font/ttf;base64,$b64) format('truetype');font-display:block;}";
-    _fontFaceCache[fontFamily] = css;
+    final css = AppFonts.fontPaths.containsKey(fontFamily)
+        ? await _bundledFontFaceCss(fontFamily)
+        : await _systemFontFaceCss(fontFamily);
+    if (css.isNotEmpty) _fontFaceCache[fontFamily] = css;
     return css;
   } catch (_) {
     return '';
   }
 }
 
-/// בונה בלוק CSS עם `@font-face` עבור הגופנים המובנים שנבחרו בהגדרות,
-/// כך שתוספים שמשתמשים בשמות הגופנים שמגיעים ב-theme יוכלו להציגם.
+/// \u05d1\u05d5\u05e0\u05d4 \u05d1\u05dc\u05d5\u05e7 CSS \u05e2\u05dd `@font-face` \u05dc\u05db\u05dc \u05d4\u05d2\u05d5\u05e4\u05e0\u05d9\u05dd \u05e9\u05ea\u05d5\u05e1\u05e3 \u05d9\u05db\u05d5\u05dc \u05dc\u05e0\u05e7\u05d5\u05d1 \u05d1\u05e9\u05de\u05dd:
+/// \u05d4\u05de\u05d5\u05d1\u05e0\u05d9\u05dd \u05e9\u05dc \u05d0\u05d5\u05e6\u05e8\u05d9\u05d0, \u05d5\u05d1\u05e0\u05d5\u05e1\u05e3 \u05d2\u05d5\u05e4\u05df \u05de\u05e2\u05e8\u05db\u05ea \u05e9\u05e0\u05d1\u05d7\u05e8 \u05d1\u05d4\u05d2\u05d3\u05e8\u05d5\u05ea. \u05de\u05e9\u05e4\u05d7\u05d4
+/// \u05e9\u05d0\u05d9\u05e0\u05d4 \u05e0\u05e9\u05dc\u05d7\u05ea \u05e0\u05d5\u05e4\u05dc\u05ea \u05d1-WebView \u05dc-fallback \u05e9\u05dc \u05d4\u05de\u05e2\u05e8\u05db\u05ea \u05d5\u05de\u05d5\u05e6\u05d2\u05ea \u05d1\u05d2\u05d5\u05e4\u05df \u05d0\u05d7\u05e8.
 Future<String> buildPluginFontFaceCss() async {
-  final fontFamily =
-      Settings.getValue<String>(SettingsRepository.keyFontFamily) ??
-      AppFonts.defaultFont;
-  final commentatorsFontFamily =
-      Settings.getValue<String>(SettingsRepository.keyCommentatorsFontFamily) ??
-      AppFonts.defaultCommentatorsFont;
-  final families = <String>{fontFamily, commentatorsFontFamily};
+  final families = <String>{
+    ...AppFonts.fontPaths.keys,
+    Settings.getValue<String>(SettingsRepository.keyFontFamily) ??
+        AppFonts.defaultFont,
+    Settings.getValue<String>(SettingsRepository.keyCommentatorsFontFamily) ??
+        AppFonts.defaultCommentatorsFont,
+  };
   final parts = <String>[];
   for (final family in families) {
     final css = await _loadFontFaceCss(family);
@@ -317,7 +377,7 @@ class PluginBridgeDependencies {
   final Future<List<AltTocEntryRow>> Function(int structureId)?
   altTocEntriesProvider;
 
-  /// מקור הקישורים והמפרשים ל-`library.getLinks` / `library.getCommentators`.
+  /// מקור הנתונים של קריאות הקישורים והמפרשים ב-`library.*`.
   /// אופציונלי — ברירת המחדל היא [TextBookRepository] מעל מערכת הקבצים.
   final TextBookRepository? textBookRepository;
 
@@ -351,6 +411,25 @@ class PluginBridgeDependencies {
   })?
   dispatchEventToPlugin;
 
+  /// מדפיס את הדף של מופע התוסף (`ui.print`). אופציונלי — ברירת המחדל היא
+  /// [PluginPrintService] מעל ה-WebView הרשום; קיים להזרקה בבדיקות.
+  final Future<bool> Function(
+    String pluginId,
+    String instanceId, {
+    required String jobName,
+  })?
+  printPluginPage;
+
+  /// מייצר PDF מהדף של מופע התוסף (`ui.exportPdf`). אופציונלי — ברירת המחדל
+  /// היא [PluginPrintService] מעל ה-WebView הרשום; קיים להזרקה בבדיקות.
+  final Future<Uint8List> Function(String pluginId, String instanceId)?
+  capturePluginPagePdf;
+
+  /// האם ל-WebView של המופע יש כרגע הפעלת-משתמש חולפת (`navigator
+  /// .userActivation`). אופציונלי — ברירת המחדל קוראת מה-WebView הרשום.
+  final Future<bool> Function(String pluginId, String instanceId)?
+  hasUserActivation;
+
   const PluginBridgeDependencies({
     required this.historyBloc,
     required this.tabsBloc,
@@ -377,6 +456,9 @@ class PluginBridgeDependencies {
     this.bookmarkBloc,
     this.onBackgroundInstanceDone,
     this.dispatchEventToPlugin,
+    this.printPluginPage,
+    this.capturePluginPagePdf,
+    this.hasUserActivation,
   });
 }
 
@@ -384,14 +466,16 @@ class PluginBridgeDependencies {
 const int _pluginLinksMaxWindowLines = 200;
 const int _pluginLinksMaxRecords = 2000;
 
+/// כנ"ל ל-`library.getRawLinks`. גבוה יותר כי מקרה השימוש הוא ייצוא ולא חלון
+/// גלילה — אך חסום, כי מסכת עמוסת-מפרשים מממשת עשרות אלפי קישורים בזיכרון.
+const int _pluginRawLinksMaxWindowLines = 1000;
+const int _pluginRawLinksMaxRecords = 10000;
+
 /// מספר הפריטים המרבי בקריאת `library.getLinkContent` אחת.
 const int _pluginLinkContentMaxItems = 25;
 
 typedef PluginRpcEventSink =
-    Future<void> Function(
-      String topic,
-      Map<String, dynamic> payload,
-    );
+    Future<void> Function(String topic, Map<String, dynamic> payload);
 
 class _PluginNetworkRequest {
   final Uri uri;
@@ -707,6 +791,26 @@ class PluginBridgeAdapter {
         )).toJson();
       case 'getGrantedPermissions':
         return {'permissions': await _getGrantedPermissions()};
+      case 'registerShortcut':
+        PluginShortcutRegistry.instance.registerPayload(plugin.pluginId, args);
+        return true;
+      case 'unregisterShortcut':
+        final id = args['id'] as String?;
+        if (id == null) throw Exception('error.invalid_params: id required');
+        PluginShortcutRegistry.instance.remove(plugin.pluginId, id);
+        return true;
+      case 'updateShortcut':
+        final id = args['id'];
+        final patch = args['patch'];
+        if (id is! String || patch is! Map) {
+          throw Exception('error.invalid_params: id and patch are required');
+        }
+        PluginShortcutRegistry.instance.update(
+          plugin.pluginId,
+          id,
+          Map<String, dynamic>.from(patch),
+        );
+        return true;
       default:
         throw Exception("error.unknown_method: Unknown action in app: $action");
     }
@@ -933,6 +1037,8 @@ class PluginBridgeAdapter {
         return await _getCommentators(library, args);
       case 'getLinks':
         return await _getLinks(library, args);
+      case 'getRawLinks':
+        return await _getRawLinks(library, args);
       case 'getLinkTargetsSummary':
         return await _getLinkTargetsSummary(library, args);
       case 'getLinkContent':
@@ -1094,6 +1200,108 @@ class PluginBridgeAdapter {
       targetBookTitles: targetTitles,
     );
 
+    final filtered = _filterLinkRecords(
+      links,
+      targetTitles: targetTitles,
+      connectionTypes: connectionTypes,
+      maxRecords: _pluginLinksMaxRecords,
+      // index1/index2 הם 1-based במודל; ה-wire של getLinks 0-based — זו
+      // נקודת ההמרה. getRawLinks נשאר 1-based, כמוסכמת links.json.
+      toRecord: (link, targetTitle) => {
+        'sourceLine': link.index1 - 1,
+        'targetTitle': targetTitle,
+        'targetLine': link.index2 - 1,
+        'targetLineEnd': link.index2End == null ? null : link.index2End! - 1,
+        'targetHeRef': link.heRef,
+        'connectionType': link.connectionType,
+        'isCommentary': LinkTypes.isDependentTextLink(link.connectionType),
+        'targetIsUserBook': link.targetIsUserBook,
+        'targetCategoryId': link.targetCategoryId,
+        if (includeAnchors) ...?_linkAnchorJson(link),
+      },
+    );
+    return {'links': filtered.records, 'truncated': filtered.truncated};
+  }
+
+  /// `library.getRawLinks` — אותם קישורים של [_getLinks], בחמשת המפתחות של
+  /// פורמט `links.json` ובחלון שורות רחב יותר, לייצוא בכמויות.
+  Future<dynamic> _getRawLinks(
+    Library library,
+    Map<String, dynamic> args,
+  ) async {
+    final rawStart = args['startLine'];
+    final rawEnd = args['endLine'];
+    // "שניהם או אף אחד", כמו ב-getCommentators. גבול בודד היה מחזיר בשקט חלון
+    // שלא ביקשו: endLine לבדו נקרא כ-0..endLine ונחתך לתקרת החלון.
+    if ((rawStart == null) != (rawEnd == null)) {
+      throw Exception(
+        'error.invalid_params: startLine and endLine must be given together',
+      );
+    }
+
+    final int startLine;
+    final int endLine;
+    if (rawStart == null) {
+      startLine = 0;
+      endLine = _pluginRawLinksMaxWindowLines - 1;
+    } else {
+      startLine = _requireWireLine(rawStart, 'startLine');
+      endLine = _requireWireLine(rawEnd, 'endLine');
+      if (endLine < startLine) {
+        throw Exception('error.invalid_params: endLine must be >= startLine');
+      }
+      if (endLine - startLine + 1 > _pluginRawLinksMaxWindowLines) {
+        throw Exception(
+          'error.invalid_params: line window must not exceed '
+          '$_pluginRawLinksMaxWindowLines lines',
+        );
+      }
+    }
+
+    final targetTitles = _optionalStringList(
+      args['targetTitles'],
+      'targetTitles',
+    );
+    final connectionTypes = _optionalStringList(
+      args['connectionTypes'],
+      'connectionTypes',
+    );
+
+    final book = _findLinksTextBook(library, args);
+    if (book == null) throw Exception('error.not_found: book not found');
+
+    final links = await _linksRepository.getBookLinksInRange(
+      book,
+      startIndex: startLine,
+      endIndex: endLine,
+      targetBookTitles: targetTitles,
+    );
+
+    final filtered = _filterLinkRecords(
+      links,
+      targetTitles: targetTitles,
+      connectionTypes: connectionTypes,
+      maxRecords: _pluginRawLinksMaxRecords,
+      toRecord: (link, _) => link.toJson(),
+    );
+    return {
+      'links': filtered.records,
+      'truncated': filtered.truncated,
+      'startLine': startLine,
+      'endLine': endLine,
+    };
+  }
+
+  /// הסינון המשותף ל-`getLinks` ול-`getRawLinks`, כדי ששתיהן יחזירו בדיוק את
+  /// אותה קבוצת קישורים ויישארו כאלה. כל קישור שעבר מומר דרך [toRecord].
+  ({List<Map<String, dynamic>> records, bool truncated}) _filterLinkRecords(
+    List<Link> links, {
+    required List<String>? targetTitles,
+    required List<String>? connectionTypes,
+    required int maxRecords,
+    required Map<String, dynamic> Function(Link link, String targetTitle)
+    toRecord,
+  }) {
     final titlesFilter = targetTitles?.toSet();
     final typesFilter = connectionTypes?.map(LinkTypes.normalize).toSet();
     final records = <Map<String, dynamic>>[];
@@ -1106,25 +1314,13 @@ class PluginBridgeAdapter {
           !typesFilter.contains(LinkTypes.canonicalType(link.connectionType))) {
         continue;
       }
-      if (records.length >= _pluginLinksMaxRecords) {
+      if (records.length >= maxRecords) {
         truncated = true;
         break;
       }
-      // index1/index2 הם 1-based במודל; ה-wire כולו 0-based — זו נקודת ההמרה.
-      records.add({
-        'sourceLine': link.index1 - 1,
-        'targetTitle': targetTitle,
-        'targetLine': link.index2 - 1,
-        'targetLineEnd': link.index2End == null ? null : link.index2End! - 1,
-        'targetHeRef': link.heRef,
-        'connectionType': link.connectionType,
-        'isCommentary': LinkTypes.isDependentTextLink(link.connectionType),
-        'targetIsUserBook': link.targetIsUserBook,
-        'targetCategoryId': link.targetCategoryId,
-        if (includeAnchors) ...?_linkAnchorJson(link),
-      });
+      records.add(toRecord(link, targetTitle));
     }
-    return {'links': records, 'truncated': truncated};
+    return (records: records, truncated: truncated);
   }
 
   Map<String, dynamic>? _linkAnchorJson(Link link) {
@@ -1686,9 +1882,7 @@ class PluginBridgeAdapter {
           final autoSearch = args['autoSearch'] as bool? ?? true;
           final selectItems = (args['selectItems'] as List? ?? const [])
               .whereType<String>()
-              .where(
-                (id) => RegExp(r'^[A-Za-z0-9._-]{1,128}$').hasMatch(id),
-              )
+              .where((id) => RegExp(r'^[A-Za-z0-9._-]{1,128}$').hasMatch(id))
               .take(4)
               .toList();
           final settings = PluginOpenSearchTabSettings.parse(
@@ -1943,10 +2137,7 @@ class PluginBridgeAdapter {
           }
           return PluginReaderScrollService(
             _dependencies.tabsBloc,
-          ).scrollToSection(
-            sectionIndex,
-            highlight: args['highlight'] == true,
-          );
+          ).scrollToSection(sectionIndex, highlight: args['highlight'] == true);
         }
       case 'getSelection':
         final currentPane = _dependencies.tabsBloc.state.readingPane;
@@ -2111,16 +2302,13 @@ class PluginBridgeAdapter {
         }
         final allBooks = (await DataRepository.instance.library).getAllBooks();
         final highlightUid = highlight.bookUid as String?;
-        final book = allBooks.cast<dynamic>().firstWhere(
-          (item) {
-            if (item == null) return false;
-            if (highlightUid != null && highlightUid.isNotEmpty) {
-              return PluginBookIdentity.uidOf(item as Book) == highlightUid;
-            }
-            return item.title == highlight.bookId;
-          },
-          orElse: () => null,
-        );
+        final book = allBooks.cast<dynamic>().firstWhere((item) {
+          if (item == null) return false;
+          if (highlightUid != null && highlightUid.isNotEmpty) {
+            return PluginBookIdentity.uidOf(item as Book) == highlightUid;
+          }
+          return item.title == highlight.bookId;
+        }, orElse: () => null);
         if (book == null) return false;
         _dependencies.bookOpenCoordinator.openBook(
           book,
@@ -2659,6 +2847,46 @@ class PluginBridgeAdapter {
         }
         _grantedFolders.add(p.normalize(p.absolute(path)));
         return {'path': path};
+      case 'print':
+        final printer = _dependencies.printPluginPage ?? _defaultPrintPage;
+        final jobName = (args['jobName'] as String?)?.trim();
+        return await _runUserGatedDialog(() async {
+          final printed = await printer(
+            plugin.pluginId,
+            instanceId,
+            jobName: jobName == null || jobName.isEmpty
+                ? plugin.manifest.toolTabTitle
+                : jobName,
+          );
+          return {'printed': printed};
+        });
+      case 'exportPdf':
+        final capture =
+            _dependencies.capturePluginPagePdf ?? _defaultCapturePagePdf;
+        final saver =
+            _dependencies.pickSaveLocation ?? _defaultPickSaveLocation;
+        final suggested = _suggestedSaveName(
+          args['fileName'] as String?,
+          'pdf',
+        );
+        return await _runUserGatedDialog(() async {
+          final pdf = await capture(plugin.pluginId, instanceId);
+          final chosen = await saver(
+            suggestedName: suggested,
+            allowedExtensions: const ['pdf'],
+            title: args['title'] as String?,
+          );
+          if (chosen == null || chosen.isEmpty) {
+            return {'saved': false, 'name': null};
+          }
+          // file_picker בווינדוס אינו משלים את הסיומת שנבחרה בדיאלוג.
+          final target = chosen.toLowerCase().endsWith('.pdf')
+              ? chosen
+              : '$chosen.pdf';
+          await File(target).writeAsBytes(pdf, flush: true);
+          // הנתיב עצמו אינו מוחזר — התוסף אינו מקבל גישה למה שנשמר.
+          return {'saved': true, 'name': p.basename(target)};
+        });
       default:
         throw Exception("error.unknown_method: Unknown action in ui: $action");
     }
@@ -2701,6 +2929,83 @@ class PluginBridgeAdapter {
   /// בורר התיקיות המוגדר כברירת מחדל — דיאלוג המערכת דרך [FilePicker].
   Future<String?> _defaultPickFolder({String? title}) =>
       FilePicker.getDirectoryPath(lockParentWindow: true, dialogTitle: title);
+
+  /// דיאלוג הדפסה/שמירה פתוח כרגע עבור המופע הזה. שער חד-בו-זמנית: בלעדיו
+  /// לולאה בתוסף מערימה דיאלוגים מודאליים עד שהחלון אינו שמיש.
+  bool _userDialogOpen = false;
+
+  /// מריץ פעולה שפותחת דיאלוג מערכת — רק בתוך חלון הפעולה של המשתמש, ורק
+  /// אחת בכל רגע. מונע מתוסף לפתוח דיאלוגים או לכתוב קבצים מיוזמתו.
+  Future<Map<String, dynamic>> _runUserGatedDialog(
+    Future<Map<String, dynamic>> Function() action,
+  ) async {
+    if (_userDialogOpen) {
+      throw Exception('error.forbidden: A system dialog is already open');
+    }
+    // הדגל נקבע לפני ה-await הראשון: שתי קריאות רצופות היו שתיהן עוברות את
+    // הבדיקה לפני שהראשונה סימנה.
+    _userDialogOpen = true;
+    try {
+      final check =
+          _dependencies.hasUserActivation ?? _defaultHasUserActivation;
+      if (!await check(plugin.pluginId, instanceId)) {
+        throw Exception(
+          'error.forbidden: Requires a user gesture — call it directly from a '
+          'click handler',
+        );
+      }
+      return await action();
+    } finally {
+      _userDialogOpen = false;
+    }
+  }
+
+  /// ה-WebView של המופע, או חריגה אם אינו חי (טאב שנסגר באמצע).
+  InAppWebViewController _requireController(
+    String pluginId,
+    String instanceId,
+  ) {
+    final controller = PluginRuntimeDispatcher.instance.controllerOf(
+      pluginId,
+      instanceId: instanceId,
+    );
+    if (controller == null) {
+      throw Exception('error.forbidden: Plugin view is not available');
+    }
+    return controller;
+  }
+
+  /// נקרא ישירות על ה-WebView ולא מקבל את התשובה מה-JS של התוסף — הערך הזה
+  /// הוא מצב דפדפן לקריאה בלבד ולכן אינו ניתן לזיוף מתוך התוסף.
+  Future<bool> _defaultHasUserActivation(
+    String pluginId,
+    String instanceId,
+  ) async {
+    final result = await _requireController(pluginId, instanceId)
+        .evaluateJavascript(
+          source:
+              "(navigator.userActivation === undefined) ? 'unsupported' : "
+              "(navigator.userActivation.isActive ? 'active' : 'inactive')",
+        );
+    // WKWebView אינו מממש את navigator.userActivation; שם אין מה לאכוף.
+    return result != 'inactive';
+  }
+
+  Future<bool> _defaultPrintPage(
+    String pluginId,
+    String instanceId, {
+    required String jobName,
+  }) => const PluginPrintService().printWebView(
+    _requireController(pluginId, instanceId),
+    jobName: jobName,
+  );
+
+  Future<Uint8List> _defaultCapturePagePdf(
+    String pluginId,
+    String instanceId,
+  ) => const PluginPrintService().createPdf(
+    _requireController(pluginId, instanceId),
+  );
 
   /// בודקת אם [targetPath] נמצא בתוך תיקייה שהמשתמש אישר דרך `ui.pickFolder`.
   ///
@@ -2953,7 +3258,9 @@ class PluginBridgeAdapter {
     // שהגשר כבר אכף.
     final access = args['access'] as String? ?? 'read';
     if (access != 'read' && access != 'readwrite') {
-      throw Exception("error.invalid_params: access must be 'read' or 'readwrite'");
+      throw Exception(
+        "error.invalid_params: access must be 'read' or 'readwrite'",
+      );
     }
     final writable = access == 'readwrite';
     if (writable && !await _hasWritePermission()) {
@@ -3079,7 +3386,8 @@ class PluginBridgeAdapter {
       // נתיב, ולקבוע לאן הוא ייפתח — בניגוד לכלל שאין דרך להזין נתיב מה-JS.
       final rawExtension = (args['extension'] as String?)?.toLowerCase().trim();
       final extension =
-          rawExtension != null && RegExp(r'^\.?[a-z0-9]{1,10}$').hasMatch(rawExtension)
+          rawExtension != null &&
+              RegExp(r'^\.?[a-z0-9]{1,10}$').hasMatch(rawExtension)
           ? rawExtension.replaceAll('.', '')
           : null;
       final suggested = _suggestedSaveName(
@@ -3175,7 +3483,10 @@ class PluginBridgeAdapter {
     final target = File(targetPath);
     final suffix = _randomSuffix();
     final staging = File(
-      p.join(target.parent.path, '.${p.basename(targetPath)}.$suffix$_stagingExt'),
+      p.join(
+        target.parent.path,
+        '.${p.basename(targetPath)}.$suffix$_stagingExt',
+      ),
     );
 
     // שאריות מכתיבה שנקטעה (קריסה בין ה-copy ל-rename) — אין להן שום מנגנון
@@ -3211,9 +3522,10 @@ class PluginBridgeAdapter {
   /// suffix אקראי ולא חתימת זמן: שתי שמירות באותה מיקרו-שנייה היו מתנגשות.
   String _randomSuffix() {
     final random = math.Random.secure();
-    return List<int>.generate(8, (_) => random.nextInt(256))
-        .map((b) => b.toRadixString(16).padLeft(2, '0'))
-        .join();
+    return List<int>.generate(
+      8,
+      (_) => random.nextInt(256),
+    ).map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   }
 
   /// מוחק קובצי staging נטושים בתיקיית היעד.
@@ -3315,10 +3627,7 @@ class PluginBridgeAdapter {
     required bool writable,
   }) async {
     final grants = await _readUserFileGrants();
-    grants[token] = {
-      'path': path,
-      'access': writable ? 'readwrite' : 'read',
-    };
+    grants[token] = {'path': path, 'access': writable ? 'readwrite' : 'read'};
     await _pluginRepo.setKV(
       plugin.pluginId,
       '_internal',
@@ -4065,10 +4374,7 @@ class PluginBridgeAdapter {
   // ----------------------------------------------------------------
   // tools.*
   // ----------------------------------------------------------------
-  Future<dynamic> _handleTools(
-    String action,
-    Map<String, dynamic> args,
-  ) async {
+  Future<dynamic> _handleTools(String action, Map<String, dynamic> args) async {
     switch (action) {
       case 'gematria':
         {
@@ -4818,6 +5124,12 @@ class PluginBridgeAdapter {
                 'pluginId': p.pluginId,
                 'name': p.name,
                 'version': p.version,
+                'enabled': p.enabled,
+                'showInTools': p.showInTools,
+                'toolTabIconName':
+                    pluginIconFromName(p.manifest.toolTabIconName) != null
+                    ? p.manifest.toolTabIconName
+                    : 'puzzle_piece_24_regular',
               },
             )
             .toList();
@@ -5093,11 +5405,7 @@ class PluginBridgeAdapter {
           if (cancelled) break;
           await eventSink(_networkFetchStreamEvent, {
             'streamId': streamId,
-            'chunk': {
-              'sequence': sequence++,
-              'type': 'data',
-              'body': fragment,
-            },
+            'chunk': {'sequence': sequence++, 'type': 'data', 'body': fragment},
           });
         }
       }
@@ -5136,10 +5444,7 @@ class PluginBridgeAdapter {
   Iterable<String> _splitNetworkFetchChunk(String value) sync* {
     var start = 0;
     while (start < value.length) {
-      var end = math.min(
-        start + _maxNetworkFetchChunkCodeUnits,
-        value.length,
-      );
+      var end = math.min(start + _maxNetworkFetchChunkCodeUnits, value.length);
       if (end < value.length &&
           _isHighSurrogate(value.codeUnitAt(end - 1)) &&
           _isLowSurrogate(value.codeUnitAt(end))) {

@@ -27,6 +27,7 @@ import 'package:otzaria/library/bloc/library_bloc.dart';
 import 'package:otzaria/library/bloc/library_state.dart';
 import 'package:otzaria/library/models/library.dart';
 import 'package:otzaria/models/books.dart';
+import 'package:otzaria/utils/text/html_link_handler.dart';
 import 'package:otzaria/widgets/lists/nav_tree_tile.dart';
 import 'package:otzaria/widgets/feedback/tool_empty_state.dart';
 import 'package:otzaria/utils/navigation/open_book.dart';
@@ -436,7 +437,9 @@ class _PersonalNotesManagerScreenState
   Future<List<TocEntry>?> _tocFor(String bookId) {
     return _tocFutureByBook.putIfAbsent(bookId, () {
       final library = context.read<LibraryBloc>().state.library;
-      final book = library?.findBookByTitle(bookId, TextBook);
+      final book = library == null
+          ? null
+          : HtmlLinkHandler.resolveBookLinkTarget(library, bookId);
       if (book is! TextBook) return Future.value(null);
       return book.tableOfContents;
     });
@@ -1321,7 +1324,7 @@ class _PersonalNotesManagerScreenState
     }
 
     final book =
-        library.findBookByTitle(note.bookId, TextBook) ??
+        HtmlLinkHandler.resolveBookLinkTarget(library, note.bookId) ??
         library.findBookByTitle(note.bookId, null);
     if (book == null) {
       UiSnack.show(NotesMessages.bookNotFound(note.bookId));

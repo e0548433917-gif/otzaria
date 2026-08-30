@@ -168,7 +168,7 @@ class _PersonalBooksImportPanelState extends State<PersonalBooksImportPanel> {
   String _fileTypeLabel(String filePath) {
     final format = documentFormatFromExtension(filePath);
     // שמות המשפחות (PDF/Word/EPUB…) זהים בשתי השפות; רק "טקסט" מתורגם.
-    if (format == null || format == DocumentFormat.txt) {
+    if (format == null || format.isPlainText) {
       return context.settingsText('טקסט');
     }
     return format.familyLabel;

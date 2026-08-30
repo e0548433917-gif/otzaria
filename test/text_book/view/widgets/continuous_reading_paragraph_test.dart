@@ -716,6 +716,15 @@ void main() {
     expect(underlined.style?.decorationThickness, 2);
   });
 
+  test('underline percentage thickness is supported', () {
+    final spans = buildInlineHtmlSpans(
+      '<span style="text-decoration: underline; '
+      'text-decoration-thickness: 200%">marked</span>',
+      const TextStyle(fontSize: 20),
+    );
+    expect(_findUnderlinedSpan(spans)?.style?.decorationThickness, 2);
+  });
+
   test('inline colors support CSS alpha without a leading zero', () {
     final spans = buildInlineHtmlSpans(
       '<span style="text-decoration: underline; '

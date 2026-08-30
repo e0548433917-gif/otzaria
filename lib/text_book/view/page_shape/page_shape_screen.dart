@@ -1760,6 +1760,7 @@ class _CommentaryPaneState extends State<_CommentaryPane> {
       ScrollOffsetController();
   List<Link> _relevantLinks = [];
   int? _lastSyncedIndex; // האינדקס האחרון שסונכרן
+  int? _lastSyncedMainIndex; // השורה הנבחרת שממנה נגזר הסנכרון האחרון
   int _initialSyncAttempts = 0; // ניסיונות סנכרון ראשוני עד שה-controller מחובר
   List<Link>? _lastLinks; // לדידוב: מסנן מחדש רק כשהקישורים השתנו
   StreamSubscription<TextBookState>? _blocSubscription;
@@ -1920,6 +1921,7 @@ class _CommentaryPaneState extends State<_CommentaryPane> {
       _content = content;
       _isLoading = false;
       _lastSyncedIndex = null;
+      _lastSyncedMainIndex = null;
     });
     _scheduleInitialSync();
     return true;
@@ -2100,6 +2102,7 @@ class _CommentaryPaneState extends State<_CommentaryPane> {
       _content = data.content;
       _isLoading = false;
       _lastSyncedIndex = null;
+      _lastSyncedMainIndex = null;
     });
 
     _scheduleInitialSync();
@@ -2395,10 +2398,15 @@ class _CommentaryPaneState extends State<_CommentaryPane> {
       return;
     }
 
-    // יעד שכבר סונכרנו אליו אינו נוגע במפרש שוב. בלי זה כל emission של
-    // ה-bloc (למשל חימום התוכן ברקע) היה גורר חזרה לעוגן גלילה ידנית
-    // שהמשתמש עשה בחלונית.
-    if (targetIndex == _lastSyncedIndex && state.selectedIndex == null) {
+    // יעד שכבר סונכרנו אליו אינו נוגע במפרש שוב: בלעדי זה כל emission של
+    // ה-bloc (חימום תוכן ברקע, בחירת טקסט) גורר את המפרש בחזרה מעוגן גלילה
+    // ידנית שהמשתמש עשה בחלונית.
+    if (!CommentarySyncHelper.shouldMoveCommentary(
+      targetIndex: targetIndex,
+      selectedMainIndex: state.selectedIndex,
+      lastSyncedIndex: _lastSyncedIndex,
+      lastSyncedMainIndex: _lastSyncedMainIndex,
+    )) {
       return;
     }
 
@@ -2423,6 +2431,7 @@ class _CommentaryPaneState extends State<_CommentaryPane> {
         _glideToTarget(targetIndex);
       }
       _lastSyncedIndex = targetIndex;
+      _lastSyncedMainIndex = state.selectedIndex;
     }
   }
 
@@ -2492,7 +2501,7 @@ class _CommentaryPaneState extends State<_CommentaryPane> {
     }
 
     return TextBookStateBuilder(
-      buildWhen: textBookStateDiffersBeyondVisibleIndices,
+      buildWhen: shouldRebuildReader,
       loadingWidget: const SizedBox(),
       builder: (context, state) {
         return BlocBuilder<SettingsBloc, SettingsState>(

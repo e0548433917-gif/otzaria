@@ -52,6 +52,7 @@ dependencies:
   otzaria_icons:
     git:
       url: https://github.com/Otzaria/otzaria_icons
+      ref: 72c04ce47812c4258e56cd345b433aecc57d83c9
   file_picker: 12.0.0-beta.7
   provider: ^6.1.5+1
   multi_split_view: ^3.6.2
@@ -74,11 +75,11 @@ dependencies:
   googleapis_auth: ^2.3.3
   characters: ^1.4.1
   collection: ^1.19.1
-  otzaria_search_engine: ^0.7.4
+  otzaria_search_engine: ^0.7.5
   seforim_library_updater:
     git:
       url: https://github.com/Otzaria/otzaria_library_updater
-      ref: 1c842aedbbb90af8a60632636399909e43521f10
+      ref: dfca67ef6571787c1ae25cf726305e8540239af6
   window_manager: ^0.5.2
   screen_retriever: ^0.2.2
   flutter_spinbox: ^0.13.1
@@ -113,6 +114,21 @@ dependency_overrides:
       url: https://github.com/Otzaria/flutter_inappwebview
       ref: master
       path: flutter_inappwebview_windows
+  flutter_inappwebview_platform_interface:
+    git:
+      url: https://github.com/Otzaria/flutter_inappwebview
+      ref: master
+      path: flutter_inappwebview_platform_interface
+  flutter_inappwebview_ios:
+    git:
+      url: https://github.com/Otzaria/flutter_inappwebview
+      ref: master
+      path: flutter_inappwebview_ios
+  flutter_inappwebview_macos:
+    git:
+      url: https://github.com/Otzaria/flutter_inappwebview
+      ref: master
+      path: flutter_inappwebview_macos
 
 flutter_launcher_icons:
   android: true
@@ -140,6 +156,7 @@ dev_dependencies:
   analyzer: ^12.1.0
   # לטעינת ספריית המנוע הנייטיבית בטסטים (ExternalLibrary).
   flutter_rust_bridge: ^2.12.0
+  fake_async: ^1.3.3
   flutter_test:
     sdk: flutter
   integration_test:

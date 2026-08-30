@@ -174,6 +174,52 @@ class ContextMenuRegistry extends ChangeNotifier {
       item.id == itemId ||
       item.children.any((child) => _treeContains(child, itemId));
 
+  /// מחזיר פריט לפי [itemId], כולל פריטי משנה בתוך תת-תפריט.
+  PluginContextMenuItem? findItem(String pluginId, String itemId) {
+    for (final entry in _items.entries) {
+      if (entry.key.pluginId != pluginId) continue;
+      for (final item in entry.value) {
+        final found = _findInTree(item, itemId);
+        if (found != null) return found;
+      }
+    }
+    return null;
+  }
+
+  bool isItemVisible(String pluginId, String itemId) {
+    for (final entry in _items.entries) {
+      if (entry.key.pluginId != pluginId) continue;
+      for (final item in entry.value) {
+        if (_isVisibleInTree(pluginId, item, itemId)) return true;
+      }
+    }
+    return false;
+  }
+
+  PluginContextMenuItem? _findInTree(
+    PluginContextMenuItem item,
+    String itemId,
+  ) {
+    if (item.id == itemId) return item;
+    for (final child in item.children) {
+      final found = _findInTree(child, itemId);
+      if (found != null) return found;
+    }
+    return null;
+  }
+
+  bool _isVisibleInTree(
+    String pluginId,
+    PluginContextMenuItem item,
+    String itemId,
+  ) {
+    if (!(_evaluator?.isVisible(pluginId, item.when) ?? true)) return false;
+    if (item.id == itemId) return true;
+    return item.children.any(
+      (child) => _isVisibleInTree(pluginId, child, itemId),
+    );
+  }
+
   PluginContextMenuItem _parseItem(
     Map<String, dynamic> json, {
     required int depth,

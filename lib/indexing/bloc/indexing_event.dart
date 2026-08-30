@@ -78,6 +78,20 @@ class ClearIndex extends IndexingEvent {}
 
 class CancelIndexing extends IndexingEvent {}
 
+class PauseIndexing extends IndexingEvent {}
+
+class ResumeIndexing extends IndexingEvent {}
+
+/// הפעלה/כיבוי של מצב אינדוקס חסכוני — תקציב writer מוקטן במנוע.
+class SetEconomyIndexing extends IndexingEvent {
+  final bool enabled;
+
+  const SetEconomyIndexing(this.enabled);
+
+  @override
+  List<Object?> get props => [enabled];
+}
+
 class ActualIndexingStarted extends IndexingEvent {
   final int workId;
 

@@ -2,12 +2,15 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:path/path.dart' as p;
+
 import 'package:otzaria/utils/file/cfb_reader.dart';
 import 'package:otzaria/utils/file/docx_cache.dart';
 import 'package:otzaria/utils/file/docx_to_otzaria.dart';
 import 'package:otzaria/utils/file/document_conversion_exceptions.dart';
 import 'package:otzaria/utils/file/document_format.dart';
 import 'package:otzaria/utils/file/epub_to_otzaria.dart';
+import 'package:otzaria/utils/file/html_to_otzaria.dart';
 import 'package:otzaria/utils/file/legacy_word_to_otzaria.dart';
 import 'package:otzaria/utils/file/markdown_to_otzaria.dart';
 import 'package:otzaria/utils/file/odt_to_otzaria.dart';
@@ -57,8 +60,17 @@ String convertDocumentBytesSync(
       embedImages: embedImages,
     );
   }
+  if (resolved.isHtmlDocument) {
+    return htmlToText(
+      bytes,
+      title,
+      format: resolved,
+      embedImages: embedImages,
+      baseDirectory: path == null ? null : p.dirname(path),
+    );
+  }
   return switch (resolved) {
-    DocumentFormat.txt => _decodeTextBytes(bytes, path),
+    DocumentFormat.txt || DocumentFormat.text => _decodeTextBytes(bytes, path),
     DocumentFormat.epub => epubToText(bytes, title, embedImages: embedImages),
     DocumentFormat.md ||
     DocumentFormat.markdown => markdownBytesToHtml(bytes, title),
@@ -144,8 +156,16 @@ Future<String> convertDocumentWithCache(
       embedImages: embedImages,
     );
   }
+  if (resolved.isHtmlDocument) {
+    return convertHtmlWithCache(
+      file,
+      title,
+      resolved,
+      embedImages: embedImages,
+    );
+  }
   return switch (resolved) {
-    DocumentFormat.txt => _readPlainTextFile(file),
+    DocumentFormat.txt || DocumentFormat.text => _readPlainTextFile(file),
     DocumentFormat.epub =>
       embedImages
           ? convertEpubWithCache(file, title)
@@ -336,6 +356,7 @@ int? converterVersionFor(DocumentFormat? format) {
   if (format == null) return null;
   if (format.isOoxmlWord) return kOoxmlWordConverterVersion;
   if (format.isLegacyWord) return kLegacyWordConverterVersion;
+  if (format.isHtmlDocument) return kHtmlConverterVersion;
   return switch (format) {
     DocumentFormat.epub => kEpubConverterVersion,
     DocumentFormat.md || DocumentFormat.markdown => kMarkdownConverterVersion,

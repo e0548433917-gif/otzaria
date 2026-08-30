@@ -280,7 +280,13 @@ class _PersonalNoteEditorBodyState extends State<PersonalNoteEditorBody> {
               ),
               const Divider(height: 1),
               SizedBox(
-                height: 220,
+                // במסך נמוך או עם מקלדת פתוחה 220px קבועים דוחקים את כפתור
+                // השמירה מחוץ לתצוגה — מצמצמים לפי הגובה הפנוי בפועל.
+                height: () {
+                  final media = MediaQuery.of(context);
+                  final available = media.size.height - media.viewInsets.bottom;
+                  return (available * 0.35).clamp(120.0, 220.0);
+                }(),
                 // RawGestureDetector תופס מחוות גרירה אנכית באזור העורך
                 // לפני שה-ListView ההורה (פאנל ההערות) רואה אותן.
                 // אחרת כשהמשתמש גורר אלכסונית כדי לסמן יותר ממילה,

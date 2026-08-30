@@ -293,5 +293,102 @@ void main() {
       expect(cubit.state.hasActiveItems, isTrue);
       cubit.close();
     });
+
+    testWidgets('פריט עם actions מציג לחצנים ולחיצה מפעילה את הפעולה', (
+      tester,
+    ) async {
+      var pauseTaps = 0;
+      final cubit = WorkStatusCubit();
+      cubit.upsert(
+        WorkStatusItem(
+          id: 'indexing',
+          title: 'אינדוקס ספרים',
+          message: 'התוכנה בתהליך אינדוקס',
+          actions: [
+            WorkStatusAction(
+              label: 'השהה',
+              icon: FluentIcons.pause_24_regular,
+              onPressed: () => pauseTaps++,
+            ),
+            WorkStatusAction(
+              label: 'מצב חסכוני',
+              icon: FluentIcons.battery_saver_24_regular,
+              onPressed: () {},
+            ),
+          ],
+        ),
+      );
+
+      await tester.pumpWidget(_wrap(const WorkStatusOverlay(), cubit));
+      await tester.pump();
+
+      expect(find.text('השהה'), findsOneWidget);
+      expect(find.text('מצב חסכוני'), findsOneWidget);
+
+      await tester.tap(find.text('השהה'));
+      expect(pauseTaps, 1);
+      cubit.close();
+    });
+
+    testWidgets('לחיצה על לחצן פעולה אינה מפעילה את onTap של הפריט', (
+      tester,
+    ) async {
+      var itemTaps = 0;
+      final cubit = WorkStatusCubit();
+      cubit.upsert(
+        WorkStatusItem(
+          id: 'indexing',
+          title: 'אינדוקס ספרים',
+          message: 'התוכנה בתהליך אינדוקס',
+          onTap: () => itemTaps++,
+          actions: [
+            WorkStatusAction(
+              label: 'השהה',
+              icon: FluentIcons.pause_24_regular,
+              onPressed: () {},
+            ),
+          ],
+        ),
+      );
+
+      await tester.pumpWidget(_wrap(const WorkStatusOverlay(), cubit));
+      await tester.pump();
+
+      await tester.tap(find.text('השהה'));
+      expect(itemTaps, 0);
+      cubit.close();
+    });
+
+    testWidgets('פעולה מודגשת (emphasized) מוצגת כלחצן tonal', (tester) async {
+      final cubit = WorkStatusCubit();
+      cubit.upsert(
+        WorkStatusItem(
+          id: 'indexing',
+          title: 'אינדוקס ספרים',
+          message: 'התוכנה בתהליך אינדוקס',
+          actions: [
+            WorkStatusAction(
+              label: 'מצב חסכוני',
+              icon: FluentIcons.battery_saver_24_regular,
+              emphasized: true,
+              onPressed: () {},
+            ),
+          ],
+        ),
+      );
+
+      await tester.pumpWidget(_wrap(const WorkStatusOverlay(), cubit));
+      await tester.pump();
+
+      // ActionButton.neutral נבנה על FilledButton (tonal), ghost על TextButton.
+      expect(
+        find.ancestor(
+          of: find.text('מצב חסכוני'),
+          matching: find.byWidgetPredicate((w) => w is FilledButton),
+        ),
+        findsOneWidget,
+      );
+      cubit.close();
+    });
   });
 }

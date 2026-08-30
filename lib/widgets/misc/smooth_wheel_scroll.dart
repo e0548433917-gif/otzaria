@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:otzaria/widgets/misc/middle_click_autoscroll.dart';
 
 /// מחליק את גלילת גלגלת העכבר ברשימה שמתחתיו.
 ///
@@ -88,6 +89,9 @@ class _SmoothWheelScrollState extends State<SmoothWheelScroll>
   bool _shouldClaim(PointerScrollEvent event) {
     // משטח מגע מגיע כאירועי pan ומקבל אינרציה מהפיזיקה; רק לגלגלת אין.
     if (event.kind != PointerDeviceKind.mouse) return false;
+    // הגלילה האוטומטית כבר מייצרת תנועה חלקה בכל פריים, וההחלקה כאן הייתה
+    // מוסיפה לה פיגור וזחילה אחרי שהמשתמש שחרר את הכפתור.
+    if (event.device == kAutoScrollSyntheticDevice) return false;
     if (_isOverNestedScrollable(event.position)) {
       _finish();
       return false;

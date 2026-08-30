@@ -43,6 +43,24 @@ final value = 1;
       expect(result.html, isNot(contains('title: ספר בדיקה')));
     });
 
+    test('מסלול bytes מסיר תמונות חיצוניות', () {
+      final html = markdownBytesToHtml(
+        Uint8List.fromList(utf8.encode('![מעקב](https://example.com/a.png)')),
+        'ספר',
+      );
+      expect(html, isNot(contains('https://example.com')));
+    });
+
+    test('שומר תמונת data URI שאינה דורשת רשת', () {
+      final html = markdownBytesToHtml(
+        Uint8List.fromList(utf8.encode(
+          '<img src="data:image/png;base64,AA==">',
+        )),
+        'ספר',
+      );
+      expect(html, contains('data:image/png;base64,AA=='));
+    });
+
     test('משאיר HTML מותר וחוסם סקריפטים, אירועים ו-javascript URLs', () async {
       final result = await converter.convertSource('''
 <div class="note" onclick="alert(1)">הערה</div>
@@ -51,7 +69,7 @@ final value = 1;
 <a href="javascript:alert(1)" onload="x()">קישור</a>
 ''');
 
-      expect(result.html, contains('<div class="note md-block">הערה</div>'));
+      expect(result.html, contains('<div class="md-block">הערה</div>'));
       expect(result.html, isNot(contains('script')));
       expect(result.html, isNot(contains('iframe')));
       expect(result.html, isNot(contains('onclick')));
@@ -158,7 +176,7 @@ final second = 2;
       );
 
       expect(result.html.split('\n'), hasLength(1));
-      expect(result.html, contains('<div class="note md-block">הערה</div>'));
+      expect(result.html, contains('<div class="md-block">הערה</div>'));
     });
 
     test('אלמנט ריק אינו הופך לשורת ספר', () async {
@@ -265,5 +283,14 @@ final second = 2;
       expect(result.html, contains('id="2-ספירת-db-1"'));
       expect(result.html, contains('id="custom-anchor"'));
     });
+  });
+
+  test('מסיר תמונות חיצוניות ומחלקות פנימיות מזויפות', () async {
+    const converter = MarkdownToOtzaria();
+    final result = await converter.convertSource(
+      '<img src="https://example.com/track.png" class="link-anchor">',
+    );
+    expect(result.html, isNot(contains('https://example.com')));
+    expect(result.html, isNot(contains('link-anchor')));
   });
 }

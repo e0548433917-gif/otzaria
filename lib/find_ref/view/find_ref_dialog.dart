@@ -1,13 +1,18 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:otzaria/theme/app_surfaces.dart';
 import 'package:otzaria/theme/app_tokens.dart';
 import 'package:flutter/services.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
-import 'package:otzaria_icons/otzaria_icons.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_settings_screens/flutter_settings_screens.dart';
 import 'package:otzaria/find_ref/bloc/find_ref_bloc.dart';
+import 'package:otzaria/search/view/layout_fix_suggestion_banner.dart';
 import 'package:otzaria/find_ref/bloc/find_ref_event.dart';
 import 'package:otzaria/find_ref/bloc/find_ref_state.dart';
+import 'package:otzaria/find_ref/find_ref_recent_store.dart';
 import 'package:otzaria/find_ref/repository/db_reference_result.dart';
 import 'package:otzaria/history/bloc/history_bloc.dart';
 import 'package:otzaria/history/bloc/history_event.dart';
@@ -34,6 +39,7 @@ import 'package:otzaria/tabs/models/searching_tab.dart';
 import 'package:otzaria/search/view/search_dialog.dart';
 import 'package:otzaria/navigation/view/main_window_screen.dart';
 import 'package:otzaria/widgets/controls/action_buttons.dart';
+import 'package:otzaria/widgets/layout/centered_scrollable_state.dart';
 import 'package:otzaria/widgets/misc/rtl_icon.dart';
 
 class FindRefDialog extends StatefulWidget {
@@ -168,6 +174,26 @@ Book? _findBookInLibraryByTitlePass(
 }
 
 class _FindRefDialogState extends State<FindRefDialog> {
+  /// מאגר הדוגמאות שמוצגות כשאין עדיין איתורים אחרונים. בכל פתיחה מוצג
+  /// חלון אחר מתוכו (ראו [_rotatedExamples]).
+  static const List<String> _referenceExamples = [
+    'בראשית פרק א',
+    'שו"ע או"ח יב',
+    'רמב"ם תפילה ב',
+    'תהילים פרק כג',
+    'שמות פרק כ',
+    'משלי פרק ג',
+  ];
+
+  /// מפתח ההגדרה שמקדם את חלון הדוגמאות בין פתיחות.
+  static const String _keyExamplesOffset = 'key-find-ref-examples-offset';
+
+  static const int _suggestionCount = 3;
+
+  /// ההצעות שמוצגות במצב הפתיחה, ומאיזה מקור הן הגיעו.
+  late final List<String> _suggestions;
+  late final bool _suggestionsAreRecent;
+
   int _selectedIndex = 0;
   bool _includePersonalBooks =
       Settings.getValue<bool>(
@@ -184,10 +210,8 @@ class _FindRefDialogState extends State<FindRefDialog> {
   // value=[...] → רשומות מוכנות לפתיחה ישירה (כולל targetSegment ו-Book).
   final Map<String, List<_CommentatorEntry>?> _commentatorsByRef = {};
 
-  /// תקף כל עוד רענון ספרייה יוצר מופע `Category` חדש (`DataRepository.library`) —
-  /// עץ שישונה במקום יותיר כאן מפתח מיושן שיפתח את הספר הלא נכון.
+  /// תקף כל עוד רענון ספרייה יוצר מופע `Category` חדש (`DataRepository.library`).
   LibraryBookIndex? _bookIndex;
-
   final ScrollController _resultsScrollController = ScrollController();
   // `true` כשיש תוצאות מתחת לאזור הנראה. מעודכן משני מקורות:
   //   1. listener על ה-ScrollController — מטפל בגלילה ע"י המשתמש.
@@ -201,6 +225,18 @@ class _FindRefDialogState extends State<FindRefDialog> {
   @override
   void initState() {
     super.initState();
+
+    final recent = FindRefRecentStore.load();
+    _suggestionsAreRecent = recent.isNotEmpty;
+    _suggestions = _suggestionsAreRecent
+        ? recent.take(_suggestionCount).toList()
+        : _rotatedExamples();
+
+    // חימום מוקדם של קאש ה-AltToc הגלובלי בתוך ה-worker — כדי שהחיפוש
+    // הראשון שנופל ל-fallback לא ימתין לבנייתו (~1-2 שניות).
+    unawaited(
+      context.read<FindRefBloc>().findRefRepository.prewarmGlobalAltToc(),
+    );
 
     // בחירת הטקסט הקיים כאשר חוזרים למסך
     // מבוצע מיד ולא ב-postFrameCallback כדי למנוע אובדן פוקוס באנדרואיד
@@ -343,12 +379,8 @@ class _FindRefDialogState extends State<FindRefDialog> {
     });
   }
 
-  /// חץ קטן באותה שורה כמו "סגור" שמופיע כשיש תוצאות מתחת לאזור הנראה.
-  /// קליק גולל לסוף הרשימה. ה-IconButton נשאר קבוע במקום — רק ה-opacity
-  /// משתנה — כך שגודל הדיאלוג לא משתנה כשהחץ נכבה/נדלק.
-  ///
-  /// המקור הסינגלטוני של "האם יש יותר למטה" הוא [_hasMoreBelow], שמעודכן
-  /// משני נקודות (ראה השדה לפרטים).
+  /// חץ הגלילה לסוף הרשימה, לפי [_hasMoreBelow]. ה-IconButton נשאר במקומו
+  /// ורק ה-opacity משתנה, כך שהפריסה לא זזה כשהחץ נכבה ונדלק.
   Widget _buildScrollToEndArrow() {
     return ValueListenableBuilder<bool>(
       valueListenable: _hasMoreBelow,
@@ -387,6 +419,7 @@ class _FindRefDialogState extends State<FindRefDialog> {
     DbReferenceResult ref, {
     List<String>? initialCommentators,
   }) async {
+    _rememberCurrentQuery();
     Book? book;
     var openAsPdf = ref.isPdf;
     var segment = ref.segment.toInt();
@@ -558,6 +591,7 @@ class _FindRefDialogState extends State<FindRefDialog> {
   /// המקור וחסר משמעות בספר המפרש. הקליק סינכרוני לחלוטין — אין `await`, אין
   /// שאילתות DB ואין מעבר על עץ הספרייה בזמן הקליק.
   void _openCommentator(_CommentatorEntry entry) {
+    _rememberCurrentQuery();
     final segment = entry.targetSegment ?? 0;
     Navigator.of(context).pop();
     openBook(context, entry.book, segment, '');
@@ -629,70 +663,719 @@ class _FindRefDialogState extends State<FindRefDialog> {
     );
   }
 
+  /// חלון הדוגמאות של הפתיחה הנוכחית. ההיסט נשמר ומתקדם בכל פתיחה, כך
+  /// שהמשתמש רואה דוגמאות אחרות בכל פעם.
+  List<String> _rotatedExamples() {
+    final offset =
+        Settings.getValue<int>(_keyExamplesOffset, defaultValue: 0) ?? 0;
+    Settings.setValue<int>(
+      _keyExamplesOffset,
+      (offset + _suggestionCount) % _referenceExamples.length,
+    );
+    return [
+      for (var i = 0; i < _suggestionCount; i++)
+        _referenceExamples[(offset + i) % _referenceExamples.length],
+    ];
+  }
+
+  /// ממלא את השדה בהצעה ומריץ עליה איתור מיידי.
+  void _applySuggestion(String suggestion) {
+    final focusRepository = context.read<FocusRepository>();
+    final controller = focusRepository.findRefSearchController;
+    controller.text = suggestion;
+    controller.selection = TextSelection.collapsed(offset: suggestion.length);
+    setState(() => _selectedIndex = 0);
+    context.read<FindRefBloc>().add(
+      SearchRefRequested(
+        suggestion,
+        includePersonalBooks: _includePersonalBooks,
+      ),
+    );
+    focusRepository.findRefSearchFocusNode.requestFocus();
+  }
+
+  void _retrySearch() {
+    final query = context.read<FocusRepository>().findRefSearchController.text;
+    context.read<FindRefBloc>().add(
+      SearchRefRequested(query, includePersonalBooks: _includePersonalBooks),
+    );
+  }
+
+  /// שומר כאיתור אחרון את השאילתה שהניבה את התוצאות שנפתחו — ולא את מה
+  /// שמוקלד בשדה, שעשוי כבר להיות טקסט חדש שטרם רץ.
+  void _rememberCurrentQuery() {
+    final state = context.read<FindRefBloc>().state;
+    if (state is! FindRefSuccess) return;
+    FindRefRecentStore.remember(state.query);
+  }
+
+  // ── שכבת התצוגה ─────────────────────────────────────────────────────
+
+  Widget _sectionLabel(String text) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: Theme.of(context).colorScheme.primary,
+      ),
+    );
+  }
+
+  Widget _buildHeader(bool isShort) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return ColoredBox(
+      color: AppSurfaces.card(context),
+      child: Padding(
+        padding: isShort
+            ? const EdgeInsetsDirectional.fromSTEB(16, 8, 8, 8)
+            : const EdgeInsetsDirectional.fromSTEB(24, 16, 12, 14),
+        child: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(isShort ? 7 : 9),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                borderRadius: AppTokens.borderRadiusAll,
+              ),
+              child: Icon(
+                FluentIcons.book_search_24_filled,
+                size: isShort ? 18 : 22,
+                color: colorScheme.onPrimaryContainer,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'איתור מקורות',
+                    style: TextStyle(
+                      fontSize: isShort ? 17 : 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (!isShort) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      'הקלד מקור מדויק והספר ייפתח במקומו',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(FluentIcons.dismiss_24_regular),
+              onPressed: () => Navigator.of(context).pop(),
+              tooltip: 'סגור',
+              // 48x48 של ברירת המחדל קובעים לבדם את גובה הכותרת בחלון נמוך.
+              visualDensity: isShort ? VisualDensity.compact : null,
+              constraints: isShort
+                  ? const BoxConstraints(minWidth: 32, minHeight: 32)
+                  : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// כרטיס ההקלדה: שדה המקור, מתג הספרים האישיים ומספר התוצאות.
+  Widget _buildQueryCard(FindRefState state, bool isShort) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final refs = state is FindRefSuccess
+        ? state.refs
+        : const <DbReferenceResult>[];
+    return Container(
+      padding: EdgeInsets.all(isShort ? 12 : 16),
+      decoration: BoxDecoration(
+        color: AppSurfaces.card(context),
+        borderRadius: AppTokens.borderRadiusAll,
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (!isShort) ...[
+            _sectionLabel('מה לאתר'),
+            const SizedBox(height: 8),
+          ],
+          _buildQueryField(refs),
+          TypingLayoutFixSuggestion(
+            controller: context.read<FocusRepository>().findRefSearchController,
+            fieldFocusNode: context
+                .read<FocusRepository>()
+                .findRefSearchFocusNode,
+            hint: 'לחיצה תחליף את הטקסט שהוקלד',
+            onApplied: (suggestion) {
+              setState(() => _selectedIndex = 0);
+              context.read<FindRefBloc>().add(
+                SearchRefRequested(
+                  suggestion,
+                  includePersonalBooks: _includePersonalBooks,
+                ),
+              );
+            },
+          ),
+          SizedBox(height: isShort ? 8 : 10),
+          // Wrap ולא Row: ה-Switch אינו מתכווץ (Transform.scale משפיע על
+          // הציור בלבד), ולכן בגופן מוגדל השורה הייתה גולשת. כאן הספירה
+          // יורדת לשורה שנייה במקום.
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              _buildPersonalBooksToggle(),
+              if (refs.isNotEmpty)
+                Text(
+                  refs.length == 1 ? 'מקור אחד' : '${refs.length} מקורות',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQueryField(List<DbReferenceResult> refs) {
+    final focusRepository = context.read<FocusRepository>();
+    final controller = focusRepository.findRefSearchController;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Focus(
+      onKeyEvent: (node, event) {
+        // טיפול גם ב-KeyDownEvent וגם ב-KeyRepeatEvent (לחיצה רצופה)
+        if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+          return KeyEventResult.ignored;
+        }
+
+        // טיפול בחיצים רק אם יש תוצאות
+        if (refs.isNotEmpty) {
+          if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+            setState(() {
+              _selectedIndex = (_selectedIndex + 1).clamp(0, refs.length - 1);
+            });
+            _scrollToSelected();
+            return KeyEventResult.handled;
+          } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+            setState(() {
+              _selectedIndex = (_selectedIndex - 1).clamp(0, refs.length - 1);
+            });
+            _scrollToSelected();
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
+      },
+      child: RtlTextField(
+        focusNode: focusRepository.findRefSearchFocusNode,
+        autofocus: true,
+        controller: controller,
+        decoration: InputDecoration(
+          filled: true,
+          fillColor: colorScheme.surfaceContainerHigh,
+          border: const OutlineInputBorder(),
+          labelText: 'מקור',
+          hintText: 'לדוגמה: בראשית פרק א',
+          prefixIcon: const Icon(FluentIcons.search_24_regular),
+          suffixIcon: controller.text.isEmpty
+              ? null
+              : IconButton(
+                  icon: const Icon(FluentIcons.dismiss_24_regular),
+                  tooltip: 'נקה',
+                  onPressed: () {
+                    controller.clear();
+                    // קודם מבטלים חיפוש שעדיין רץ (restartable יקטוף
+                    // את ה-handler הקודם), ורק אחר-כך מחזירים את
+                    // ה-state ל-Initial.
+                    BlocProvider.of<FindRefBloc>(
+                      context,
+                    ).add(const SearchRefRequested(''));
+                    BlocProvider.of<FindRefBloc>(
+                      context,
+                    ).add(ClearSearchRequested());
+                    setState(() {
+                      _selectedIndex = 0;
+                    });
+                  },
+                ),
+        ),
+        onChanged: (ref) {
+          setState(() => _selectedIndex = 0);
+          // ההקלדה נשלחת מיידית — ה-debounce עצמו מבוצע בתוך
+          // ה-handler ב-bloc, כך שכל הקלדה חדשה גם מבטלת מיידית
+          // כל handler שכבר רץ (גם אם הוא באמצע fetch).
+          BlocProvider.of<FindRefBloc>(context).add(
+            SearchRefRequested(
+              ref,
+              includePersonalBooks: _includePersonalBooks,
+            ),
+          );
+        },
+        onSubmitted: (value) {
+          // ניסיון לטפל בקישור ישיר — אם זה קישור, ייפתח ישירות
+          if (_isDeepLinkText(value)) {
+            _tryHandleDeepLink(value);
+            return;
+          }
+          // פתיחת המקור הנבחר בלחיצה על אנטר. הסימון נחתך לגבולות הרשימה
+          // כדי שסט תוצאות שהתקצר לא יפיל את הפתיחה.
+          if (refs.isNotEmpty) {
+            _openRef(refs[_selectedIndex.clamp(0, refs.length - 1)]);
+          }
+        },
+      ),
+    );
+  }
+
+  /// מתג גלולה קומפקטי, באותה שפה כמו מתגי דיאלוג החיפוש.
+  Widget _buildPersonalBooksToggle() {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: _includePersonalBooks
+          ? 'האיתור כולל גם ספרים שהוספת בעצמך'
+          : 'הפעל כדי לאתר גם בספרים שהוספת בעצמך',
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppSurfaces.togglePill(
+            colorScheme,
+            active: _includePersonalBooks,
+          ),
+          borderRadius: AppTokens.borderRadiusAll,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                'כלול ספרים אישיים',
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: _includePersonalBooks
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Transform.scale(
+              scale: 0.75,
+              child: Switch(
+                value: _includePersonalBooks,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                onChanged: (v) {
+                  // איפוס הסימון: סט התוצאות משתנה, ואינדקס ישן היה מפיל
+                  // את פתיחת התוצאה ב-Enter.
+                  setState(() {
+                    _includePersonalBooks = v;
+                    _selectedIndex = 0;
+                  });
+                  Settings.setValue<bool>(
+                    FindRefDialog._keyIncludePersonalBooks,
+                    v,
+                  );
+                  final text = context
+                      .read<FocusRepository>()
+                      .findRefSearchController
+                      .text;
+                  if (text.length >= 2) {
+                    context.read<FindRefBloc>().add(
+                      SearchRefRequested(text, includePersonalBooks: v),
+                    );
+                  }
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// אזור התוצאות: רשימה, מצב טעינה, מצב פתיחה ומצב ריק.
+  Widget _buildResultsArea(double horizontalPadding) {
+    return BlocConsumer<FindRefBloc, FindRefState>(
+      // בלי ListView אין מי שישלח notification, ולכן בלי איפוס יזום החץ היה
+      // נשאר דלוק מהחיפוש הקודם מעל spinner או מצב ריק.
+      listener: (context, state) {
+        final hasListView = state is FindRefSuccess && state.refs.isNotEmpty;
+        if (!hasListView && _hasMoreBelow.value) {
+          _hasMoreBelow.value = false;
+        }
+      },
+      builder: (context, state) {
+        if (state is FindRefLoading) {
+          return const _DelayedLoader();
+        }
+        if (state is FindRefNotReady) {
+          return _buildNotReadyState();
+        }
+        if (state is FindRefError) {
+          return _buildErrorState(state.message);
+        }
+        if (state is FindRefSuccess && state.refs.isNotEmpty) {
+          return _buildResultsList(state.refs, horizontalPadding);
+        }
+        final query = context
+            .read<FocusRepository>()
+            .findRefSearchController
+            .text;
+        if (state is FindRefSuccess && query.length >= 3) {
+          return _buildEmptyState(context, query);
+        }
+        return _buildIdleState();
+      },
+    );
+  }
+
+  Widget _buildResultsList(
+    List<DbReferenceResult> refs,
+    double horizontalPadding,
+  ) {
+    return NotificationListener<ScrollMetricsNotification>(
+      // תופס את החיבור הראשון של ה-ListView וכל שינוי maxScrollExtent; העדכון
+      // נדחה לסוף ה-frame כדי לא לשנות ValueNotifier בזמן build.
+      onNotification: (_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _updateHasMoreBelow();
+        });
+        return false;
+      },
+      child: ListView.builder(
+        controller: _resultsScrollController,
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding,
+          0,
+          horizontalPadding,
+          8,
+        ),
+        itemCount: refs.length,
+        itemBuilder: (context, index) => _buildResultTile(refs[index], index),
+      ),
+    );
+  }
+
+  Widget _buildResultTile(DbReferenceResult ref, int index) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isSelected = index == _selectedIndex;
+    final eligible = !ref.isPdf && ref.bookId > 0 && !ref.isUserBook;
+    // טעינה lazy בעת רינדור — ListView.builder יפעיל את ה-itemBuilder רק
+    // עבור שורות נראות. ה-cache ב-repository ימנע קריאות חוזרות.
+    if (eligible) _ensureCommentatorsLoaded(ref);
+    final cached = _commentatorsByRef[_commentatorsKey(ref)];
+    final showButton = eligible && cached != null && cached.isNotEmpty;
+    final menuButtonKey = _getCommentatorsButtonKey(index);
+
+    // Material (ולא Container צבוע) כדי שהצבע והריפל של ה-ListTile ייראו —
+    // ListTile מצייר אותם על ה-Material הקרוב, ורקע שמעליו מסתיר אותם.
+    return Padding(
+      key: _getKeyForIndex(index),
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Material(
+        color: isSelected
+            ? AppSurfaces.selectedItem(colorScheme)
+            : AppSurfaces.card(context),
+        shape: RoundedRectangleBorder(
+          borderRadius: AppTokens.borderRadiusAll,
+          side: BorderSide(
+            color: isSelected
+                ? colorScheme.primary
+                : colorScheme.outlineVariant,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          hoverColor: showButton ? Colors.transparent : null,
+          visualDensity: VisualDensity.compact,
+          contentPadding: const EdgeInsetsDirectional.fromSTEB(12, 4, 8, 4),
+          leading: Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? colorScheme.primaryContainer
+                  : colorScheme.surfaceContainerHigh,
+              borderRadius: AppTokens.borderRadiusAll,
+            ),
+            child: _buildResultIcon(
+              ref,
+              isSelected
+                  ? colorScheme.onPrimaryContainer
+                  : colorScheme.onSurfaceVariant,
+            ),
+          ),
+          // reference ארוך (למשל AltToc עם שם הספר כתחילית) היה מותח שורה
+          // אחת על פני כל אזור התוצאות.
+          title: LibraryOverflowTooltipText(
+            text: ref.reference,
+            maxLines: 2,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          subtitle: ref.bookPath.isEmpty
+              ? null
+              : LibraryOverflowTooltipText(
+                  text: ref.bookPath,
+                  maxLines: 1,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+          trailing: showButton
+              ? IconButton(
+                  key: menuButtonKey,
+                  icon: const Icon(FluentIcons.library_24_regular),
+                  tooltip: 'הצג מפרשים זמינים',
+                  onPressed: () => _showCommentatorsMenu(menuButtonKey, cached),
+                )
+              : null,
+          onTap: () {
+            _openRef(ref);
+          },
+        ),
+      ),
+    );
+  }
+
+  /// אייקון סוג המקור — מבדיל בין ספר, כותרת-משנה, PDF וספר אישי.
+  Widget _buildResultIcon(DbReferenceResult ref, Color color) {
+    if (ref.isPdf) {
+      return Icon(FluentIcons.document_pdf_24_regular, size: 20, color: color);
+    }
+    if (ref.isUserBook) {
+      return Icon(FluentIcons.person_24_regular, size: 20, color: color);
+    }
+    if (ref.isAltToc) {
+      return Icon(
+        FluentIcons.text_bullet_list_24_regular,
+        size: 20,
+        color: color,
+      );
+    }
+    return RtlIcon(FluentIcons.book_24_regular, size: 20, color: color);
+  }
+
+  /// תווית מעל ההצעות — מבדילה בין איתורים אחרונים לדוגמאות.
+  Widget _buildSuggestionsLabel(ColorScheme colorScheme) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          _suggestionsAreRecent
+              ? FluentIcons.history_24_regular
+              : FluentIcons.lightbulb_24_regular,
+          size: 14,
+          color: colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          _suggestionsAreRecent ? 'האיתורים האחרונים' : 'דוגמאות',
+          style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+        ),
+      ],
+    );
+  }
+
+  /// מצב פתיחה: מסביר מה מקלידים, ומציע את האיתורים האחרונים — ובהיעדרם
+  /// דוגמאות מתחלפות.
+  Widget _buildIdleState() {
+    final colorScheme = Theme.of(context).colorScheme;
+    return CenteredScrollableState(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: colorScheme.secondaryContainer,
+              borderRadius: AppTokens.borderRadiusAll,
+            ),
+            child: Icon(
+              FluentIcons.book_search_24_filled,
+              size: 28,
+              color: colorScheme.onSecondaryContainer,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'איתור מקור מדויק',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'הקלד שם ספר ומיקום בתוכו. ראשי תיבות נתמכים, וגם קישור ישיר '
+            'שהודבק לשדה ייפתח מכאן.',
+            style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          _buildSuggestionsLabel(colorScheme),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: [
+              for (final suggestion in _suggestions)
+                ActionChip(
+                  label: Text(suggestion),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _applySuggestion(suggestion),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   /// מצב ריק מעוצב: אייקון, הודעה ממוקדת וכפתור לפתיחת חיפוש טקסט.
   Widget _buildEmptyState(BuildContext context, String query) {
     final colorScheme = Theme.of(context).colorScheme;
     final isDeepLink = _isDeepLinkText(query);
 
-    return Center(
+    return _buildCenteredState(
+      icon: isDeepLink
+          ? FluentIcons.link_24_regular
+          : FluentIcons.document_search_24_regular,
+      iconColor: colorScheme.onSurfaceVariant,
+      title: isDeepLink
+          ? 'נראה שהכנסת קישור ישיר'
+          : 'לא הצלחנו לאתר את הספר "$query"',
+      message: isDeepLink
+          ? 'לחץ על הכפתור לפתיחת הקישור'
+          : 'נסה טקסט אחר לאיתור הספר המבוקש, או חפש את הטקסט עצמו במאגר',
+      action: isDeepLink
+          ? ActionButton.recommended(
+              text: 'פתיחת קישור',
+              onPressed: () => _tryHandleDeepLink(query),
+              icon: FluentIcons.link_24_regular,
+            )
+          : ActionButton.recommended(
+              text: 'פתח חיפוש טקסט',
+              onPressed: () => _openTextSearch(query),
+              icon: FluentIcons.search_24_regular,
+            ),
+    );
+  }
+
+  Widget _buildNotReadyState() {
+    final colorScheme = Theme.of(context).colorScheme;
+    return _buildCenteredState(
+      icon: FluentIcons.library_24_regular,
+      iconColor: colorScheme.onSurfaceVariant,
+      title: 'הספרייה עדיין נטענת',
+      message: 'האיתור יהיה זמין בעוד רגע',
+      action: ActionButton.recommended(
+        text: 'נסה שוב',
+        onPressed: _retrySearch,
+        icon: FluentIcons.arrow_clockwise_24_regular,
+      ),
+    );
+  }
+
+  Widget _buildErrorState(String message) {
+    return _buildCenteredState(
+      icon: FluentIcons.error_circle_24_regular,
+      iconColor: Theme.of(context).colorScheme.error,
+      title: 'האיתור נכשל',
+      message: message,
+    );
+  }
+
+  Widget _buildCenteredState({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String message,
+    Widget? action,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return CenteredScrollableState(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 52, color: iconColor),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.onSurface,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            style: TextStyle(fontSize: 14, color: colorScheme.onSurfaceVariant),
+            textAlign: TextAlign.center,
+          ),
+          if (action != null) ...[const SizedBox(height: 20), action],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooter(bool isShort) {
+    final colorScheme = Theme.of(context).colorScheme;
+    // הרמז נכנס רק כשיש לו רוחב אמיתי, ובחלון נמוך הוא מפנה מקום לתוצאות.
+    final showKeyboardHint =
+        !isShort && MediaQuery.sizeOf(context).width >= 560;
+    return ColoredBox(
+      color: AppSurfaces.card(context),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        padding: isShort
+            ? const EdgeInsetsDirectional.fromSTEB(16, 4, 12, 6)
+            : const EdgeInsetsDirectional.fromSTEB(24, 8, 12, 12),
+        child: Row(
           children: [
-            RtlIcon(
-              isDeepLink
-                  ? FluentIcons.link_24_regular
-                  : FluentIcons.document_search_24_regular,
-              size: 64,
-              color: colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              isDeepLink
-                  ? 'נראה שהכנסתם קישור ישיר'
-                  : 'לא הצלחנו לאתר את הספר "$query"',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: colorScheme.onSurface,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              isDeepLink
-                  ? 'לחצו על הכפתור לפתיחת הקישור'
-                  : 'נסו טקסט אחר לאיתור הספר המבוקש במאגר',
-              style: TextStyle(
-                fontSize: 14,
-                color: colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            if (isDeepLink) ...[
-              ActionButton.recommended(
-                text: 'פתיחת קישור',
-                onPressed: () => _tryHandleDeepLink(query),
-                icon: FluentIcons.link_24_regular,
-              ),
-            ] else ...[
-              Text(
-                'ניתן לאתר גם טקסט ספציפי במאגר',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: colorScheme.onSurfaceVariant,
+            if (showKeyboardHint)
+              Expanded(
+                child: Text(
+                  'Enter פותח את המקור המסומן, מקשי החצים מנווטים בין התוצאות',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              ActionButton.recommended(
-                text: 'פתח חיפוש טקסט',
-                onPressed: () => _openTextSearch(query),
-                icon: FluentIcons.search_24_regular,
-              ),
-            ],
+              )
+            else
+              const Spacer(),
+            _buildScrollToEndArrow(),
+            const SizedBox(width: 8),
+            ActionButton.neutral(
+              text: 'סגור',
+              onPressed: () => Navigator.of(context).pop(),
+            ),
           ],
         ),
       ),
@@ -701,298 +1384,68 @@ class _FindRefDialogState extends State<FindRefDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final focusRepository = context.read<FocusRepository>();
+    final media = MediaQuery.of(context);
+    final screenSize = media.size;
+    // insetPadding של Dialog מתווסף ל-viewInsets (המקלדת במובייל), ולכן
+    // הגובה הפנוי נמדד אחרי הורדתם — אחרת הדיאלוג נחתך כשהמקלדת עולה.
+    final maxWidth = screenSize.width - 24;
+    final maxHeight = screenSize.height - media.viewInsets.vertical - 24;
+    final dialogWidth = math.min(
+      maxWidth,
+      (screenSize.width * 0.6).clamp(540.0, 720.0),
+    );
+    final dialogHeight = math.min(
+      maxHeight,
+      (screenSize.height * 0.84).clamp(480.0, 700.0),
+    );
 
-    return AlertDialog(
-      title: const Text(
-        'איתור מקורות',
-        style: TextStyle(fontWeight: FontWeight.bold),
-        textAlign: TextAlign.center,
-      ),
-      content: SizedBox(
-        key: tourFindRefDialogTargetKey,
-        width: 500,
-        height: 600,
-        child: Column(
-          children: [
-            BlocBuilder<FindRefBloc, FindRefState>(
-              builder: (context, state) {
-                final refs = state is FindRefSuccess ? state.refs : [];
-                return Focus(
-                  onKeyEvent: (node, event) {
-                    // טיפול גם ב-KeyDownEvent וגם ב-KeyRepeatEvent (לחיצה רצופה)
-                    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
-                      return KeyEventResult.ignored;
-                    }
+    final isCompact = screenSize.width < 600;
+    final isShort = dialogHeight < 470;
+    // מסך לרוחב בטלפון עם מקלדת פתוחה משאיר פחות מ-300: שם התחתית נסגרת
+    // לטובת שדה ההקלדה (הסגירה זמינה ב-X שבכותרת ובלחיצה מחוץ לדיאלוג).
+    final isTiny = dialogHeight < 300;
+    final horizontalPadding = isCompact ? 12.0 : 16.0;
 
-                    // טיפול בחיצים רק אם יש תוצאות
-                    if (refs.isNotEmpty) {
-                      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                        setState(() {
-                          _selectedIndex = (_selectedIndex + 1).clamp(
-                            0,
-                            refs.length - 1,
-                          );
-                        });
-                        _scrollToSelected();
-                        return KeyEventResult.handled;
-                      } else if (event.logicalKey ==
-                          LogicalKeyboardKey.arrowUp) {
-                        setState(() {
-                          _selectedIndex = (_selectedIndex - 1).clamp(
-                            0,
-                            refs.length - 1,
-                          );
-                        });
-                        _scrollToSelected();
-                        return KeyEventResult.handled;
-                      }
-                    }
-                    return KeyEventResult.ignored;
-                  },
-                  child: RtlTextField(
-                    focusNode: focusRepository.findRefSearchFocusNode,
-                    autofocus: true,
-                    decoration: InputDecoration(
-                      hintText:
-                          'הקלד מקור מדוייק, לדוגמה: בראשית פרק א או שוע אוח יב   ',
-                      suffixIcon: IconButton(
-                        icon: const Icon(FluentIcons.dismiss_24_regular),
-                        onPressed: () {
-                          focusRepository.findRefSearchController.clear();
-                          // קודם מבטלים חיפוש שעדיין רץ (restartable יקטוף
-                          // את ה-handler הקודם), ורק אחר-כך מחזירים את
-                          // ה-state ל-Initial.
-                          BlocProvider.of<FindRefBloc>(
-                            context,
-                          ).add(const SearchRefRequested(''));
-                          BlocProvider.of<FindRefBloc>(
-                            context,
-                          ).add(ClearSearchRequested());
-                          setState(() {
-                            _selectedIndex = 0;
-                          });
-                        },
-                      ),
-                    ),
-                    controller: focusRepository.findRefSearchController,
-                    onChanged: (ref) {
-                      setState(() => _selectedIndex = 0);
-                      // ההקלדה נשלחת מיידית — ה-debounce עצמו מבוצע בתוך
-                      // ה-handler ב-bloc, כך שכל הקלדה חדשה גם מבטלת מיידית
-                      // כל handler שכבר רץ (גם אם הוא באמצע fetch).
-                      BlocProvider.of<FindRefBloc>(context).add(
-                        SearchRefRequested(
-                          ref,
-                          includePersonalBooks: _includePersonalBooks,
-                        ),
-                      );
-                    },
-                    onSubmitted: (value) {
-                      // ניסיון לטפל בקישור ישיר — אם זה קישור, ייפתח ישירות
-                      if (_isDeepLinkText(value)) {
-                        _tryHandleDeepLink(value);
-                        return;
-                      }
-                      // פתיחת המקור הנבחר בלחיצה על אנטר
-                      if (refs.isNotEmpty) {
-                        _openRef(refs[_selectedIndex]);
-                      }
-                    },
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Text(
-                  'כלול ספרים אישיים',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Transform.scale(
-                  scale: 0.75,
-                  alignment: Alignment.centerRight,
-                  child: Switch(
-                    value: _includePersonalBooks,
-                    onChanged: (v) {
-                      setState(() => _includePersonalBooks = v);
-                      Settings.setValue<bool>(
-                        FindRefDialog._keyIncludePersonalBooks,
-                        v,
-                      );
-                      final text = focusRepository.findRefSearchController.text;
-                      if (text.length >= 2) {
-                        context.read<FindRefBloc>().add(
-                          SearchRefRequested(
-                            text,
-                            includePersonalBooks: v,
-                          ),
-                        );
-                      }
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: BlocConsumer<FindRefBloc, FindRefState>(
-                // ברגע שעוזבים מצב של "Success עם תוצאות" — אין ListView,
-                // אין ל-controller clients, ושום notification לא יישלח. בלי
-                // איפוס יזום, _hasMoreBelow היה נשאר true מהחיפוש הקודם
-                // וה-arrow היה מופיע באמצע spinner / "אין תוצאות" / Initial.
-                listener: (context, state) {
-                  final hasListView =
-                      state is FindRefSuccess && state.refs.isNotEmpty;
-                  if (!hasListView && _hasMoreBelow.value) {
-                    _hasMoreBelow.value = false;
-                  }
-                },
-                builder: (context, state) {
-                  if (state is FindRefLoading) {
-                    return const _DelayedLoader();
-                  } else if (state is FindRefError) {
-                    return Text('Error: ${state.message}');
-                  } else if (state is FindRefSuccess && state.refs.isEmpty) {
-                    final query = focusRepository.findRefSearchController.text;
-                    if (query.length >= 3) {
-                      return _buildEmptyState(context, query);
-                    } else {
-                      return const SizedBox.shrink();
-                    }
-                  } else if (state is FindRefSuccess) {
-                    return NotificationListener<ScrollMetricsNotification>(
-                      // נכנס לפעולה כאשר ה-ListView מתחבר לראשונה, וגם בכל
-                      // שינוי של maxScrollExtent (סט תוצאות חדש שמשנה את
-                      // גובה התוכן). מעדכן את _hasMoreBelow אחרי הסיום של
-                      // ה-frame הנוכחי כדי שלא נשנה ValueNotifier בזמן build.
-                      onNotification: (_) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted) _updateHasMoreBelow();
-                        });
-                        return false;
-                      },
-                      child: ListView.builder(
-                        controller: _resultsScrollController,
-                        itemCount: state.refs.length,
-                        itemBuilder: (context, index) {
-                          final ref = state.refs[index];
-                          final isSelected = index == _selectedIndex;
-                          final eligible =
-                              !ref.isPdf && ref.bookId > 0 && !ref.isUserBook;
-                          // טעינה lazy בעת רינדור — ListView.builder יפעיל את
-                          // ה-itemBuilder רק עבור שורות נראות. ה-cache ב-repository
-                          // ימנע קריאות חוזרות.
-                          if (eligible) _ensureCommentatorsLoaded(ref);
-                          final cached =
-                              _commentatorsByRef[_commentatorsKey(ref)];
-                          final showButton =
-                              eligible && cached != null && cached.isNotEmpty;
-                          final menuButtonKey = _getCommentatorsButtonKey(
-                            index,
-                          );
-                          return Container(
-                            key: _getKeyForIndex(index),
-                            margin: const EdgeInsets.symmetric(
-                              horizontal: 8.0,
-                              vertical: 4.0,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? Theme.of(
-                                      context,
-                                    ).colorScheme.primaryContainer
-                                  : null,
-                              borderRadius: AppTokens.borderRadiusAll,
-                            ),
-                            child: ListTile(
-                              hoverColor: showButton
-                                  ? Colors.transparent
-                                  : null,
-                              leading: ref.isPdf
-                                  ? const Icon(
-                                      OtzariaIcons.book_pdf_24_regular,
-                                    )
-                                  : null,
-                              title: Text(
-                                ref.reference,
-                                style: TextStyle(
-                                  fontWeight: isSelected
-                                      ? FontWeight.w600
-                                      : FontWeight.normal,
-                                ),
-                              ),
-                              subtitle: ref.bookPath.isEmpty
-                                  ? null
-                                  : LibraryOverflowTooltipText(
-                                      text: ref.bookPath,
-                                      maxLines: 1,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            color: Theme.of(
-                                              context,
-                                            ).colorScheme.onSurfaceVariant,
-                                          ),
-                                    ),
-                              trailing: showButton
-                                  ? IconButton(
-                                      key: menuButtonKey,
-                                      icon: const Icon(
-                                        FluentIcons.library_24_regular,
-                                      ),
-                                      tooltip: 'הצג מפרשים זמינים',
-                                      onPressed: () => _showCommentatorsMenu(
-                                        menuButtonKey,
-                                        cached,
-                                      ),
-                                    )
-                                  : null,
-                              onTap: () {
-                                _openRef(ref);
-                              },
-                            ),
-                          );
-                        },
-                      ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-      // החץ "גלול לסוף הרשימה" יושב באותה שורה כמו "סגור" (actions), אך עם
-      // padding עליון 0 ותחתון מצומצם — צמוד לתחתית התוכן.
-      // Stack על מלוא הרוחב: ה-Align מצמיד את "סגור" לקצה (visual left ב-RTL),
-      // וה-IconButton ממוקם במרכז ע"י alignment של ה-Stack עצמו.
-      actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      actions: [
-        SizedBox(
-          width: double.infinity,
-          child: Stack(
-            alignment: Alignment.center,
+    return Dialog(
+      insetPadding: const EdgeInsets.all(12),
+      backgroundColor: AppSurfaces.solidPanelBackground(context),
+      clipBehavior: Clip.antiAlias,
+      // הפאנל בגובה קבוע, ולכן הגדלת גופן מעבר לכך הייתה דוחקת את הכותרת
+      // והתחתית זו על זו. הכיתוב עדיין גדל, עד גבול שהפריסה נושאת.
+      child: MediaQuery.withClampedTextScaling(
+        maxScaleFactor: 1.6,
+        child: SizedBox(
+          key: tourFindRefDialogTargetKey,
+          width: dialogWidth,
+          height: dialogHeight,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Align(
-                alignment: AlignmentDirectional.centerEnd,
-                child: TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('סגור'),
+              _buildHeader(isShort),
+              const Divider(height: 1),
+              // חסם הגובה מבטיח שגם בגופן מוגדל אזור ההקלדה יגלול בתוך
+              // עצמו במקום לדחוק את רשימת התוצאות אל מחוץ לדיאלוג.
+              ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: dialogHeight * 0.5),
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPadding,
+                    isShort ? 10 : 16,
+                    horizontalPadding,
+                    isShort ? 8 : 12,
+                  ),
+                  child: BlocBuilder<FindRefBloc, FindRefState>(
+                    builder: (context, state) =>
+                        _buildQueryCard(state, isShort),
+                  ),
                 ),
               ),
-              _buildScrollToEndArrow(),
+              Expanded(child: _buildResultsArea(horizontalPadding)),
+              if (!isTiny) ...[const Divider(height: 1), _buildFooter(isShort)],
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 }

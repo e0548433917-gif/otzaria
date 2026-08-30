@@ -299,6 +299,20 @@ class NotificationService {
     // Handle notification tapped logic here
   }
 
+  /// מועד ההצגה בפועל: זמן התזכורת, ואם חלון התזכורת כבר התחיל — זמן האירוע
+  /// עצמו (דילוג שקט נתפס אצל משתמשים כ"התראות לא עובדות"). null = אין מה לתזמן.
+  @visibleForTesting
+  static DateTime? resolveScheduleTime({
+    required DateTime eventDate,
+    required int reminderMinutes,
+    required DateTime now,
+  }) {
+    final scheduleTime = eventDate.subtract(Duration(minutes: reminderMinutes));
+    if (!scheduleTime.isBefore(now)) return scheduleTime;
+    if (eventDate.isAfter(now)) return eventDate;
+    return null;
+  }
+
   Future<void> scheduleNotification({
     required int id,
     required String title,
@@ -323,10 +337,12 @@ class NotificationService {
       return;
     }
 
-    final scheduleTime = eventDate.subtract(Duration(minutes: reminderMinutes));
-
-    // Ensure the notification is scheduled for the future
-    if (scheduleTime.isBefore(DateTime.now())) {
+    final scheduleTime = resolveScheduleTime(
+      eventDate: eventDate,
+      reminderMinutes: reminderMinutes,
+      now: DateTime.now(),
+    );
+    if (scheduleTime == null) {
       return;
     }
 
@@ -401,16 +417,15 @@ class NotificationService {
     }
   }
 
-  /// Test function to verify notifications are working
-  /// This sends a test notification to verify system notifications work
-  Future<void> sendTestNotification() async {
+  /// שולח התראת בדיקה למערכת ההפעלה. מחזיר האם השליחה הצליחה.
+  Future<bool> sendTestNotification() async {
     if (!_isInitialized || !_permissionsGranted) {
       if (kDebugMode) {
         debugPrint(
           'Cannot send test notification: not initialized or no permissions',
         );
       }
-      return;
+      return false;
     }
 
     const androidDetails = AndroidNotificationDetails(
@@ -451,10 +466,12 @@ class NotificationService {
       if (kDebugMode) {
         debugPrint('Test notification sent successfully');
       }
+      return true;
     } catch (e) {
       if (kDebugMode) {
         debugPrint('Failed to send test notification: $e');
       }
+      return false;
     }
   }
 

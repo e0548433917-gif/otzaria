@@ -56,6 +56,10 @@ abstract class ToolsMessages {
   static const String notificationsPermissionRequired =
       'לא ניתן להפעיל התראות - נדרשות הרשאות.\n'
       'עבור להגדרות המכשיר > אפליקציות > אוצריא > הרשאות';
+  static const String testNotificationSent =
+      'התראת בדיקה נשלחה. אם היא לא הופיעה על המסך — בדוק שההתראות עבור אוצריא מאופשרות בהגדרות מערכת ההפעלה.';
+  static const String testNotificationFailed =
+      'שליחת התראת הבדיקה נכשלה. בדוק שההתראות עבור אוצריא מאופשרות בהגדרות מערכת ההפעלה.';
   static const String eventTitleRequired = 'יש למלא כותרת לאירוע.';
   static const String eventRecurringYearsInvalid =
       'יש להזין מספר שנים חיובי עבור אירוע חוזר.';

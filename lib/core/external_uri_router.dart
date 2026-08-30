@@ -1,10 +1,12 @@
 import 'dart:convert' show utf8;
 import 'dart:typed_data' show BytesBuilder;
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:otzaria/utils/file/text_encoding.dart'
     show decodeTextBytesSmart;
 import 'package:path/path.dart' as p;
+import 'package:otzaria/core/info/info_topic.dart';
 import 'package:otzaria/navigation/bloc/navigation_state.dart';
 import 'package:otzaria/plugins/models/plugin_store_install_request.dart';
 import 'package:otzaria/plugins/services/plugin_store_link_parser.dart';
@@ -163,6 +165,19 @@ class ReindexLibraryAction extends ExternalUriAction {
   const ReindexLibraryAction();
 }
 
+/// שאילתת מידע — אוספת דוח JSON על התוכנה/הספרייה/התוספים/השגיאות ומציגה
+/// אותו בפופאפ. בשונה מכל שאר הפעולות אינה מנווטת לשום מקום.
+///
+/// [errorLimit] — מספר רשומות השגיאה האחרונות שייכללו בדוח.
+class ShowInfoAction extends ExternalUriAction {
+  final InfoTopic topic;
+  final int errorLimit;
+  const ShowInfoAction(
+    this.topic, {
+    this.errorLimit = ExternalUriRouter.defaultInfoErrorLimit,
+  });
+}
+
 /// מפענח קישורי `otzaria://...` לפעולה דומיין.
 ///
 /// סכמות וכתובות נתמכות:
@@ -214,9 +229,21 @@ class ReindexLibraryAction extends ExternalUriAction {
 ///   להסתיים ב-`.otzplugin`, ואינו נתיב UNC/התקן (ראה `_isSafeLocalPluginPath`).
 /// * `otzaria://library/reindex`            – רענון הספרייה מהדיסק ועדכון האינדקס
 ///   (מיועד לתוכנה חיצונית שמעדכנת את קבצי הספרייה)
+/// * `otzaria://info`                       – דוח JSON מלא (תוכנה + ספרייה + תוספים + שגיאות)
+/// * `otzaria://info/app`                   – מידע על התוכנה (גרסה, תאריכי התקנה/עדכון, סוג התקנה)
+/// * `otzaria://info/library`               – מידע על הספרייה (גרסה, תאריך עדכון, מספרי ספרים)
+/// * `otzaria://info/plugins`               – מידע על התוספים (גרסת WebView, מזהים וגרסאות)
+/// * `otzaria://info/errors`                – השגיאות האחרונות מקובצי הלוג
+///   - `?limit=<n>` מספר הרשומות (1..[ExternalUriRouter.maxInfoErrorLimit])
 ///
 /// הסכמה, ה-host והתת-נתיב הראשון אינם רגישים לאותיות גדולות/קטנות.
 class ExternalUriRouter {
+  /// מספר רשומות השגיאה שנכללות ב-`info` כשלא צוין `limit=`.
+  static const int defaultInfoErrorLimit = 5;
+
+  /// תקרה ל-`limit=` — דוח ארוך מזה אינו קריא בפופאפ ומכביד על קריאת הלוג.
+  static const int maxInfoErrorLimit = 50;
+
   static const Map<String, String> _toolAliases = {
     'calendar': 'builtin.calendar',
     'gematria': 'builtin.gematria',
@@ -307,6 +334,9 @@ class ExternalUriRouter {
       }
       return null;
     }
+    if (host == 'info') {
+      return _parseInfo(uri);
+    }
     if (host == 'plugin') {
       final localPath = _parseLocalInstall(uri);
       if (localPath != null) {
@@ -357,6 +387,26 @@ class ExternalUriRouter {
       bytes.add(utf8.encode(char == '+' ? ' ' : char));
     }
     return decodeTextBytesSmart(bytes.takeBytes());
+  }
+
+  /// `otzaria://info[/<topic>][?limit=<n>]`. נתיב ריק שווה ל-`all`.
+  static ExternalUriAction? _parseInfo(Uri uri) {
+    final segments = uri.pathSegments
+        .where((segment) => segment.isNotEmpty)
+        .toList();
+    if (segments.length > 1) return null;
+
+    final topic = segments.isEmpty
+        ? InfoTopic.all
+        : InfoTopic.fromSlug(segments.first);
+    if (topic == null) return null;
+
+    final rawLimit = int.tryParse(uri.queryParameters['limit']?.trim() ?? '');
+    final errorLimit = (rawLimit == null || rawLimit <= 0)
+        ? defaultInfoErrorLimit
+        : math.min(rawLimit, maxInfoErrorLimit);
+
+    return ShowInfoAction(topic, errorLimit: errorLimit);
   }
 
   static String? _parseLocalInstall(Uri uri) {

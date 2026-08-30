@@ -30,6 +30,7 @@ import 'package:otzaria/tabs/resolving_tab_screen.dart';
 import 'package:otzaria/tools/view/tool_tab_screen.dart';
 import 'package:otzaria/tabs/utils/tab_swipe_direction.dart';
 import 'package:otzaria/tabs/view/active_pane_marker.dart';
+import 'package:otzaria/tabs/view/pane_drag_handle.dart';
 import 'package:otzaria/tabs/view/pane_drop_geometry.dart';
 import 'package:otzaria/tabs/view/pane_drop_target.dart';
 import 'package:otzaria/tabs/view/split_pane_view.dart';
@@ -498,21 +499,28 @@ class _ReadingScreenState extends State<ReadingScreen>
           context.read<TabsBloc>().add(UpdateSplitRatio(ratio));
         },
         paneBuilder: (pane) {
-          final content = ActivePaneMarker(
+          // ה-scope קיים תמיד ורק enabled מתחלף — שינוי צורת העץ בפיצול
+          // ובפירוק היה בונה מחדש את הספר.
+          final content = PaneDragHandleScope(
             pane: pane,
             enabled: isSplit,
-            // bloc הערות פר-חלונית: bloc משותף בין טאבים הציג בחלונית ההערות
-            // את הערות הספר שנטען אחרון בטאב אחר (issue #870).
-            child: BlocProvider<PersonalNotesBloc>(
-              create: (_) => PersonalNotesBloc(),
-              child: _buildPaneContent(
-                pane,
-                isInCombinedView: isSplit,
-                enableTourTargets: enableTourTargets && !isSplit,
-                // חימום מטמון התוכן טוען את הספר כולו; בטאב מפוצל שתי החלוניות
-                // היו מחממות ספרים גדולים במקביל ומכפילות את צריכת הזיכרון.
-                allowBackgroundWarming: !isSplit,
-                pdfPaneCount: pdfPanes,
+            child: ActivePaneMarker(
+              pane: pane,
+              enabled: isSplit,
+              // bloc הערות פר-חלונית: bloc משותף בין טאבים הציג בחלונית ההערות
+              // את הערות הספר שנטען אחרון בטאב אחר (issue #870).
+              child: BlocProvider<PersonalNotesBloc>(
+                create: (_) => PersonalNotesBloc(),
+                child: _buildPaneContent(
+                  pane,
+                  isInCombinedView: isSplit,
+                  enableTourTargets: enableTourTargets && !isSplit,
+                  // חימום מטמון התוכן טוען את הספר כולו; בטאב מפוצל שתי
+                  // החלוניות היו מחממות ספרים גדולים במקביל ומכפילות את
+                  // צריכת הזיכרון.
+                  allowBackgroundWarming: !isSplit,
+                  pdfPaneCount: pdfPanes,
+                ),
               ),
             ),
           );

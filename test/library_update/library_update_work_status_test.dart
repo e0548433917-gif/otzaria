@@ -85,6 +85,33 @@ void main() {
       );
     });
 
+    test('כשל בבדיקת עדכונים נסגר מעצמו — הכפתור נשאר כעוגן לניסיון חוזר', () {
+      final result = item(
+        const LibraryUpdateState(
+          status: LibraryUpdateStatus.error,
+          message: 'שגיאה בבדיקת עדכונים',
+          isCheckFailure: true,
+        ),
+      )!;
+
+      expect(result.autoDismissAfter, kCheckFailureAutoDismiss);
+      expect(result.onTap, isNotNull);
+    });
+
+    test(
+      'כשל בהורדה/החלה נשאר עד סגירה ידנית — שם החיווי הוא הניסיון החוזר',
+      () {
+        final result = item(
+          const LibraryUpdateState(
+            status: LibraryUpdateStatus.error,
+            message: 'שגיאה בהורדה המלאה',
+          ),
+        )!;
+
+        expect(result.autoDismissAfter, isNull);
+      },
+    );
+
     test('הלחיצה על הכשל מפעילה את הניסיון החוזר שהוזרק', () {
       var retries = 0;
       final result = item(

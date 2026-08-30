@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
@@ -403,6 +404,78 @@ Future<void> main() async {
       expect(find.text('alpha'), findsOneWidget);
       expect(find.text('beta'), findsNothing);
       expect(find.text('alef'), findsNothing);
+    },
+    skip: !engineReady,
+  );
+
+  testWidgets(
+    'דפדוף בחיצים בין תוצאות איתור כותרת בלי לעזוב את שדה החיפוש',
+    (tester) async {
+      final toc = [
+        TocEntry(text: 'ספר', index: 0, level: 1)
+          ..children.addAll([
+            TocEntry(text: 'alpha', index: 1, level: 2),
+            TocEntry(text: 'alef', index: 2, level: 2),
+            TocEntry(text: 'beta', index: 3, level: 2),
+          ]),
+      ];
+
+      final bloc = _TestTextBookBloc(
+        _loadedState(toc: toc, visibleIndices: const [0]),
+      );
+      addTearDown(bloc.close);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          TocViewer(
+            scrollController: ItemScrollController(),
+            closeLeftPaneCallback: () {},
+            focusNode: focusNode,
+          ),
+          bloc,
+        ),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextField), 'al');
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('beta'), findsNothing);
+
+      List<String> selectedTitles() => tester
+          .widgetList<NavTreeTile>(find.byType(NavTreeTile))
+          .where((t) => t.isSelected)
+          .map((t) => t.title)
+          .toList();
+
+      // דפדוף: חץ למטה מסמן את התוצאה הראשונה, ועוד אחד את הבאה.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      final first = selectedTitles();
+      expect(first, hasLength(1));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      final second = selectedTitles();
+      expect(second, hasLength(1));
+      expect(second, isNot(equals(first)));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pump();
+      expect(selectedTitles(), equals(first));
+
+      // הפוקוס נשאר בשדה — אפשר לעדכן את השאילתה תוך כדי דפדוף.
+      expect(
+        tester.binding.focusManager.primaryFocus?.context
+            ?.findAncestorWidgetOfExactType<TextField>(),
+        isNotNull,
+      );
+      await tester.enterText(find.byType(TextField), 'alp');
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // שינוי שאילתה מאפס את סימון הדפדוף — חוזרת הדגשת מיקום הקריאה.
+      expect(selectedTitles(), equals(['ספר']));
     },
     skip: !engineReady,
   );

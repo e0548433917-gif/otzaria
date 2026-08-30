@@ -21,6 +21,12 @@ class NavPanelSearchDelegate {
   final VoidCallback? onClear;
   final List<Widget> trailingActions;
 
+  /// דפדוף בתוצאות בחיצים בלי לעזוב את שדה הטקסט (כמו ב"איתור"): הלשונית
+  /// מזיזה סימון משלה, והפוקוס — והיכולת להמשיך להקליד — נשארים בשדה.
+  /// כשהם null, חץ למטה/למעלה מעביר את הפוקוס אל שורות החלונית.
+  final VoidCallback? onArrowDown;
+  final VoidCallback? onArrowUp;
+
   const NavPanelSearchDelegate({
     required this.controller,
     required this.hintText,
@@ -29,7 +35,27 @@ class NavPanelSearchDelegate {
     this.onSubmitted,
     this.onClear,
     this.trailingActions = const [],
+    this.onArrowDown,
+    this.onArrowUp,
   });
+
+  /// מטפל בחיצי מעלה/מטה עבור שדה חיפוש שמחובר לפעולה זו. מוחזר
+  /// [KeyEventResult.ignored] כשאין callback מתאים — ואז חל המנגנון הרגיל.
+  KeyEventResult handleArrowKey(KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.arrowDown && onArrowDown != null) {
+      onArrowDown!();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowUp && onArrowUp != null) {
+      onArrowUp!();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
 
   /// האם שתי הפעולות מכוונות לאותו שדה (אותו controller/focus/תווית). ה-callbacks
   /// נבנים מחדש בכל build אך קוראים את ה-state העדכני בזמן ההפעלה, ולכן שינוי
@@ -260,16 +286,20 @@ class NavPanelLocalSearchField extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(8.0),
-      child: OtzariaSearchField(
-        controller: delegate.controller,
-        focusNode: delegate.focusNode,
-        hintText: delegate.hintText,
-        onChanged: delegate.onChanged,
-        onSubmitted: delegate.onSubmitted,
-        onClear: delegate.onClear,
-        trailingActions: delegate.trailingActions.isEmpty
-            ? null
-            : delegate.trailingActions,
+      child: Focus(
+        canRequestFocus: false,
+        onKeyEvent: (node, event) => delegate.handleArrowKey(event),
+        child: OtzariaSearchField(
+          controller: delegate.controller,
+          focusNode: delegate.focusNode,
+          hintText: delegate.hintText,
+          onChanged: delegate.onChanged,
+          onSubmitted: delegate.onSubmitted,
+          onClear: delegate.onClear,
+          trailingActions: delegate.trailingActions.isEmpty
+              ? null
+              : delegate.trailingActions,
+        ),
       ),
     );
   }
@@ -324,6 +354,11 @@ class _NavPanelSearchBarState extends State<NavPanelSearchBar> {
   KeyEventResult _handleFieldKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
+    }
+    final delegate = widget.host.active;
+    if (delegate != null &&
+        delegate.handleArrowKey(event) == KeyEventResult.handled) {
+      return KeyEventResult.handled;
     }
     final key = event.logicalKey;
     if (key != LogicalKeyboardKey.arrowDown &&

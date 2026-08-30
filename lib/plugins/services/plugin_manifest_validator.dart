@@ -122,6 +122,11 @@ class PluginManifestValidator {
         final hint = apiCallToPermissionHint[perm];
         if (hint != null) {
           errors.add('הרשאה לא חוקית: "$perm". האם התכוונת ל-"$hint"?');
+        } else if (apiCallsWithoutPermission.contains(perm)) {
+          errors.add(
+            '"$perm" היא קריאת API ולא שם של הרשאה, והיא אינה דורשת הרשאה '
+            'במניפסט. הסירו אותה מ-permissions — הקריאה עצמה תמשיך לעבוד',
+          );
         } else {
           errors.add('הרשאה לא חוקית שנדרשת על ידי התוסף: $perm');
         }
@@ -172,8 +177,9 @@ class PluginManifestValidator {
     if (iconName != null &&
         !PluginManifest.toolTabIconNamePattern.hasMatch(iconName)) {
       errors.add(
-        'toolTab.iconName חייב להיות שם אייקון FluentUI 24px תקין '
-        '(למשל "book_24_regular" או "calendar_24_filled")',
+        'toolTab.iconName חייב להיות שם אייקון FluentUI או אוצריא בגודל 24px '
+        '(למשל "book_24_regular", "calendar_24_filled" או '
+        '"fluent:book_24_regular")',
       );
     }
 

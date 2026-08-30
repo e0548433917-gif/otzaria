@@ -1,8 +1,81 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:otzaria/library/models/library.dart';
 import 'package:otzaria/models/books.dart';
 import 'package:otzaria/utils/text/html_link_handler.dart';
 
+Library _libraryWith(List<Book> books) => Library(
+  categories: [
+    Category(
+      title: 'קטגוריה',
+      description: '',
+      shortDescription: '',
+      order: 1,
+      subCategories: [],
+      books: books,
+      parent: null,
+    ),
+  ],
+);
+
 void main() {
+  group('יעד של קישור book://', () {
+    test('ספר טקסט רגיל נמצא', () {
+      final library = _libraryWith([
+        TextBook(title: 'ברכות', filePath: 'C:/ספרים/ברכות.txt'),
+      ]);
+      expect(
+        HtmlLinkHandler.resolveBookLinkTarget(library, 'ברכות')?.title,
+        'ברכות',
+      );
+    });
+
+    // ‏`findBookByTitle` משווה `runtimeType` ולא `is`, ולכן בלי העטיפה
+    // ב-`toTextBook()` כל קישור `book://` אל ספר-מסמך היה מת — וב-HTML זו
+    // הדרך המתועדת לקשר בין ספרים.
+    for (final entry in const {
+      'html': 'ספר.html',
+      'htm': 'ספר.htm',
+      'docx': 'ספר.docx',
+      'epub': 'ספר.epub',
+      'odt': 'ספר.odt',
+    }.entries) {
+      test('ספר-מסמך מסוג ${entry.key} נפתר לספר טקסט', () {
+        final book = buildBookForFileType(
+          fileType: entry.key,
+          title: 'ספר',
+          path: 'C:/ספרים/${entry.value}',
+          filePath: 'C:/ספרים/${entry.value}',
+          categoryId: 7,
+        );
+        expect(book, isA<ConvertibleDocumentBook>(), reason: entry.key);
+
+        final resolved = HtmlLinkHandler.resolveBookLinkTarget(
+          _libraryWith([book]),
+          'ספר',
+        );
+        expect(resolved, isNotNull, reason: entry.key);
+        // שדות הזהות נשמרים — בלעדיהם `getBookText` אינו מאתר את הספר.
+        expect(resolved!.fileType, entry.key);
+        expect(resolved.filePath, 'C:/ספרים/${entry.value}');
+        expect(resolved.categoryId, 7);
+      });
+    }
+
+    test('ספר PDF אינו יעד לקישור טקסט', () {
+      final library = _libraryWith([
+        PdfBook(title: 'ספר', path: 'C:/ספרים/ספר.pdf'),
+      ]);
+      expect(HtmlLinkHandler.resolveBookLinkTarget(library, 'ספר'), isNull);
+    });
+
+    test('ספר שאינו קיים מחזיר null', () {
+      expect(
+        HtmlLinkHandler.resolveBookLinkTarget(_libraryWith([]), 'אין'),
+        isNull,
+      );
+    });
+  });
+
   group('HtmlLinkHandler Markdown anchors', () {
     test('משווה slug של Markdown לכותרת עם פיסוק ורווחים', () {
       expect(

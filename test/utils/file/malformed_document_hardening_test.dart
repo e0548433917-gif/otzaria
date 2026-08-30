@@ -7,6 +7,7 @@ import 'package:otzaria/utils/file/cfb_reader.dart';
 import 'package:otzaria/utils/file/document_conversion_exceptions.dart';
 import 'package:otzaria/utils/file/document_format.dart';
 import 'package:otzaria/utils/file/docx_to_otzaria.dart';
+import 'package:otzaria/utils/file/html_to_otzaria.dart';
 import 'package:otzaria/utils/file/legacy_word_to_otzaria.dart';
 import 'package:otzaria/utils/file/odt_to_otzaria.dart';
 import 'package:otzaria/utils/file/rtf_to_otzaria.dart';
@@ -457,6 +458,81 @@ void main() {
           '${'</text:span>' * depth}</text:p>';
 
       expect(odtToText(odt(contentWith('', body)), 'T'), contains('עמוק'));
+    });
+  });
+
+  // HTML הוא הפורמט היחיד שאוצריא קולטת ושהמשתמש מוריד מהאינטרנט כדבר
+  // שבשגרה, ולכן קלט **עוין** הוא מקרה הקצה הצפוי שלו ולא החריג.
+  group('HTML — קלט עוין', () {
+    Uint8List html(String body) =>
+        Uint8List.fromList(utf8.encode('<html><body>$body</body></html>'));
+
+    test('מכולה בינארית בסיומת HTML נכשלת ואינה נקראת כטקסט', () {
+      // ‏ZIP שפוענח כ-Windows-1255 מייצר ג'יבריש עברי שנראה כספר תקין.
+      expect(
+        () => htmlToText(
+          Uint8List.fromList([0x50, 0x4B, 0x03, 0x04, 0xE0, 0xE1, 0xE2]),
+          'T',
+        ),
+        throwsA(isA<UnsupportedDocumentFormatException>()),
+      );
+    });
+
+    test('סקריפט ומטפלי אירועים אינם מגיעים לגוף הספר', () {
+      final text = htmlToText(
+        html(
+          '<script>fetch("https://evil.example")</script>'
+          '<p onclick="steal()" onerror="x()">טקסט</p>',
+        ),
+        'T',
+      );
+      expect(text, contains('טקסט'));
+      expect(text, isNot(contains('evil.example')));
+      expect(text, isNot(contains('onclick')));
+      expect(text, isNot(contains('onerror')));
+    });
+
+    test('ערך style אינו יכול לסגור את המאפיין ולהוסיף תגיות', () {
+      final text = htmlToText(
+        html(
+          '<p><span style=\'color: red;"&gt;&lt;img src=x '
+          'onerror=alert(1)&gt;&lt;span style="a\'>טקסט</span></p>',
+        ),
+        'T',
+      );
+      expect(text, contains('טקסט'));
+      expect(text, isNot(contains('<img')));
+      expect(text, isNot(contains('onerror')));
+    });
+
+    test('כתובת קישור אינה יכולה להוסיף מאפיינים לתגית העוגן', () {
+      final text = htmlToText(
+        html(
+          '<p><a href=\'https://a.example/x" onmouseover="bad\'>link</a>'
+          '</p>',
+        ),
+        'T',
+      );
+      expect(text, contains('link'));
+      expect(text, isNot(contains('onmouseover="bad"')));
+    });
+
+    test('קינון עמוק אינו מקריס את המחסנית', () {
+      const depth = 3000;
+      expect(
+        () => htmlToText(
+          html('<p>${'<span>' * depth}עמוק${'</span>' * depth}</p>'),
+          'T',
+        ),
+        returnsNormally,
+      );
+    });
+
+    test('מסמך מעל תקרת הגודל נכשל לפני הפרסינג', () {
+      expect(
+        () => htmlToText(Uint8List(HtmlLimits.maxSourceBytes + 1), 'T'),
+        throwsA(isA<CorruptedDocumentException>()),
+      );
     });
   });
 

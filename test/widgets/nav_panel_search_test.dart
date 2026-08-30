@@ -15,11 +15,15 @@ class _Host extends StatefulWidget {
   final bool isOpen;
   final bool showPin;
   final bool isPinned;
+  final VoidCallback? onArrowDown;
+  final VoidCallback? onArrowUp;
 
   const _Host({
     this.isOpen = true,
     this.showPin = false,
     this.isPinned = false,
+    this.onArrowDown,
+    this.onArrowUp,
   });
 
   @override
@@ -97,6 +101,8 @@ class _HostState extends State<_Host> with SingleTickerProviderStateMixin {
                             controller: navController,
                             focusNode: navFocus,
                             hintText: 'איתור כותרת...',
+                            onArrowDown: widget.onArrowDown,
+                            onArrowUp: widget.onArrowUp,
                           ),
                           child: NavTreeFocusGroup(
                             child: ListView(
@@ -429,6 +435,33 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
     await tester.pumpAndSettle();
     expect(focusedRowTitle(), 'שורה 1');
+  });
+
+  testWidgets('פעולה עם onArrowDown/Up — דפדוף בתוצאות בלי לעזוב את השדה', (
+    tester,
+  ) async {
+    var downs = 0;
+    var ups = 0;
+    await tester.pumpWidget(
+      wrap(_Host(onArrowDown: () => downs++, onArrowUp: () => ups++)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(OtzariaSearchField));
+    await tester.pumpAndSettle();
+    final beforeFocus = tester.binding.focusManager.primaryFocus;
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+
+    expect(downs, 2);
+    expect(ups, 1);
+    // הפוקוס נשאר בשדה — אפשר להמשיך להקליד ולעדכן את השאילתה תוך כדי דפדוף.
+    expect(tester.binding.focusManager.primaryFocus, beforeFocus);
+    await tester.enterText(find.byType(OtzariaSearchField), 'אבג');
+    expect(find.text('אבג'), findsOneWidget);
   });
 
   testWidgets('חץ ימין/שמאל נשארים בטקסט של שדה החיפוש', (tester) async {

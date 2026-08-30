@@ -11,6 +11,7 @@ import 'package:otzaria/plugins/services/context_menu_registry.dart';
 import 'package:otzaria/plugins/services/plugin_external_search_service.dart';
 import 'package:otzaria/plugins/services/plugin_in_book_search_service.dart';
 import 'package:otzaria/plugins/services/plugin_lazy_activation_service.dart';
+import 'package:otzaria/plugins/services/plugin_shortcut_registry.dart';
 import 'package:otzaria/plugins/services/plugin_toolbar_registry.dart';
 import 'package:otzaria/plugins/declarative/models/declarative_program.dart';
 import 'package:otzaria/plugins/declarative/services/declarative_plugin_host_service.dart';
@@ -77,6 +78,7 @@ void main() {
   tearDown(() {
     PluginToolbarRegistry.instance.removeAll('p1');
     ContextMenuRegistry.instance.removeAll('p1');
+    PluginShortcutRegistry.instance.removeAll('p1');
     PluginLazyActivationService.instance.removePlugin('p1');
     PluginExternalSearchService.instance.removePlugin('p1');
     PluginInBookSearchService.instance.removePlugin('p1');
@@ -110,6 +112,19 @@ void main() {
     await revoke('reader.context_menu');
 
     expect(ContextMenuRegistry.instance.getAll(), isEmpty);
+  });
+
+  test('revoking app.shortcuts removes runtime plugin shortcuts', () async {
+    PluginShortcutRegistry.instance.registerPayload('p1', {
+      'id': 'runtime-command',
+      'label': 'פעולה',
+      'key': 'ctrl+alt+r',
+      'command': 'run',
+    });
+
+    await revoke('app.shortcuts');
+
+    expect(PluginShortcutRegistry.instance.getAll(), isEmpty);
   });
 
   test('revoking an unrelated permission keeps the registrations', () async {

@@ -59,6 +59,13 @@ class ReadingTabStrip extends StatefulWidget {
   /// נקרא עם היעד בקונבנציית הסרה-ואז-הכנסה, כמצופה ב-`MoveTab`.
   final void Function(OpenedTab tab, int newIndex) onReorder;
 
+  /// האם לקבל כרטיסיה נגררת שאינה ברצועה — חלונית של טאב מפוצל שנגררת
+  /// חזרה לשורת הכרטיסיות.
+  final bool Function(OpenedTab tab)? acceptsExternal;
+
+  /// נקרא בשחרור כרטיסיה חיצונית, עם מיקום הכנסה בטווח `0..tabs.length`.
+  final void Function(OpenedTab tab, int insertIndex)? onExternalDrop;
+
   /// נקרא כשמתחילה גרירת כרטיסיה.
   final VoidCallback? onDragStarted;
 
@@ -72,6 +79,8 @@ class ReadingTabStrip extends StatefulWidget {
     required this.widths,
     required this.tabBuilder,
     required this.onReorder,
+    this.acceptsExternal,
+    this.onExternalDrop,
     this.onDragStarted,
     this.onSpringOpen,
     this.requireLongPressToDrag = false,
@@ -259,15 +268,24 @@ class _ReadingTabStripState extends State<ReadingTabStrip> {
 
     final local = box.globalToLocal(globalOffset);
     final localMain = widget.isVertical ? local.dy : local.dx;
-    _updateSpringTarget(dragged, _tabAt(localMain));
+    // פתיחת כרטיסיה בהשתהות הייתה מחליפה את הטאב המוצג — ובגרירה חיצונית
+    // (מחלונית מפוצלת) מפרקת את מקור הגרירה עצמו באמצע המחווה.
+    if (_acceptsReorder(dragged)) {
+      _updateSpringTarget(dragged, _tabAt(localMain));
+    }
 
     // setState רק כשהיעד באמת זז: onMove יורה בכל תזוזת מצביע.
     final next = _insertIndexFor(localMain);
     if (next != _insertIndex) setState(() => _insertIndex = next);
   }
 
-  /// רק כרטיסיה שנמצאת ברצועה הזו מסדרת אותה מחדש.
-  bool _accepts(OpenedTab tab) => widget.tabs.contains(tab);
+  /// כרטיסיה שנמצאת ברצועה — לסידור מחדש.
+  bool _acceptsReorder(OpenedTab tab) => widget.tabs.contains(tab);
+
+  bool _accepts(OpenedTab tab) =>
+      _acceptsReorder(tab) ||
+      (widget.onExternalDrop != null &&
+          (widget.acceptsExternal?.call(tab) ?? false));
 
   void _completeReorder(OpenedTab tab) {
     final insertIndex = _insertIndex;
@@ -277,7 +295,11 @@ class _ReadingTabStripState extends State<ReadingTabStrip> {
     if (insertIndex == null) return;
 
     final oldIndex = widget.tabs.indexOf(tab);
-    if (oldIndex == -1) return;
+    if (oldIndex == -1) {
+      // כרטיסיה חיצונית נכנסת במיקום ההכנסה כמות שהוא — אין מה להסיר.
+      widget.onExternalDrop?.call(tab, insertIndex);
+      return;
+    }
 
     // תיאום לקונבנציית הסרה-ואז-הכנסה: אחרי הסרת הכרטיסיה כל מיקום שאחריה
     // נסוג באחד. בלי זה גרירה ימינה הייתה נוחתת כרטיסיה אחת רחוק מדי.

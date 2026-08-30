@@ -7,6 +7,8 @@ import 'package:flutter_settings_screens/flutter_settings_screens.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kosher_dart/kosher_dart.dart';
 import 'package:otzaria/settings/settings_exports.dart';
+import 'package:otzaria/theme/app_seed_colors.dart';
+import 'package:otzaria/theme/app_theme_data.dart';
 import 'package:otzaria/tools/calendar/services/google_calendar_service.dart';
 import 'package:otzaria/tools/calendar/services/notification_service.dart';
 import 'package:otzaria/tools/calendar/utils/calendar_cubit.dart';
@@ -216,10 +218,11 @@ void main() {
 
       await pumpEventsPanel(tester);
 
-      expect(
-        _verticalOrder(tester, ['מחר בבוקר', 'היום בערב', 'היום בבוקר']),
-        ['היום בבוקר', 'היום בערב', 'מחר בבוקר'],
-      );
+      expect(_verticalOrder(tester, ['מחר בבוקר', 'היום בערב', 'היום בבוקר']), [
+        'היום בבוקר',
+        'היום בערב',
+        'מחר בבוקר',
+      ]);
     });
   });
 
@@ -261,6 +264,48 @@ void main() {
   });
 
   group('DayExtras — אירועי תא היום', () {
+    testWidgets('בתא נבחר נקודת אירוע נשארת קריאה', (tester) async {
+      await cubit.addEvent(
+        title: 'אירוע צבעוני',
+        baseGregorianDate: _date,
+        recurrenceType: RecurrenceType.none,
+        colorIndex: 2,
+      );
+
+      final colorScheme = AppThemeData.createColorScheme(
+        AppSeedColors.white,
+        Brightness.dark,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppThemeData.dark(colorScheme, compactMenuMode: false),
+          home: BlocProvider.value(
+            value: cubit,
+            child: Scaffold(
+              body: DayExtras(
+                jewishCalendar: JewishCalendar.fromDateTime(_date)
+                  ..inIsrael = true,
+                date: _date,
+                maxVisibleItems: 1,
+                isSelected: true,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final eventSpan = tester
+          .widgetList<RichText>(find.byType(RichText))
+          .map((richText) => richText.text as TextSpan)
+          .singleWhere((span) => span.toPlainText().contains('אירוע צבעוני'));
+      final contentSpan = eventSpan.children!.single as TextSpan;
+      final dot = contentSpan.children!.whereType<TextSpan>().singleWhere(
+        (span) => span.text == '• ',
+      );
+      expect(dot.style?.color, colorScheme.onPrimaryContainer);
+    });
+
     testWidgets('כשיש יותר אירועים מהמקום — מוצגים המוקדמים בזמן', (
       tester,
     ) async {

@@ -11,6 +11,7 @@ import 'package:otzaria/tabs/models/combined_tab.dart';
 import 'package:otzaria/tabs/models/pdf_tab.dart';
 import 'package:otzaria/tabs/models/tab.dart';
 import 'package:otzaria/tabs/tabs_repository.dart';
+import 'package:otzaria/tabs/view/pane_drag_handle.dart';
 import 'package:otzaria/tabs/view/pane_drop_geometry.dart';
 import 'package:otzaria/tabs/view/pane_drop_target.dart';
 import 'package:otzaria/tabs/view/split_pane_view.dart';
@@ -42,6 +43,8 @@ void main() {
   /// מסך קריאה מוקטן: אותה חיווט שב-`reading_screen`, בלי תוכן הספרים.
   Widget host(TabsBloc bloc, Map<String, int> initCounts) {
     return MaterialApp(
+      // ידית הגרירה של חלונית נגררת מיידית רק בדסקטופ.
+      theme: ThemeData(platform: TargetPlatform.windows),
       home: Directionality(
         textDirection: TextDirection.rtl,
         child: BlocProvider<TabsBloc>.value(
@@ -60,6 +63,12 @@ void main() {
                         widths: [for (final _ in state.tabs) tabWidth],
                         onReorder: (tab, index) =>
                             bloc.add(MoveTab(tab, index)),
+                        acceptsExternal: (tab) => bloc.state.tabs.any(
+                          (t) => t is CombinedTab && t.sibling(tab) != null,
+                        ),
+                        onExternalDrop: (tab, insertIndex) => bloc.add(
+                          DetachPane(tab, insertIndex: insertIndex),
+                        ),
                         tabBuilder: (tab, index, width) => SizedBox(
                           width: width,
                           child: ColoredBox(
@@ -88,9 +97,13 @@ void main() {
                                 root: current,
                                 onRatioChanged: (ratio) =>
                                     bloc.add(UpdateSplitRatio(ratio)),
-                                paneBuilder: (pane) => _PaneBody(
+                                paneBuilder: (pane) => PaneDragHandleScope(
                                   pane: pane,
-                                  initCounts: initCounts,
+                                  enabled: current is CombinedTab,
+                                  child: _PaneBody(
+                                    pane: pane,
+                                    initCounts: initCounts,
+                                  ),
                                 ),
                               ),
                             ),
@@ -295,6 +308,70 @@ void main() {
     });
   });
 
+  group('גרירת חלונית חזרה אל הרצועה', () {
+    /// ידית הגרירה של החלונית ששמה [title].
+    Finder handleOf(WidgetTester tester, String title) => find.descendant(
+      of: find.ancestor(
+        of: find.text('חלונית $title'),
+        matching: find.byType(ClipRect),
+      ),
+      matching: find.byType(PaneDragHandleButton),
+    );
+
+    testWidgets('שחרור הידית ברצועה מפרק את החלונית לכרטיסייה', (tester) async {
+      final (bloc, _) = await pumpScreen(tester, [leaf('א'), leaf('ב')]);
+      final area = readingArea(tester);
+      await dragTab(tester, 'ב', Offset(area.left + 20, area.center.dy));
+      expect(bloc.state.currentTab, isA<CombinedTab>());
+
+      final strip = tester.getRect(find.byKey(const Key('strip')));
+      final gesture = await tester.startGesture(
+        tester.getCenter(handleOf(tester, 'ב')),
+      );
+      await tester.pump(const Duration(milliseconds: 20));
+      // ב-RTL הקצה השמאלי של הרצועה הוא סוף הרשימה.
+      await gesture.moveTo(Offset(strip.left + 10, strip.center.dy));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(bloc.state.tabs, hasLength(2));
+      expect(bloc.state.currentTab, isNot(isA<CombinedTab>()));
+      expect(bloc.state.tabs.map((t) => t.title), ['א', 'ב']);
+      // החלונית שנגררה חזרה היא הכרטיסייה המוצגת.
+      expect(bloc.state.currentTab!.title, 'ב');
+      expect(find.text('טאב ב'), findsOneWidget);
+    });
+
+    testWidgets('ההפרדה בגרירה אינה בונה מחדש את הספרים', (tester) async {
+      final (bloc, initCounts) = await pumpScreen(tester, [
+        leaf('א'),
+        leaf('ב'),
+      ]);
+      final area = readingArea(tester);
+      await dragTab(tester, 'ב', Offset(area.left + 20, area.center.dy));
+
+      final strip = tester.getRect(find.byKey(const Key('strip')));
+      final gesture = await tester.startGesture(
+        tester.getCenter(handleOf(tester, 'ב')),
+      );
+      await tester.pump(const Duration(milliseconds: 20));
+      await gesture.moveTo(Offset(strip.left + 10, strip.center.dy));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(bloc.state.currentTab!.title, 'ב');
+      expect(initCounts['ב'], 1, reason: 'החלונית שנגררה לא נבנתה מחדש');
+    });
+
+    testWidgets('בטאב שאינו מפוצל אין ידית גרירה', (tester) async {
+      await pumpScreen(tester, [leaf('א'), leaf('ב')]);
+
+      expect(find.byType(PaneDragHandleButton), findsNothing);
+    });
+  });
+
   group('שחרור בתוך הרצועה', () {
     testWidgets('מסדר מחדש ואינו מפצל', (tester) async {
       final (bloc, _) = await pumpScreen(tester, [leaf('א'), leaf('ב')]);
@@ -347,9 +424,16 @@ class _PaneBodyState extends State<_PaneBody> {
 
   @override
   Widget build(BuildContext context) {
+    // אותה תבנית שבה AppTopBar משבץ את ידית הגרירה לפי ה-scope.
+    final dragPane = PaneDragHandleScope.paneOf(context);
     return ColoredBox(
       color: const Color(0xFFEEEEEE),
-      child: Center(child: Text('חלונית ${widget.pane.title}')),
+      child: Column(
+        children: [
+          if (dragPane != null) PaneDragHandleButton(pane: dragPane),
+          Expanded(child: Center(child: Text('חלונית ${widget.pane.title}'))),
+        ],
+      ),
     );
   }
 }

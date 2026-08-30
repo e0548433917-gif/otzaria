@@ -321,7 +321,7 @@ class LibraryUpdateRepository implements LibraryUpdateService {
       onProgress?.call(
         const LibraryUpdateProgress(phase: LibraryUpdatePhase.applying),
       );
-      _deleteQuietly(newDbPath);
+      _deleteDbWithSidecarsQuietly(newDbPath);
       try {
         await fullDbExtractor(archivePath, newDbPath);
       } catch (_) {
@@ -352,9 +352,17 @@ class LibraryUpdateRepository implements LibraryUpdateService {
       );
     } catch (_) {
       // הארכיון החלקי נשמר בכוונה — ההורדה תתחדש ממנו בניסיון הבא.
-      _deleteQuietly(newDbPath);
+      _deleteDbWithSidecarsQuietly(newDbPath);
       rethrow;
     }
+  }
+
+  /// מוחק קובץ DB יחד עם קובצי ה-wal/-shm שלו — בלעדיהם בדיקת ה-DB שהורד
+  /// מותירה `seforim.db.new-wal`/`-shm` יתומים לצד הספרייה לתמיד.
+  void _deleteDbWithSidecarsQuietly(String dbPath) {
+    _deleteQuietly(dbPath);
+    _deleteQuietly('$dbPath-wal');
+    _deleteQuietly('$dbPath-shm');
   }
 
   /// אומדן גודל ה-DB המחולץ — ה-release מדווח רק את הגודל הדחוס, לכן קבוע
@@ -456,10 +464,10 @@ class LibraryUpdateRepository implements LibraryUpdateService {
           toVersion: plan.targetVersion ?? 0,
           timestamp: nowTimestamp(),
         );
-        _deleteQuietly('$dbPath-wal');
-        _deleteQuietly('$dbPath-shm');
-        _deleteQuietly(dbPath);
+        _deleteDbWithSidecarsQuietly(dbPath);
         File(newDbPath).renameSync(dbPath);
+        _deleteQuietly('$newDbPath-wal');
+        _deleteQuietly('$newDbPath-shm');
         recovery.finishSuccess(dbPath);
       } catch (_) {
         await recovery.rollback(dbPath);

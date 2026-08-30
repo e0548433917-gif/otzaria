@@ -6,7 +6,9 @@ import 'package:otzaria/widgets/dialogs/reusable_items_dialog.dart';
 import 'package:otzaria/bookmarks/bloc/bookmark_bloc.dart';
 import 'package:otzaria/bookmarks/bloc/bookmark_state.dart';
 import 'package:otzaria/bookmarks/models/bookmark.dart';
+import 'package:otzaria/bookmarks/models/bookmark_group.dart';
 import 'package:otzaria/bookmarks/models/bookmark_sort_mode.dart';
+import 'package:otzaria/bookmarks/view/save_group_bookmark_dialog.dart';
 import 'package:otzaria/widgets/misc/app_menu_exports.dart';
 import 'package:otzaria/navigation/bloc/navigation_bloc.dart';
 import 'package:otzaria/navigation/bloc/navigation_event.dart';
@@ -22,6 +24,7 @@ import 'package:otzaria/models/books.dart';
 import 'package:otzaria/core/ui_snack.dart';
 import 'package:otzaria/core/messages/notes_messages.dart';
 import 'package:otzaria/utils/ui/reading_left_pane_policy.dart';
+import 'package:otzaria/widgets/controls/action_buttons.dart';
 import 'package:otzaria/widgets/lists/items_list_view.dart';
 import 'package:otzaria/widgets/dialogs/input_dialog.dart';
 
@@ -208,6 +211,120 @@ class _BookmarkViewState extends State<BookmarkView> {
     }
   }
 
+  /// פותח את כל ספרי הקבוצה במיקומם השמור, לצד הטאבים הקיימים.
+  /// ספר שכבר פתוח מקבל מיקוד ונגלל למיקום הסימניה.
+  void _openGroup(BuildContext context, BookmarkGroup group) {
+    final tabsBloc = context.read<TabsBloc>();
+    for (final bookmark in group.items) {
+      tabsBloc.add(
+        OpenOrFocusTab(
+          _buildTabForBookmark(bookmark),
+          targetTitle: bookmark.ref,
+          navigateToPositionIfReused: true,
+        ),
+      );
+    }
+    // הספר הראשון בקבוצה הוא הראשי — מחזירים אליו את המיקוד אחרי שכולם נפתחו.
+    if (group.items.length > 1) {
+      final first = group.items.first;
+      tabsBloc.add(
+        OpenOrFocusTab(_buildTabForBookmark(first), targetTitle: first.ref),
+      );
+    }
+    context.read<NavigationBloc>().add(const NavigateToScreen(Screen.reading));
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  Future<void> _renameGroup(BuildContext context, BookmarkGroup group) async {
+    final bloc = context.read<BookmarkBloc>();
+    final result = await showInputDialog(
+      context: context,
+      title: 'שינוי שם הסימניה המרוכזת',
+      labelText: 'שם',
+      initialValue: group.name,
+    );
+    if (result == null || result.trim().isEmpty) return;
+    bloc.renameGroup(group.id, result);
+  }
+
+  Widget _buildGroupsSection(BuildContext context, List<BookmarkGroup> groups) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Text(
+            'סימניות מרוכזות',
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 180),
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: groups.length,
+            itemBuilder: (context, i) {
+              final group = groups[i];
+              final count = group.items.length;
+              return ListTile(
+                dense: true,
+                hoverColor: Colors.transparent,
+                leading: const Icon(FluentIcons.bookmark_multiple_24_regular),
+                title: Text(group.name),
+                subtitle: Text(count == 1 ? 'ספר אחד' : '$count ספרים'),
+                onTap: () => _openGroup(context, group),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(FluentIcons.edit_24_regular),
+                      tooltip: 'שינוי שם',
+                      onPressed: () => _renameGroup(context, group),
+                    ),
+                    IconButton(
+                      icon: const Icon(FluentIcons.delete_24_regular),
+                      tooltip: 'מחיקה',
+                      onPressed: () {
+                        context.read<BookmarkBloc>().removeGroup(group.id);
+                        UiSnack.show(NotesMessages.groupBookmarkDeleted);
+                      },
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  Widget _buildSearchTrailing(BuildContext context) {
+    final sortButton = _buildSortButton(context);
+    if (widget.bookFilter != null) return sortButton;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsetsDirectional.only(start: 8),
+          child: IconButton(
+            icon: const Icon(FluentIcons.bookmark_multiple_24_regular),
+            tooltip: 'שמור סימניה לכל הספרים הפתוחים',
+            onPressed: () => showSaveGroupBookmarkDialog(context),
+          ),
+        ),
+        sortButton,
+      ],
+    );
+  }
+
   /// עריכת טקסט התיאור המוצג של סימניה. ערך ריק מאפס לברירת המחדל (המיקום).
   Future<void> _editBookmarkLabel(
     BuildContext context,
@@ -254,10 +371,10 @@ class _BookmarkViewState extends State<BookmarkView> {
 
         final byDate = _sortMode == BookmarkSortMode.dateAdded;
 
-        return ItemsListView(
+        final listView = ItemsListView(
           searchFocusNode: _searchFocusNode,
           items: state.bookmarks,
-          searchFieldTrailing: _buildSortButton(context),
+          searchFieldTrailing: _buildSearchTrailing(context),
           itemSortComparator: byDate
               ? (a, b) => _compareByDateAdded(a as Bookmark, b as Bookmark)
               : (a, b) => _compareBookmarks(b as Bookmark, a as Bookmark),
@@ -319,6 +436,40 @@ class _BookmarkViewState extends State<BookmarkView> {
             if (label == null || label.isEmpty) return null;
             return ItemsListView.locationSubtitle(item);
           },
+        );
+
+        // כשאין סימניות ItemsListView מציג רק את טקסט המצב הריק, בלי שורת
+        // החיפוש — ולכן כפתור השמירה המרוכזת שבה לא נראה. מציגים אותו במרכז.
+        if (bookFilter == null && state.bookmarks.isEmpty) {
+          return Column(
+            children: [
+              if (state.groups.isNotEmpty)
+                _buildGroupsSection(context, state.groups),
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('אין סימניות'),
+                      const SizedBox(height: 16),
+                      ActionButton.neutral(
+                        text: 'שמור סימניה לכל הספרים הפתוחים',
+                        onPressed: () => showSaveGroupBookmarkDialog(context),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+
+        if (bookFilter != null || state.groups.isEmpty) return listView;
+        return Column(
+          children: [
+            _buildGroupsSection(context, state.groups),
+            Expanded(child: listView),
+          ],
         );
       },
     );

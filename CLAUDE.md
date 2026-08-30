@@ -116,119 +116,59 @@ lib/
 
 ## MANDATORY UI Components
 
-### 1. Icons - `otzaria_icons` FIRST, `fluentui_system_icons` for the rest
+### 1. Icons - ONLY from `fluentui_system_icons`
 ```dart
-import 'package:otzaria_icons/otzaria_icons.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:otzaria/widgets/misc/rtl_icon.dart';
 
-// First choice — the app's own set. ALWAYS plain Icon(), never RtlIcon:
-Icon(OtzariaIcons.book_pdf_24_regular)
-Icon(OtzariaIcons.otzaria_icon_2_page_24_regular)
-Icon(OtzariaIcons.calendar_24_regular)
-
-// Fallback — Fluent, only for what otzaria_icons does not have:
+// Regular icon (symmetric, no RTL flipping needed):
+Icon(FluentIcons.search_24_regular)
 Icon(FluentIcons.settings_24_regular)
-RtlIcon(FluentIcons.chevron_right_24_regular)     // in _fluentMirrorMap
+
+// RtlIcon — ONLY for icons registered in lib/widgets/misc/rtl_icon.dart:
+RtlIcon(FluentIcons.book_24_filled)              // in _flippableIcons
 RtlIcon(FluentIcons.arrow_left_24_regular)        // in _fluentMirrorMap — auto-mirrors to arrow_right in RTL
+RtlIcon(FluentIcons.chevron_right_24_regular)     // in _fluentMirrorMap
 ```
-
-**What `otzaria_icons` is for.** It is not a general-purpose set and does not try to cover Fluent. It exists for exactly four cases:
-
-1. An icon that **breaks when mirrored** for RTL — a geometric flip mangles it.
-2. An icon that is **always shown in an RTL context**, so it should simply be drawn that way.
-3. An icon **Fluent does not have** (`stander`, `torah_scroll`, `yoma_deilula`, the `alef_*`/`beit_*`/`tet_*` families).
-4. An icon Fluent has but whose form is **less suitable** for a seforim library (`book_pdf` over a generic document).
-
-Anything outside those four — generic UI chrome like `dismiss`, `delete`, `copy`, `folder`, `settings`, `add`, `edit` — stays on Fluent. Redrawing chrome buys nothing and costs consistency.
-
-**Which library — in this order:**
-
-| Does `otzaria_icons` have an icon for it? | Use |
-|---|---|
-| Yes | `Icon(OtzariaIcons....)` — always plain `Icon` |
-| No | `fluentui_system_icons`, per the `RtlIcon` rule below |
-| Neither, but Material does | Draw it in `otzaria_icons` — **never** import Material |
-
-`otzaria_icons` is purpose-built for a Hebrew seforim library, so prefer it even when Fluent has *something* close: `book_pdf` for a PDF book rather than a generic document, `search_in_the_book` / `search_in_the_library` / `search_in_the_settings` for scoped search, the `alef_*` / `beit_*` / `tet_*` families for nikud, punctuation and font settings, `stander` / `torah_scroll` / `yoma_deilula` where nothing in Fluent applies.
-
-**Deliberate exceptions — these stay on Fluent:**
-
-| Case | Icon | Why |
-|---|---|---|
-| The seforim library itself | `FluentIcons.library_24_regular/filled` | The Fluent library is the app's established symbol for it |
-| In-book search action (toolbar button, side-panel tab, context-menu `חיפוש`) in `text_book/` and `pdf_book/` | `FluentIcons.search_24_regular/filled` | Recognized as *the* search affordance in the reading screen |
-| Search icon inside a **labeled** button (`ActionButton`, `FilledButton.icon` — e.g. `פתח חיפוש טקסט`, `חפש`) | `FluentIcons.search_24_regular` | Beside a label the Fluent glyph reads cleaner. Icon-only buttons and field prefixes are not affected |
-| A **direct link** to a book or a section (`קישור ישיר`, deep links, inserting a hyperlink) | `FluentIcons.link_24_regular` | Distinct from links *between* books |
-| The private-book badge on a library card (8px) | `FluentIcons.person_24_regular` | The Otzaria person is drawn for legible sizes; at 8px it turns to mush. `OtzariaIcons.person_24_regular` stays everywhere it renders at 16px+ |
-
-**Links between books** — the `קישורים` panel tab, the `קישורים` context-menu entry, `דורות וקישורים` — use `OtzariaIcons.link_24_regular`. The rule in practice: singular `קישור` / `קישור ישיר` is Fluent, plural `קישורים` is Otzaria. Two similar icons for the two meanings would be confusing, so keep the split.
-
-**Scoped search — pick the icon that names *what* is being searched.** A generic magnifier says nothing; these do. None of the scoped icons has a `filled` twin, so a selected/unselected pair reuses the same glyph and lets color carry the state.
-
-| Where | Icon |
-|---|---|
-| Library screen search, `סינון מפרשים`, `חפש בתוך המפרשים המוצגים`, שמור וזכור search | `search_in_the_library_24_regular` |
-| Notes search, calendar `חפש גם בתיאור` | `search_in_the_document_24_regular` |
-| Calendar `חפש רק בכותרת` | `search_in_the_text_24_regular` |
-| `הוסף ספרים למעקב` dialog | `search_in_the_book_24_regular` |
-| Settings search | `search_in_the_settings_24_regular` |
-| `איתור כותרת` boxes (TOC, alt-TOC), bookmarks search, `חפש בתוך הקישורים המוצגים` | `search_in_titles_24_regular` |
-| Gematria search | `search_in_numbered_list_24_regular` |
-
-The **navigation rail's `חיפוש`** item is the exception: it keeps plain `OtzariaIcons.search_24_regular` / `search_24_filled`, because it is the app-wide search entry point and not scoped to anything.
-
-Three shared widgets take an `icon:` / `searchIcon:` parameter for exactly this — `OtzariaSearchField`, `ItemsListView`, and any field's `prefixIcon`. Pass the scoped icon rather than wrapping the prefix in a `leading:` widget, which would drop `OtzariaSearchField`'s focus-color and sizing behaviour.
-
-**Finding an icon:** 135 icons, listed in `OtzariaIcons.values` and in the package's `index.html` catalog. The names follow the Fluent convention (`<name>_24_<regular|filled>`), so a Fluent name is usually the right thing to look up first. `otzaria_icons` is pinned by commit in `pubspec.lock`, and **`pubspec.lock` is gitignored** — if an icon in the catalog is undefined in your checkout, run `flutter pub upgrade otzaria_icons`.
-
-**Sizes:** every icon is drawn on a 24px grid, and the `_24_` in the name is the grid, not a size limit — pass `size:` freely. But the `book_open_*` family is drawn at different weights for different display sizes; `otzaria_icon_2_page_24_regular/filled` is the general-purpose "open book" and the only one of them with a `filled` twin, so it is what a nav rail or any regular/filled pair needs.
-
-**`OtzariaIcons` NEVER goes through `RtlIcon`.** Every icon in the set is drawn right-to-left already — `RtlIcon` would flip an icon that already faces the correct way. `test/widgets/rtl_icon_registered_usage_test.dart` fails the build on any `RtlIcon(OtzariaIcons....)`.
 
 **When to use `RtlIcon` vs `Icon`:**
 
-| Icon | Use |
+| Icon is registered in `rtl_icon.dart`? | Use |
 |---|---|
-| Any `OtzariaIcons.…` | `Icon(...)` — always |
-| Fluent icon registered in `rtl_icon.dart` (`_fluentMirrorMap`, `_flippableIcons`) | `RtlIcon(...)` |
-| Any other Fluent icon | `Icon(...)` — plain, no wrapper |
+| Yes (in `_fluentMirrorMap`, `_materialMirrorMap`, or `_flippableIcons`) | `RtlIcon(...)` |
+| No | `Icon(...)` — plain, no wrapper |
 
 **Icons currently registered in `lib/widgets/misc/rtl_icon.dart`:**
 
 *`_fluentMirrorMap` (swaps to opposite-direction variant in RTL):*
 - `chevron_right/left_24/20/16_regular`
 - `arrow_right/left_24_regular`, `arrow_right/left_24_filled`
-- `arrow_previous/next_24_regular`
-- `calendar_24_regular/filled` → `calendar_rtl_*`
 - `panel_left/right_24_regular`, `panel_left/right_24_filled`
 - `text_align_right/left_24_regular`
 
-*`_flippableIcons` (geometrically flipped in RTL — no opposite-direction variant in Fluent):*
+*`_materialMirrorMap` (Material icons, swaps in RTL):*
+- `arrow_forward/back`, `arrow_forward/back_ios`
+- `arrow_right/left`, `chevron_right/left`
+- `navigate_next/before`, `keyboard_arrow_right/left`
+- `first_page/last_page`, `skip_next/previous`
+
+*`_flippableIcons` (geometrically flipped in RTL — no opposite-direction variant in library):*
 - `book_24_regular`, `book_24_filled`
 - `book_information_24_regular`
 - `text_align_distributed_24_regular`
 - `list_24_regular`
-- `calendar_week_start_24_regular/filled`, `calendar_month_24_regular/filled`
 
-`_flippableIcons` is a **stopgap, not a destination.** A geometric flip mirrors the whole glyph, including asymmetric detail that was never meant to mirror. When an icon looks wrong flipped, the fix is to draw it right-to-left in `otzaria_icons` and drop it from this set — that is what `book_star_24_regular` did. The remaining six are the open candidates.
-
-There is no `_materialMirrorMap` any more: `lib/` contains **zero** Material icons, and nothing can feed one to `RtlIcon` (plugins declare icons by *Fluent* name through `fluentIconFromName`), so the map was dead code.
-
-Some Fluent entries here have no call site left in `lib/` — the app moved to the `OtzariaIcons` equivalent. **Do not delete those:** a plugin can still name a Fluent icon through `fluentIconFromName` in `lib/plugins/utils/fluent_icon_resolver.dart`, and it reaches `RtlIcon` as a variable.
-
-**If you need to flip a Fluent icon that is NOT yet registered:**
-Prefer drawing it in `otzaria_icons` — that is exactly what the package is for. Registering it in `_flippableIcons` is the fallback when you cannot. Either way, do NOT add manual `Transform.flip`/`Transform.scale` in feature files.
+**If you need to flip an icon that is NOT yet registered:**
+Add it to the appropriate set/map in `lib/widgets/misc/rtl_icon.dart`, then use `RtlIcon`. Do NOT add manual `Transform.flip`/`Transform.scale` in feature files.
 
 **Never use:**
-- Material Icons — no exceptions. `lib/` is Material-free; if Material has something Fluent lacks, draw it in `otzaria_icons`
+- Material Icons (unless in `_materialMirrorMap` above)
 - Cupertino Icons
-- Any icon font other than `otzaria_icons` and `fluentui_system_icons`
-- `RtlIcon` with an `OtzariaIcons` icon — it is already RTL
+- Custom icon fonts
+- Random icon packages
 - `mirrorIcon` parameter on any widget — **FORBIDDEN**, removed in commit 3b4d357
-- Manual `Transform.scale(scaleX: -1, ...)` or `Transform.flip(flipX: true, ...)` around icons — register in `rtl_icon.dart` instead. **On an `OtzariaIcons` icon this silently points it the wrong way**, and neither the analyzer nor `rtl_icon_registered_usage_test.dart` catches it — when replacing a Fluent icon, check the call site for a hand-rolled flip first
+- Manual `Transform.scale(scaleX: -1, ...)` or `Transform.flip(flipX: true, ...)` around icons — register in `rtl_icon.dart` instead
 - Comments explaining why `RtlIcon` or `Icon(...)` was chosen — the decision rule is documented here; do NOT repeat it inline in code
-- Editing `lib/plugins/utils/fluent_icon_resolver.dart` to point at `otzaria_icons` — it is the generated Fluent-name contract for plugins
 
 ### 2. User Messages - ONLY via `UiSnack`
 ```dart
@@ -528,7 +468,7 @@ NavPanelTabHeader(                 // tabs only — the pin is NOT here
 - the bar stays mounted for as long as the panel is open: only the field's *content* swaps per tab. A tab with no search action leaves it visible but disabled — do NOT key or rebuild the bar per tab
 - the **pin** lives in this bar (`isPinned` / `onTogglePin`), not in the tab row — it is a panel-level action. The bar spans exactly the panel's width (minus `AppTopBar.horizontalPadding`) with `kNavTreeSideInset` insets, so it sits over the panel only; the open/close icon stays outside it as the next `leadingItems` entry
 - never build a bare `OtzariaSearchField` inside a nav-panel tab
-- keyboard: Left/Right stay in the text; Up/Down move focus into the panel's rows (`NavPanelSearchHost.paneFocusScope`), and from there Flutter's directional traversal walks the rows and Enter activates — same behavior as the bookmarks/history dialogs
+- keyboard: Left/Right stay in the text; Up/Down move focus into the panel's rows (`NavPanelSearchHost.paneFocusScope`), and from there Flutter's directional traversal walks the rows and Enter activates — same behavior as the bookmarks/history dialogs. A tab whose delegate supplies `onArrowDown`/`onArrowUp` overrides this: the arrows browse a highlight through its results while focus stays in the field (find_ref model — the user keeps typing mid-browse), and Enter opens the highlighted result via `onSubmitted`
 
 **Panel content** is built from `lib/widgets/lists/nav_tree_tile.dart`:
 - `NavTreeHeader` — the main title above the list (primary color, bold) and any sub-tree root
@@ -545,6 +485,25 @@ NavPanelTabHeader(                 // tabs only — the pin is NOT here
 - Passing `paneColor` / `attachToTopEdge` to a nav panel — `NavSidePanel` owns them
 - Adding a per-panel list `padding` for the tree — the inset lives in `NavTreeGroupCard` / `NavTreeHeader` (`kNavTreeSideInset`), and lists use `kNavTreeListPadding`
 - A per-panel search field built from `RtlTextField` + `InputDecoration` — every field inside a nav panel is `OtzariaSearchField`
+
+### 11. Middle-click autoscroll — already global, never re-implement
+
+`MiddleClickAutoScroll` wraps the whole app once in `lib/app.dart`, so **every** scrollable area already supports middle-click autoscroll: lists, reading screens, the library, settings, dialogs, and the PDF viewer. It works by dispatching synthetic wheel events down the hit-test path captured on click, so anything that reacts to the mouse wheel reacts to it too — no per-screen wiring.
+
+**Never:**
+- Add a per-screen middle-click scroll handler, an anchor overlay, or an autoscroll timer — the global widget already covers it
+- Wrap a screen in a second `MiddleClickAutoScroll`
+
+**Do** wrap a region in `AutoScrollBarrier` when middle-click there is reserved for something else (a tab that closes on middle-click):
+```dart
+import 'package:otzaria/widgets/misc/middle_click_autoscroll.dart';
+
+Listener(
+  onPointerDown: (e) { if (e.buttons == kMiddleMouseButton) closeTab(tab); },
+  child: AutoScrollBarrier(child: tabContent),
+)
+```
+A barrier anywhere in the hit-test path suppresses autoscroll for that click.
 
 ## Code Guidelines
 
@@ -736,20 +695,16 @@ dart format lib/file.dart    # Format ONLY files you modified
 | Page shape commentary selection | `test/text_book/view/page_shape_commentary_selection_test.dart` |
 | התאמת מפרשי צורת הדף בין ספרים (היקף קטגוריה) | `test/text_book/view/page_shape/page_shape_category_commentator_matching_test.dart` |
 | חלונית הצד של צורת הדף (3 לשוניות) | `test/text_book/view/page_shape/page_shape_sidebar_tabs_test.dart` |
-| סנכרון המפרש בצורת הדף (יעד תחילת בלוק, מרחק הגלישה) | `test/text_book/view/page_shape/commentary_sync_helper_test.dart` |
-| שער הבנייה מחדש בגלילה (buildWhen בשורש עץ הספר) | `test/text_book/view/visible_indices_rebuild_gate_test.dart` |
 | תפריט הקשר בצורת הדף (מפרשים / קטע היעד) | `test/text_book/view/page_shape/simple_text_viewer_context_menu_test.dart` |
 | תת-תפריט "מפרשים" המשותף + מדיניות הצגה | `test/text_book/utils/commentators_context_menu_test.dart` |
 | SimpleTextViewer | `test/text_book/view/page_shape/simple_text_viewer_test.dart` |
 | Selected text copy/restore | `test/text_book/view/selection/selected_text_copy_test.dart`, `…selected_text_restore_test.dart` |
 | SelectionSyncController | `test/text_book/view/selection/selection_sync_controller_test.dart` |
-| איפוס גלילת המפרשים במעבר קטע (מדיניות + מסלול הטעינה) | `test/text_book/view/commentary_list_scroll_reset_test.dart` |
 | Commentary open-filter request | `test/text_book/view/commentary_list_base_open_filter_test.dart` |
 | Commentary search focus | `test/text_book/view/commentary_search_focus_test.dart` |
 | Commentary grouping | `test/text_book/commentary_grouping_test.dart` |
 | Book source dialog | `test/text_book/view/book_source_dialog_test.dart` |
 | Error report dialog | `test/text_book/view/error_report_dialog_test.dart` |
-| נוסחאות הספר (זכאות, דיאלוג הבחירה, פתיחה בכרטיסייה חדשה) | `test/text_book/utils/book_versions_action_test.dart`, `test/library/view/book_versions_dialog_test.dart`, `test/text_book/view/text_book_screen_actions_test.dart` |
 
 **Text Book BLoC**
 | Area | Test File |
@@ -771,8 +726,6 @@ dart format lib/file.dart    # Format ONLY files you modified
 | TantivyDataProvider (search index) | `test/data/data_providers/tantivy_data_provider_test.dart` |
 | External books scanner | `test/data/data_providers/scan_external_books_test.dart` |
 | Library book search (fuzzy + acronyms) | `test/data/repository/book_search_fuzzy_match_test.dart` |
-| אינדקס הביגרמים של הכינויים (איתור מקורות — קבוצת-על) | `test/data/cache/acronyms_bigram_index_test.dart` |
-| פתרון ספר של מפרש בדיאלוג "איתור מקורות" (id → כותרת, אינדקס העץ) | `test/find_ref/find_ref_book_by_id_test.dart` |
 
 **Search**
 | Area | Test File |
@@ -837,18 +790,19 @@ dart format lib/file.dart    # Format ONLY files you modified
 | Context overlay panel | `test/widgets/context_overlay_panel_test.dart` |
 | Context menu (incl. hover preview + pinning) | `test/widgets/app_context_menu_test.dart` |
 | Link preview panel (placement, pin, scroll anchor) | `test/widgets/link_preview_overlay_test.dart` |
+| Dual adaptive reader pane | `test/widgets/dual_adaptive_reader_pane_test.dart` |
 | Nav rail item | `test/widgets/nav_rail_item_test.dart` |
+| Reader side panel shell | `test/widgets/reader_side_panel_shell_test.dart` |
 | Responsive action bar | `test/widgets/responsive_action_bar_test.dart` |
 | רוחב עמודת הטקסט (בסיס אזור הקריאה, יציב בפתיחת חלונית) | `test/widgets/layout/reading_area_width_test.dart` |
 | Scrollable list scrollbar | `test/widgets/scrollable_positioned_list_scrollbar_test.dart` |
 | Smooth mouse-wheel scrolling | `test/widgets/smooth_wheel_scroll_test.dart` |
+| גלילה אוטומטית בלחיצת גלגל העכבר | `test/widgets/middle_click_autoscroll_test.dart` |
 | Smart text render settings | `test/widgets/smart_text/render_settings_test.dart` |
 | Smart text ↔ plugin section sync gate | `test/widgets/smart_text/smart_text_section_sync_gate_test.dart` |
 | קיבוע מדויק של גובה השורה (סימוני הערות, `<big>`) בשלושת מסלולי הרינדור | `test/widgets/smart_text/exact_line_height_test.dart` |
 | Work/indexing status overlays | `test/widgets/work_status_overlay_test.dart`, `…indexing_status_overlay_test.dart` |
 | App dropdown/search menu | `test/widgets/app_dropdown_field_test.dart`, `…app_search_menu_test.dart` |
-| שימור כיוון הפותח בתפריטים מעוגנים (הגדרות באנגלית) | `test/widgets/app_menu_direction_test.dart` |
-| כיוון כרטיסי הסיור/טיפים לפי שפת ההגדרות | `test/tour/widgets/tour_cards_direction_test.dart` |
 | Search pane base | `test/widgets/search_pane_base_test.dart` |
 | נתוני פופאפ "אוצריא מתגייסת" (`assets/support_organizations.json`) | `test/services/support_organizations_test.dart` |
 | פופאפ "אוצריא מתגייסת" (תצוגה, שגיאת טעינה, פענוח לוגואים ומטמון) | `test/widgets/dialogs/ad_popup_dialog_test.dart` |
@@ -863,13 +817,15 @@ dart format lib/file.dart    # Format ONLY files you modified
 | Area | Test File |
 |------|-----------|
 | Bookmarks BLoC | `test/bookmarks/bookmark_bloc_test.dart` |
+| דיאלוג איתור מקורות (פריסה, הצעות, ניווט מקלדת, גדלי מסך) | `test/find_ref/find_ref_dialog_view_test.dart` |
+| האיתורים האחרונים (שמירה, מכסה, ערך פגום) | `test/find_ref/find_ref_recent_store_test.dart` |
+| סימניה מרוכזת (מודל + bloc) | `test/bookmarks/bookmark_group_test.dart` |
 | Workspaces BLoC | `test/workspaces/bloc/workspace_bloc_test.dart` |
 | מחוות החלקה בין טאבים (סינון התקנים, כיוון) | `test/tabs/reading_screen_move_tab_state_test.dart`, `…tab_swipe_direction_test.dart` |
-| מעבר לטאב שנפתח כשמסך הקריאה מנותק (issue #877) | `test/tabs/reading_screen_offscreen_tab_open_test.dart` |
 | Windows installer scripts (`.iss` invariants) | `test/installer/installer_scripts_test.dart` |
 | App paths / install-mode detection | `test/core/app_paths_test.dart` |
 | Library browser | `test/library/view/library_browser_preview_width_test.dart`, `…grid_items_test.dart`, `…library_browser_flat_tree_test.dart` |
-| תאריך עברי + דף יומי בסרגל הספרייה (היום הלוחי) | `test/library/view/library_daf_yomi_test.dart` |
+| שמירת טקסט החיפוש בניווט בספרייה ("חזור"/"בית") | `test/library/bloc/library_navigation_keeps_search_test.dart`, `test/library/view/library_empty_state_navigation_test.dart` |
 | Empty library screen | `test/empty_library/empty_library_screen_test.dart` |
 | PDF isolate / rasterizer | `test/printing/pdf_isolate_test.dart`, `…pdf_text_rasterizer_test.dart` |
 | PDF in-book search highlight pattern | `test/pdf_book/pdf_search_highlight_pattern_test.dart` |
@@ -880,10 +836,11 @@ dart format lib/file.dart    # Format ONLY files you modified
 | Indexing repository | `test/indexing/repository/indexing_repository_test.dart` |
 | External catalog | `test/external_catalog/external_catalog_repository_test.dart`, `…settings_helper_test.dart` |
 | Plugins | `test/plugins/utils/reader_location_resolver_test.dart`, `…plugin_store_link_parser_test.dart`, `…plugin_bridge_adapter_test.dart` |
-| הודעות לחיצות מתוסף (`ui.show*` + tapEvent) | `test/plugins/bridge/plugin_bridge_ui_message_tap_test.dart` |
-| לחיצוּת הודעות UiSnack (onTap) | `test/core/ui_snack_tap_test.dart` |
+| Plugin links API (`getLinks`, `getRawLinks`, `getCommentators`, `getLinkContent`) | `test/plugins/bridge/plugin_bridge_links_api_test.dart` |
+| Plugin permission enforcement / rate limiting | `test/plugins/bridge/plugin_bridge_handler_test.dart` |
 | Plugin highlights / reader section tracking | `test/plugins/services/plugin_highlight_registry_test.dart`, `…reader_section_content_tracker_test.dart`, `…reader_section_sync_gate_test.dart` |
 | Plugin foreground suspend/resume | `test/plugins/services/plugin_runtime_dispatcher_test.dart` |
+| פוקוס מקלדת ל-WebView של תוסף (הקלדה מיד בפתיחה) | `test/plugins/services/plugin_webview_focus_test.dart`, `…plugin_keyboard_focus_test.dart` |
 | בדיקת עדכוני תוספים מהחנות (שירות batch, קוביט, צ'יפ "עדכון זמין") | `test/plugins/services/plugin_update_check_service_test.dart`, `test/plugins/bloc/plugin_updates_cubit_test.dart`, `test/plugins/view/plugin_update_chip_test.dart` |
 
 **Tools & plugins as reading tabs**
@@ -908,33 +865,6 @@ dart format lib/file.dart    # Format ONLY files you modified
 | Models (books, links) | `test/models/books_test.dart`, `…links_test.dart`, `…phone_report_data_test.dart` |
 | Link types (נרמול, סוג קנוני, תוויות) | `test/models/link_types_test.dart` |
 | Utils (page map builder, page converter, TOC parser) | `test/utils/page_map_builder_test.dart`, `…page_converter_test.dart`, `…toc_parser_test.dart` |
-| זיהוי פורמט מסמך + registry הסיומות | `test/utils/file/document_format_test.dart` |
-| עקביות ה-registry מול הצרכנים (FilePicker, סורק, מודל הספר) | `test/utils/file/format_registry_consistency_test.dart` |
-| Golden regression של ממיר Word (17 תרחישים, שקילות DOCX/DOCM/DOTX/DOTM) | `test/utils/file/docx_golden_test.dart` (fixtures ב-`docx_golden_fixtures.dart`) |
-| שרשרת מלאה לפורמטי OOXML (סריקה→המרה→TOC→אינדוקס) | `test/utils/file/ooxml_formats_pipeline_test.dart` |
-| ממיר ODT | `test/utils/file/odt_to_otzaria_test.dart` |
-| Parser RTF (state machine, דפי-קוד, עברית) | `test/utils/file/rtf_to_otzaria_test.dart` |
-| קריאת ספר file-backed לפי פורמט | `test/utils/file/read_file_backed_book_text_test.dart` |
-| מגבלות פריסת ZIP (zip bomb) | `test/utils/file/zip_limits_test.dart` |
-| הקשחה מול קובץ פגום/קטוע/זדוני (כשל בקול, לא פלט חלקי) | `test/utils/file/malformed_document_hardening_test.dart` |
-| קורא מכולת CFB/OLE2 (תשתית ל-DOC/WBK) | `test/utils/file/cfb_reader_test.dart` |
-| ממיר Word בינארי ישן (FIB, piece table, ניתוב WBK) | `test/utils/file/legacy_word_to_otzaria_test.dart` |
-| שכבת המאפיינים של Word הבינארי (sprm, וריאנט Bi, יישור) | `test/utils/file/legacy_word_properties_test.dart` |
-| חילוץ תמונות מ-Word הבינארי (עץ OfficeArt, תקרות, קלט פגום) | `test/utils/file/legacy_word_pictures_test.dart` |
-| ממיר Word שנשמר כ-XML (Flat OPC ו-WordML 2003) | `test/utils/file/word_xml_to_otzaria_test.dart` |
-| צימוד פלט הממיר לגרסתו (מונע מטמון שמגיש פלט באגי) | `test/utils/file/converter_versions_test.dart` |
-| עמידות סריקה לקובץ פגום (§76) | `test/migration/generator_corrupted_file_test.dart` |
-| אינטגרציה: סריקת תיקייה לכל הפורמטים → DB → פתיחה → זיהוי שינוי | `test/migration/sync/file_sync_document_formats_test.dart` |
-| מחולל קורפוס ה-fixtures (כל פורמט נפתח, כל מקרה-קצה נכשל נכון) | `test/tool/document_fixtures_generator_test.dart` |
-| זיהוי קידוד טקסט — שרשרת הזיהוי, BOM, זנב קטוע, כפיית קידוד | `test/utils/file/text_encoding_detection_test.dart` |
-| טבלאות המיפוי (Windows-1255, ISO-8859-8, CP862) מול התקנים | `test/utils/file/text_encoding_tables_test.dart` |
-| קורפוס הזהב של הקידודים (40+ קבצים, טווחי confidence) | `test/utils/file/text_encoding_corpus_test.dart` (מחולל ב-`tool/generate_text_encoding_fixtures.dart`) |
-| רגרסיה מול מפענח הקידודים הקודם (מה נשמר, מה השתנה בכוונה) | `test/utils/file/text_encoding_regression_test.dart` |
-| תכונות הקידוד על קלט מוגרל (סבב שלם, שיבוש, חיתוך, דטרמיניזם) | `test/utils/file/text_encoding_fuzz_test.dart` |
-| צנרת הקידודים מקצה לקצה (פתיחת ספר, בניית DB, אינדוקס) | `test/utils/file/text_encoding_pipeline_test.dart` |
-| ייבוא ספרים בכל קידוד לתוך SQLite (סריקה→שורות→TOC) | `test/migration/sync/file_sync_text_encodings_test.dart` |
-| ביצועי הזיהוי (חסימת דגימה, תפוקת batch, השוואה לקודם) | `test/utils/file/text_encoding_performance_test.dart` |
-| קורפוס קידודים חיצוני אמיתי (מדלג כשאינו על המכונה) | `test/utils/file/text_encoding_real_corpus_test.dart` |
 | Utils (link processing) | `test/text_book/utils/link_processing_test.dart` |
 | חיתוך HTML לפי טווח הבחירה (שימור עיצוב בהעתקה חלקית) | `test/utils/text/html_slice_test.dart` |
 | גודל פענוח תמונות (cacheWidth על נכסים כבדים) | `test/utils/ui/image_decode_size_test.dart` |
@@ -1002,12 +932,11 @@ if (Platform.isAndroid || Platform.isIOS) {
 1. **No progression with errors** - Fix ALL analyzer errors before next step
 2. **Run `flutter analyze` after EVERY file change** - Don't accumulate errors
 3. **RTL text fields** - Use `RtlTextField` exclusively, never `TextField`
-4. **Icons** - `otzaria_icons` first, `fluentui_system_icons` only for what it lacks, **Material never**. `OtzariaIcons` always uses plain `Icon(...)` — never `RtlIcon`, it is already RTL. `RtlIcon` is for Fluent icons registered in `lib/widgets/misc/rtl_icon.dart` (`_fluentMirrorMap`, `_flippableIcons`); all others: plain `Icon(...)`. Never add manual `Transform` on icons.
+4. **Icons** - Only `fluentui_system_icons`. Use `RtlIcon` **only** for icons registered in `lib/widgets/misc/rtl_icon.dart` (`_fluentMirrorMap`, `_materialMirrorMap`, `_flippableIcons`). All other icons: plain `Icon(...)`. Never add manual `Transform` on icons — register in `rtl_icon.dart` instead.
 5. **User messages** - Only through `UiSnack`, never direct SnackBar
 6. **Dialogs** - Only through `custom_ui_components` (SingleActionDialog, TwoActionsDialog, WarningDialog)
 7. **Action buttons** - Only `ActionButton.recommended` / `.neutral` / `.ghost` from `widgets_exports.dart`
 8. **Settings cards** - Only `SettingsCard` from `settings_card.dart`
-8a. **Navigation panels** - Only `NavSidePanel` + `NavPanelToggleButton` + `NavPanelTabHeader` from `nav_side_panel.dart`, with `NavTreeTile`/`NavTreeGroupCard` content
 9. **Color theming** - NEVER use hardcoded colors (Colors.red, Colors.blue, etc.), ALWAYS use `Theme.of(context).colorScheme`
 10. **Hover effects** - Remove from ListTile rows with buttons (`hoverColor: Colors.transparent`)
 11. **No color overrides outside `lib/theme/`** - NEVER add `hoverColor`, `splashColor`, `overlayColor`, or `.withValues(alpha:...)` in feature files — define them in `lib/theme/` only
@@ -1027,11 +956,9 @@ if (Platform.isAndroid || Platform.isIOS) {
 - Asking multiple separate questions instead of batching all open questions into one message
 - Writing a large diff to fix what should be a small bug
 - Using `TextField` instead of `RtlTextField`
-- Reaching for a Fluent icon when `otzaria_icons` already has one for it — check `OtzariaIcons` first
-- Using a Material or Cupertino icon at all — `lib/` is Material-free and must stay that way
-- Wrapping an `OtzariaIcons` icon in `RtlIcon` — it is drawn RTL already, and `rtl_icon_registered_usage_test.dart` fails on it
-- Using `RtlIcon` for Fluent icons **not** registered in `lib/widgets/misc/rtl_icon.dart` — check first; if not registered, use plain `Icon(...)`
-- Forgetting to use `RtlIcon` for Fluent icons that **are** registered in `lib/widgets/misc/rtl_icon.dart`
+- Using Material/Cupertino icons instead of FluentUI (unless Material icon is in `_materialMirrorMap` in `rtl_icon.dart`)
+- Using `RtlIcon` for icons **not** registered in `lib/widgets/misc/rtl_icon.dart` — check first; if not registered, use plain `Icon(...)`
+- Forgetting to use `RtlIcon` for icons that **are** registered in `lib/widgets/misc/rtl_icon.dart`
 - Adding `mirrorIcon` parameter to any widget — FORBIDDEN (removed in commit 3b4d357)
 - Manual `Transform.scale(scaleX: -1)` or `Transform.flip` on icons — register the icon in `rtl_icon.dart` instead
 - Adding inline comments that explain why `RtlIcon` or `Icon(...)` was chosen — the decision rule lives in CLAUDE.md, not in code

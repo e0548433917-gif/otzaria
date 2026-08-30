@@ -15,6 +15,8 @@ class IndexingBloc extends Bloc<IndexingEvent, IndexingState> {
   final void Function(IndexingRunResult result) _reportFailures;
   int _nextWorkId = 0;
   int? _activeWorkId;
+  bool _isPaused = false;
+  bool _isEconomy = false;
 
   IndexingBloc(
     this._repository, {
@@ -24,6 +26,9 @@ class IndexingBloc extends Bloc<IndexingEvent, IndexingState> {
     on<IndexingWorkEvent>(_onIndexingWork, transformer: sequential());
     on<CheckIndexStatus>(_onCheckIndexStatus);
     on<CancelIndexing>(_onCancelIndexing);
+    on<PauseIndexing>(_onPauseIndexing);
+    on<ResumeIndexing>(_onResumeIndexing);
+    on<SetEconomyIndexing>(_onSetEconomyIndexing, transformer: sequential());
     on<ActualIndexingStarted>(_onActualIndexingStarted);
     on<UpdateIndexingProgress>(_onUpdateProgress);
     on<ClearIndex>(_onEraseIndex);
@@ -36,10 +41,30 @@ class IndexingBloc extends Bloc<IndexingEvent, IndexingState> {
     );
   }
 
+  /// כל מצבי ההתקדמות נפלטים דרך כאן כדי שדגלי ההשהיה והמצב החסכוני
+  /// יישמרו על פני כל עדכון התקדמות.
+  IndexingInProgress _inProgress({
+    int? booksProcessed,
+    int? totalBooks,
+    bool isCreatingIndex = false,
+  }) => IndexingInProgress(
+    booksProcessed: booksProcessed,
+    totalBooks: totalBooks,
+    isCreatingIndex: isCreatingIndex,
+    isPaused: _isPaused,
+    isEconomy: _isEconomy,
+  );
+
   Future<void> _onIndexingWork(
     IndexingWorkEvent event,
     Emitter<IndexingState> emit,
   ) async {
+    // ריצה חדשה מתחילה ללא השהיה; המצב החסכוני נשמר בין ריצות.
+    if (_isPaused) {
+      _isPaused = false;
+      _repository.resumeIndexing();
+    }
+
     if (event is StartIndexing) {
       await _onStartIndexing(event, emit);
       return;
@@ -89,11 +114,7 @@ class IndexingBloc extends Bloc<IndexingEvent, IndexingState> {
     }
 
     emit(
-      IndexingInProgress(
-        booksProcessed: 0,
-        totalBooks: totalCandidates,
-        isCreatingIndex: false,
-      ),
+      _inProgress(booksProcessed: 0, totalBooks: totalCandidates),
     );
 
     try {
@@ -105,7 +126,7 @@ class IndexingBloc extends Bloc<IndexingEvent, IndexingState> {
         onScanProgress: (processed, total) {
           if (_activeWorkId != workId) return;
           emit(
-            IndexingInProgress(
+            _inProgress(
               booksProcessed: processed,
               totalBooks: total,
               isCreatingIndex: state.isCreatingIndex,
@@ -166,13 +187,7 @@ class IndexingBloc extends Bloc<IndexingEvent, IndexingState> {
       emit(IndexingInitial());
       return;
     }
-    emit(
-      IndexingInProgress(
-        booksProcessed: 0,
-        totalBooks: totalBooks,
-        isCreatingIndex: false,
-      ),
-    );
+    emit(_inProgress(booksProcessed: 0, totalBooks: totalBooks));
 
     try {
       final result = await _repository.indexAllBooks(
@@ -230,7 +245,7 @@ class IndexingBloc extends Bloc<IndexingEvent, IndexingState> {
     }
 
     emit(
-      IndexingInProgress(
+      _inProgress(
         booksProcessed: currentState.booksProcessed,
         totalBooks: currentState.totalBooks,
         isCreatingIndex: true,
@@ -255,13 +270,7 @@ class IndexingBloc extends Bloc<IndexingEvent, IndexingState> {
     }
 
     final totalBooks = books.length;
-    emit(
-      IndexingInProgress(
-        booksProcessed: 0,
-        totalBooks: totalBooks,
-        isCreatingIndex: false,
-      ),
-    );
+    emit(_inProgress(booksProcessed: 0, totalBooks: totalBooks));
 
     try {
       onActualIndexingStarted() => add(ActualIndexingStarted(workId));
@@ -349,8 +358,50 @@ class IndexingBloc extends Bloc<IndexingEvent, IndexingState> {
     Emitter<IndexingState> emit,
   ) {
     _activeWorkId = null;
+    _isPaused = false;
     _repository.cancelIndexing();
     emit(IndexingStopped());
+  }
+
+  void _onPauseIndexing(PauseIndexing event, Emitter<IndexingState> emit) {
+    if (state is! IndexingInProgress || _isPaused) return;
+    _isPaused = true;
+    _repository.pauseIndexing();
+    _reemitProgressFlags(emit);
+  }
+
+  void _onResumeIndexing(ResumeIndexing event, Emitter<IndexingState> emit) {
+    if (!_isPaused) return;
+    _isPaused = false;
+    _repository.resumeIndexing();
+    _reemitProgressFlags(emit);
+  }
+
+  Future<void> _onSetEconomyIndexing(
+    SetEconomyIndexing event,
+    Emitter<IndexingState> emit,
+  ) async {
+    if (_isEconomy == event.enabled) return;
+    try {
+      await _repository.setEconomyIndexing(event.enabled);
+      _isEconomy = event.enabled;
+      _reemitProgressFlags(emit);
+    } catch (e) {
+      debugPrint('⚠️ החלפת מצב אינדוקס חסכוני נכשלה: $e');
+    }
+  }
+
+  /// פליטה מחדש של מצב ההתקדמות הנוכחי עם דגלי ההשהיה/החיסכון העדכניים.
+  void _reemitProgressFlags(Emitter<IndexingState> emit) {
+    final currentState = state;
+    if (currentState is! IndexingInProgress) return;
+    emit(
+      _inProgress(
+        booksProcessed: currentState.booksProcessed,
+        totalBooks: currentState.totalBooks,
+        isCreatingIndex: currentState.isCreatingIndex,
+      ),
+    );
   }
 
   /// Handles the EraseIndex event
@@ -378,7 +429,7 @@ class IndexingBloc extends Bloc<IndexingEvent, IndexingState> {
       emit(IndexingInitial());
     } else {
       emit(
-        IndexingInProgress(
+        _inProgress(
           booksProcessed: event.processed,
           totalBooks: event.total,
           isCreatingIndex: state.isCreatingIndex,

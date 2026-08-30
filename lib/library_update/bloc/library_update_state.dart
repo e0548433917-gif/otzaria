@@ -56,6 +56,10 @@ class LibraryUpdateState extends Equatable {
 
   final String? errorMessage;
 
+  /// `true` כשה-[LibraryUpdateStatus.error] נבע מכשל בשלב בדיקת הזמינות בלבד —
+  /// שם החיווי נסגר מעצמו, וכפתור עדכון הספרייה נשאר כעוגן לניסיון חוזר.
+  final bool isCheckFailure;
+
   const LibraryUpdateState({
     this.status = LibraryUpdateStatus.idle,
     this.message = 'בדוק עדכוני ספרייה',
@@ -68,6 +72,7 @@ class LibraryUpdateState extends Equatable {
     this.plan,
     this.changedBookIds = const {},
     this.errorMessage,
+    this.isCheckFailure = false,
   });
 
   bool get isBusy =>
@@ -106,6 +111,7 @@ class LibraryUpdateState extends Equatable {
     LibraryUpdatePlan? plan,
     Set<int>? changedBookIds,
     String? errorMessage,
+    bool? isCheckFailure,
   }) {
     return LibraryUpdateState(
       status: status ?? this.status,
@@ -121,6 +127,7 @@ class LibraryUpdateState extends Equatable {
       plan: plan ?? this.plan,
       changedBookIds: changedBookIds ?? this.changedBookIds,
       errorMessage: errorMessage ?? this.errorMessage,
+      isCheckFailure: isCheckFailure ?? this.isCheckFailure,
     );
   }
 
@@ -137,5 +144,6 @@ class LibraryUpdateState extends Equatable {
     plan,
     changedBookIds,
     errorMessage,
+    isCheckFailure,
   ];
 }

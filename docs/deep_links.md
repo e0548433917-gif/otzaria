@@ -149,6 +149,124 @@ otzaria://library/reindex
 
 הערה למחליפי `seforim.db`: החלפת קובץ ה-DB עצמו נתמכת רק כשאוצריא סגורה (הקובץ נעול בזמן ריצה). לאחר ההחלפה, הפעלת הקישור תפתח את אוצריא והאינדקס יעודכן מול ה-DB החדש.
 
+### `otzaria://info/...` — שאילתת מידע (פלט JSON)
+
+בשונה מכל שאר הכתובות, קישור `info` **אינו יעד ניווט** — הוא שאילתה. אוצריא אוספת דוח JSON ומציגה אותו בפופאפ קטן ומעוצב, בלי לפתוח טאב, בלי לעבור מסך ובלי לשנות שום מצב באפליקציה.
+
+השימוש העיקרי: הדבקת הכתובת **בתוך התוכנה** — בשדה "איתור ספר" בספרייה או בדיאלוג "איתור מקורות" — ואז הפופאפ נפתח מיד. הכתובת עובדת גם מבחוץ (דפדפן, שורת פקודה); אז החלון מוצף לחזית והפופאפ מוצג בו.
+
+> **הפעלת URI אינה מחזירה ערך — לעולם.** סכמת `otzaria://` היא חד-כיוונית: הדפדפן/ה-OS מפעילים את ה-exe ואין ערוץ חזרה — לא stdout, לא קוד יציאה, לא גוף תגובה. לכן תוכנה שרוצה **לשאוב** את הדוח לא יכולה לעשות זאת דרך הקישור; היא משתמשת בפקודת ה-CLI שלהלן. (מאותה סיבה `plugin/install` מדווח דרך `callback=` ולא בערך מוחזר.)
+
+#### `otzaria info` — אותו דוח, כפלט CLI לתוכנות חיצוניות
+
+פקודת headless שמדפיסה את ה-JSON הגולמי ל-stdout ויוצאת. אין חלון, אין splash, ואין מעבר דרך ה-mutex של מופע-יחיד — לכן היא עובדת גם כשאוצריא פתוחה, בלי לגעת בחלון שלה.
+
+> הדילוג על החלון וה-splash מוגדר ב-`IsCliInvocation` שב-runner של **Windows** בלבד. בלינוקס הפקודה תעבוד ותדפיס את ה-JSON, אבל ה-splash כן יוצג.
+
+הפקודה מזוהה גם כ-`--info` וכ-`/info`. הנרמול חייב להישאר זהה בשני הצדדים — `normalizeCliCommand` ב-[`lib/core/cli_command.dart`](../lib/core/cli_command.dart) מול `IsCliInvocation` ב-[`windows/runner/main.cpp`](../windows/runner/main.cpp); פער ביניהם מייצר מופע שני שדילג על המנעול ועולה כאפליקציה מלאה בלי חלון, ולכן [`test/core/cli_command_test.dart`](../test/core/cli_command_test.dart) קורא את קובץ ה-C++ ואוכף את השקילות.
+
+```text
+otzaria.exe info                     # דוח מלא
+otzaria.exe info app                 # מקטע אחד
+otzaria.exe info errors --limit=20
+otzaria.exe info --compact           # שורה אחת, לצינור לתוך מפענח
+otzaria.exe info --out=report.json   # מטען נקי לקובץ
+otzaria.exe info --help
+```
+
+| דגל | משמעות |
+|--------|--------|
+| `--limit=<n>` | מספר רשומות השגיאה. **אין תקרה כאן** — בשונה מ-`?limit=` בכתובת ה-URI שנחסם ב-50, הקורא בשורת הפקודה מהימן ומקבל בדיוק מה שביקש |
+| `--compact` | JSON בשורה אחת |
+| `--out=<path>` | כתיבת ה-JSON לקובץ במקום ל-stdout |
+| `-h`, `--help` | מסך עזרה |
+
+| קוד יציאה | משמעות |
+|--------|--------|
+| `0` | הצלחה — ה-JSON ב-stdout (או בקובץ `--out`). גם `--help`, שמדפיס טקסט עזרה ולא JSON |
+| `1` | האיסוף או הכתיבה לקובץ נכשלו — הסיבה ב-stderr |
+| `64` | שגיאת שימוש (נושא/דגל לא מוכר, שני נושאים, `--limit`/`--out` לא חוקי) |
+
+**stdout אינו נקי לחלוטין ב-Windows.** `irondash_engine_context_plugin.dll` מדפיס `P ATTACH` מ-`DllMain` בזמן טעינת התהליך — לפני שקוד Dart רץ בכלל, ולכן אין דרך לחסום זאת מתוך האפליקציה. בבניית debug מצטרפות אליו שורת ה-Dart VM service והבאנר של `flutter_inappwebview` (שניהם `kDebugMode` בלבד).
+
+מה שכן מובטח: **שום דבר אינו מודפס אחרי ה-JSON.** לכן שתי דרכי קריאה אמינות:
+
+```csharp
+// א' — השורה האחרונה, עם --compact (ה-JSON תמיד שורה אחת)
+var psi = new ProcessStartInfo("otzaria.exe", "info app --compact") {
+  RedirectStandardOutput = true, UseShellExecute = false,
+};
+using var proc = Process.Start(psi);
+var lines = proc.StandardOutput.ReadToEnd()
+  .Split('\n', StringSplitOptions.RemoveEmptyEntries);
+var json = lines[^1].Trim();
+
+// ב' — מטען מובטח בקובץ (מומלץ לאוטומציה)
+Process.Start(new ProcessStartInfo("otzaria.exe",
+  $"info app --out=\"{path}\"") { UseShellExecute = false }).WaitForExit();
+var json2 = File.ReadAllText(path);   // רק ה-JSON, בלי newline נגרר
+```
+
+`print` שנורה מתוך קוד האפליקציה *במהלך* האיסוף (למשל `debugPrint` בשירותים) מנותב ל-stderr דרך `ZoneSpecification`, כך שהוא אינו מזהם את ה-JSON. ב-release `debugPrint` ממילא מנוטרל ב-`main.dart`, ולכן ה-Zone היא הרשת שמכסה תלויות ואת מצב ה-debug.
+
+הפלט זהה בדיוק לזה שבפופאפ — שני הערוצים קוראים ל-[`AppInfoService.collect`](../lib/core/info/app_info_service.dart), ורק מקור רשימת התוספים שונה (BLoC בממשק, `PluginRegistryRepository` ב-CLI).
+
+**בחירת הנושא היא גם בקרת הביצועים:** `app`, `plugins` ו-`errors` אינם נוגעים בספרייה ומחזירים מיד. `library` (וגם `all`) טוענים את קטלוג הספרייה מ-`seforim.db`, ולכן לוקחים כמה שניות.
+
+**איך ה-CLI קורא את ההגדרות בזמן שאוצריא פתוחה:** Hive נועל את תיבת ההגדרות בלעדית לכל התהליך (`app_preferences.lock` לצד הקובץ), ולכן תהליך שני שינסה לפתוח אותה ייכשל. [`SettingsSnapshot`](../lib/core/info/settings_snapshot.dart) מעתיק את קובץ התיבה לתיקייה זמנית ופותח את **העותק**; ה-`Settings` שנבנה מעליו הוא קריאה-בלבד (`ReadOnlySettingsCache`, כל ה-setters הם no-op). התיבה החיה אינה נפתחת ואינה משתנה. אם אין תיבה או שהקריאה נכשלה — `Settings` מאותחל ריק, הדוח נופל לנתיבי ברירת המחדל, ו-`settingsLoaded: false` מסמן זאת.
+
+שתי מלכודות באותו מנגנון: (א) `Hive.openBox` מחזיר תיבה פתוחה קיימת **לפי שם, בהתעלם מהנתיב** — ולכן `SettingsSnapshot.read` מסרב לפעול בתהליך שבו התיבה כבר פתוחה, אחרת היה קורא את התיבה החיה וסוגר אותה. (ב) העותק חייב להיסגר לפני מחיקת התיקייה הזמנית: תיבה פתוחה מחזיקה את הקובץ ב-Windows, המחיקה נכשלת, והעותק — שמכיל גם hash של סיסמת המצב המוגן ואישורי Google Calendar — היה נשאר ב-`%TEMP%`.
+
+מכיוון שההגדרות אינן כתיבות בתהליך הזה, `AppPaths.getLibraryPath()` אינו יכול לשמור תיקון נתיב. לכן מקטע `library` גוזר את `databasePath` מנתיב הספרייה ה**מפוענח** ולא מ-`Settings` הגולמי — אחרת `path` ו-`databasePath` באותו JSON היו יכולים לסתור זה את זה.
+
+הרישום ב-`main.cpp` הוא `IsCliInvocation`, שמדלג על ה-mutex ועל ה-splash ובונה את `FlutterWindow` עם `headless=true` כך שהחלון לא מוצג לעולם; `AttachConsole(ATTACH_PARENT_PROCESS)` בראש `wWinMain` הוא מה שמחבר את stdout לקורא.
+
+| כתובת | תוצאה |
+|--------|--------|
+| `otzaria://info` | דוח מלא — תוכנה + ספרייה + תוספים + שגיאות |
+| `otzaria://info/all` | זהה ל-`otzaria://info` |
+| `otzaria://info/app` | מידע על התוכנה |
+| `otzaria://info/library` | מידע על הספרייה |
+| `otzaria://info/plugins` | מידע על התוספים |
+| `otzaria://info/errors` | השגיאות האחרונות מקובצי הלוג |
+| `?limit=<n>` | מספר רשומות השגיאה — ברירת מחדל 5, תקרה 50; ערך לא חוקי → ברירת המחדל. מתקבל בכל נושא, אך משפיע רק על מקטע `errors` |
+
+**Aliases לנושאים:** `software`/`version` → `app`, `books` → `library`, `plugin` → `plugins`, `error`/`log`/`logs` → `errors`. נושא לא מוכר או נתיב עמוק (`info/app/extra`) מוחזרים `null` ומתעלמים בשקט, כמו כל כתובת לא מוכרת.
+
+**שדות השורש** (בכל דוח, בשני הערוצים): `topic`, `generatedAt` (UTC עם סיומת `Z`), ו-`settingsLoaded` — `false` מסמן שהגדרות המשתמש לא נקראו ולכן כל הנתיבים והספירות הם ברירות מחדל ולא המצב בפועל. **מקטע שאיסופו נכשל מוחזר כ-`{"error": "<סיבה>"}`** במקום שדותיו, ובפופאפ מוצג כשורת "שגיאה באיסוף" — כך כשל בחלק אחד אינו מבטל את שאר הדוח.
+
+**מה כל מקטע מחזיר:**
+
+| מקטע | שדות |
+|--------|--------|
+| `app` | `version`, `buildNumber`, `fullVersion` (`version+build` — הפורמט שבו נשמר `previousVersion`), `installedAt` + `installedAtSource`, `updatedAt`, `previousVersion`, `installType` (`portable`/`allUsers`/`perUser`), `accountType` (`administrator`/`standard`/`unknown`), `elevated`, `platform`, `operatingSystem`, `dataRootPath`, `name`, `packageName` |
+| `library` | `version` (מ-`schema_meta.db_version`), `lastUpdatedAt`, `totalBooks`, `personalBooks`, `officialBooks`, `pdfBooks`, `path`, `indexPath`, `databasePath`, `databaseExists`, `databaseSizeBytes` |
+| `plugins` | `webViewVersion` (WebView2 — Windows בלבד), `installedCount`, `enabledCount`, `installed[]` עם `id`, `name`, `version`, `enabled`, `source`, `installedAt`, `updatedAt` |
+| `errors` | `totalEntries`, `returnedEntries`, `files[]`, `recent[]` |
+
+`files[]` — `path` ו-`exists` תמיד; `sizeBytes`, `modifiedAt`, `entryCount` רק לקובץ קיים; `readError` רק כשקובץ קיים לא נקרא/נפענח (בלעדיו מכונה שקורסת הייתה מקבלת דוח שמצהיר "אין שגיאות"). `recent[]` — `source` ו-`title` תמיד; `timestamp`, `version`, `message`, `stack` (3 פריימים ראשונים) מושמטים כשאין להם ערך, ולא מוחזרים כ-`null`.
+
+כל חותמות הזמן ב-JSON הן UTC עם סיומת `Z`. הפופאפ ממיר אותן לשעון מקומי לתצוגה.
+
+הפופאפ מציג את השדות המרכזיים בעברית; ה-JSON המלא זמין בכפתור "הצג JSON" ובכפתור ההעתקה שבראש הפופאפ.
+
+**נתוני התוספים** נקראים מ-`PluginRegistryRepository` בשני הערוצים. בממשק, כשמערכת התוספים עדיין נטענת, הדוח פונה למרשם ישירות במקום לדווח `installedCount: 0` — כך הפופאפ וה-CLI לא מציגים מספרים שונים על אותה התקנה.
+
+**מאיפה מגיעים תאריכי ההתקנה והעדכון:** [`AppInstallTimelineStore`](../lib/core/info/app_install_timeline.dart) נקרא ב-`main.dart` מיד לאחר `Settings.init`, רושם את תאריך ההתקנה בהפעלה הראשונה, ומעדכן `updatedAt` + `previousVersion` בכל שינוי גרסה. בהתקנות שקדמו למנגנון אין רישום, ולכן ב-Windows התאריך נגזר מזמן היצירה של תיקיית הנתונים ומסומן `installedAtSource: derived` (בפופאפ: "מוערך"). ב-Linux/macOS `st_ctime` אינו זמן יצירה, ולכן אין גזירה והתאריך נרשם בהפעלה הראשונה שראתה את המנגנון.
+
+**מאיפה מגיע סוג החשבון:** [`SystemAccountProbe`](../lib/core/info/system_account_info.dart) מריץ תהליך חד-פעמי לפי דרישה (לא בעלייה): ב-Windows `whoami /groups /fo csv /nh` — קיום `S-1-5-32-544` מעיד על חשבון מנהל (גם ב-token מפוצל), ו-`S-1-16-12288`/`S-1-16-16384` מעידים על ריצה elevated. ב-POSIX `id -u` ו-`id -Gn` (`sudo`/`wheel`/`admin`).
+
+**קובצי הלוג הנסרקים:** `<dataRoot>/logs/errors.txt` (פורמט הבלוקים של [`ErrorLogFile`](../lib/core/error_log_file.dart) — שגיאות Flutter, כשלי אינדוקס, כשלי WebView של תוספים) ו-`%TEMP%\otzaria_shutdown_errors.log` ב-Windows (שורה לרשומה). קובץ נעול או פגום מדולג בלי לבטל את שאר הדוח.
+
+```text
+otzaria://info
+otzaria://info/app
+otzaria://info/library
+otzaria://info/plugins
+otzaria://info/errors
+otzaria://info/errors?limit=20
+```
+
 ## איך משתמשים בקישור
 
 ### מהדפדפן
@@ -298,6 +416,7 @@ _externalActivationWatchSub = queueFile.parent.watch().listen((event) {
 | `OpenInspectionAction()` | `otzaria://open/inspection` | מסך העיון (ספר אחרון) |
 | `OpenSdkAction()` | `otzaria://open/sdk` | פתיחת דיאלוג ניהול תוספים |
 | `OpenDailyPageAction()` | `otzaria://open/daily_page` | פתיחת ה-PDF של תלמוד בבלי בדף הנכון ליום |
+| `ShowInfoAction(InfoTopic topic, {int errorLimit})` | `otzaria://info`, `otzaria://info/app`, `/library`, `/plugins`, `/errors?limit=<n>` | שאילתת מידע — אוסף דוח JSON ומציג בפופאפ, ללא ניווט |
 | `InstallPluginAction(PluginStoreInstallRequest)` | `otzaria://plugin/install?url=...` | התקנת תוסף מהחנות |
 | `InstallLocalPluginAction(String archivePath)` | `otzaria://plugin/install-local?path=<abs>` | התקנת תוסף מקובץ `.otzplugin` מקומי (לחיצה כפולה על קובץ משויך) |
 
@@ -319,6 +438,7 @@ _externalActivationWatchSub = queueFile.parent.watch().listen((event) {
    - **`OpenBookmarksAction`** — פותח `BookmarksDialog` דרך `showDialog`.
    - **`OpenBookAction`** — `await DataRepository.instance.library`, מחפש לפי `b.id`. אם נמצא — `openBook(context, book, index ?? 0, searchQuery ?? '', markSection: markSection, markText: markText)`. אם לא — `UiSnack.showError`.
    - **`RunSearchAction`** — יוצר `SearchingTab` חדש עם הקוורי, מוסיף ל‑`HistoryBloc` ול‑`TabsBloc`, ומנווט ל‑`Screen.search`. ה‑`UpdateSearchQuery` מופעל אוטומטית מ‑`TantivyFullTextSearch.initState` ברגע שהלשונית מוצגת.
+   - **`ShowInfoAction`** — `AppInfoService.collect` ואז `showAppInfoDialog`. אין ניווט ואין שינוי מצב. הדיאלוג נדחה לפוסט‑פריים ואינו מומתן, משתי סיבות: המתנה לסגירתו הייתה חוסמת את `_processPendingExternalActivations` (שמתנקז רק בעקבות אירוע קובץ, כך ש‑URI שנכנס בזמן שהפופאפ פתוח לא היה מטופל), וה‑`Navigator.pop` של דיאלוג איתור מקורות היה סוגר את הפופאפ הזה במקום את עצמו.
    - **`InstallPluginAction`** — `InstallRemotePluginRequested` ל‑PluginSystemBloc (ללא ניווט).
    - **`InstallLocalPluginAction`** — `InstallPluginRequested(archivePath)` ל‑PluginSystemBloc. הדיאלוג נפתח אוטומטית דרך `BlocListener` כשמתקבל `PluginSystemInstallRequiresPermissions`.
 
@@ -375,7 +495,8 @@ case OpenMyFeatureAction():
 - **אין התקנה אוטומטית של תוספים ללא אישור משתמש.** גם עם `overwrite=true`, המשתמש רואה את שמות הקבצים והרשאות התוסף לפני ההתקנה בפועל.
 - **`plugin/install` (הורדה מרשת)** מקבל רק `url=` בסכמת `http`/`https` — `file://` וכל סכמה אחרת נדחות בכוונה.
 - **`plugin/install-local` (קובץ מקומי)** מקבל `path=` שחייב להיות **נתיב מוחלט**, להסתיים ב‑`.otzplugin`, ואינו נתיב UNC/התקן (`\\server\share`, `\\.\`, `\\?\`, `//host`). מאחר שקישור `otzaria://` ניתן להפעלה מדף אינטרנט, החסימה מונעת קריאת קובץ שרירותי מהדיסק, שימוש בנתיב יחסי בלתי-צפוי (הנפתר מול תיקיית העבודה), ודליפת אישורי SMB בעצם הגישה לנתיב.
-- **קישור `otzaria://` מתוך WebView של תוסף נחסם**, למעט `plugin/install` — ראה [`shouldOverrideUrlLoading`](../lib/plugins/view/plugin_tab_page.dart). הסכמה נכתבה בהנחה שהמשתמש לחץ, ולכן אף route בה אינו בודק הרשאת תוסף; פתיחתה הייתה מוסרת לתוסף גם `library/reindex` ו‑`plugin/install-local` וגם כל יעד שיתווסף בעתיד. פעולות שתוסף אמור לבצע מקבלות API ייעודי בגשר עם הרשאה משלו — כך `plugin.openOther` לפתיחת תוסף אחר (`plugin.open_other`).
+- **`otzaria://info` אינו ערוץ יציאה.** הדוח נאסף ומוצג בפופאפ מקומי בלבד — הוא אינו נשלח לשום מקום, ו-`_parseInfo` קורא רק `limit=` (בשונה מ-`plugin/install`, אין כאן `callback=`/`token=`). דף אינטרנט יכול לפתוח את הפופאפ אבל לא לקרוא את תוכנו; ההוצאה היחידה היא העתקה שהמשתמש יוזם בעצמו. הפעולה היא קריאה בלבד ואינה משנה שום מצב באפליקציה. **`--out=` של ה-CLI כן כותב לקובץ — אבל הוא אינו נגיש מכתובת `otzaria://`:** שני הפרסרים בודקים רק את הארגומנט הראשון, ובהפעלת URI הוא תמיד מתחיל ב-`otzaria:`, כך שאין כאן primitive של כתיבת קובץ שרירותי מהרשת.
+- **`otzaria://info` הוא הקישור הראשון שמריץ תהליך** (`whoami`/`id` לזיהוי סוג החשבון). שמות ההרצה מוסמכים לנתיב מוחלט — `%SystemRoot%\System32\whoami.exe` ו-`/usr/bin/id` — כי `Process.run` עם שם לא מוסמך מחפש קודם בתיקיית ה-exe וב-CWD, ובהתקנה פר-משתמש התיקייה כתיבה למשתמש. כמו כן פופאפ מידע אחד פתוח חוסם פתיחת נוספים, כדי שדף לא יערים עשרות פופאפים.
 - **קישור ל‑URL לא קיים** (למשל `otzaria://open/banana`) פשוט מוחזר `null` ואוצריא מתעלמת בשקט. אין הודעת שגיאה — זה עיצובית מכוון, כדי לא להפחיד משתמשים שלחצו על קישור עתידי.
 - **קישור לספר עם ID לא קיים** מציג `UiSnack.showError` בעברית. זאת בכוונה כדי שהמשתמש יבין שהקישור לא תקף בספרייה שלו.
 
@@ -385,6 +506,16 @@ case OpenMyFeatureAction():
 |--------|--------|
 | [`lib/core/external_uri_router.dart`](../lib/core/external_uri_router.dart) | ראוטר אחיד + sealed `ExternalUriAction` (כולל `OpenTool`/`OpenScreen`/`OpenSettingsTab`/`OpenHistory`/`OpenBookmarks`/`OpenBook`/`InstallPlugin`) |
 | [`lib/plugins/services/plugin_store_link_parser.dart`](../lib/plugins/services/plugin_store_link_parser.dart) | פענוח פנימי של `plugin/install` (משמש את הראוטר) |
+| [`lib/core/info/info_topic.dart`](../lib/core/info/info_topic.dart) | `InfoTopic` — נושאי `otzaria://info/<topic>`, ה‑aliases והפריסה של `all` |
+| [`lib/core/info/app_info_service.dart`](../lib/core/info/app_info_service.dart) | `AppInfoService` — איסוף דוח המידע (`AppInfoReport`), מקטע‑מקטע ועמיד לכשלים |
+| [`lib/core/info/app_install_timeline.dart`](../lib/core/info/app_install_timeline.dart) | רישום/קריאה של תאריך ההתקנה, תאריך העדכון והגרסה הקודמת |
+| [`lib/core/info/system_account_info.dart`](../lib/core/info/system_account_info.dart) | זיהוי סוג חשבון המשתמש (מנהל/רגיל) וריצה elevated |
+| [`lib/core/info/error_log_reader.dart`](../lib/core/info/error_log_reader.dart) | קריאה ופענוח של קובצי הלוג לרשומות השגיאה האחרונות |
+| [`lib/core/info/app_info_cli.dart`](../lib/core/info/app_info_cli.dart) | `otzaria info` — פקודת headless שמדפיסה את הדוח כ-JSON ל-stdout |
+| [`lib/core/cli_command.dart`](../lib/core/cli_command.dart) | `normalizeCliCommand` — נרמול שם פקודת CLI, חייב להישאר זהה ל-`IsCliInvocation` |
+| [`lib/core/info/settings_snapshot.dart`](../lib/core/info/settings_snapshot.dart) | קריאת הגדרות המשתמש מתצלום, בלי להתנגש במנעול Hive של המופע הגרפי |
+| [`lib/core/info/view/app_info_dialog.dart`](../lib/core/info/view/app_info_dialog.dart) | הפופאפ המעוצב + `showAppInfoDialog` |
+| [`lib/core/info/view/info_section_fields.dart`](../lib/core/info/view/info_section_fields.dart) | תוויות השדות בעברית, סדר התצוגה ועיצוב הערכים |
 | [`lib/plugins/services/plugin_protocol_registration_service.dart`](../lib/plugins/services/plugin_protocol_registration_service.dart) | רישום דינמי של סכמת `otzaria://` ב‑Windows ובלינוקס בזמן ריצה |
 | [`lib/core/external_activation_queue.dart`](../lib/core/external_activation_queue.dart) | תור JSONL להעברת URIs בין מופעים |
 | [`lib/core/external_activation_channel.dart`](../lib/core/external_activation_channel.dart) | ערוץ פלטפורמה ל‑URIs שמגיעים בזמן ריצה (Android/iOS) |
@@ -394,6 +525,8 @@ case OpenMyFeatureAction():
 | [`lib/bookmarks/view/bookmark_screen.dart`](../lib/bookmarks/view/bookmark_screen.dart) | `BookmarksDialog` — נפתח דרך `showDialog` |
 | [`lib/tools/open_tool_tab.dart`](../lib/tools/open_tool_tab.dart) | `openToolTab` / `openToolTabById` — פתיחת כרטיסיית כלי בעיון |
 | [`lib/tools/tool_catalog_entry.dart`](../lib/tools/tool_catalog_entry.dart) | `buildToolCatalog` / `lookupTool` — קטלוג הכלים וסיבות אי-זמינות |
-| [`windows/runner/main.cpp`](../windows/runner/main.cpp) | זיהוי single‑instance + העברת ארגומנטים לתור (לא רישום) |
+| [`windows/runner/main.cpp`](../windows/runner/main.cpp) | זיהוי single‑instance + העברת ארגומנטים לתור (לא רישום); `IsCliInvocation` מזהה `pack-plugin` ו‑`info` ומריץ אותם headless |
 | [`test/core/external_uri_router_test.dart`](../test/core/external_uri_router_test.dart) | בדיקות הראוטר האחיד |
+| [`test/core/info/`](../test/core/info/) | בדיקות נושאי המידע, ציר הזמן, זיהוי החשבון, פענוח הלוג, חוזה ה-JSON, ה-CLI והפופאפ |
+| [`test/core/cli_command_test.dart`](../test/core/cli_command_test.dart) | אכיפת שקילות הנרמול מול `IsCliInvocation` ב-`main.cpp` |
 | [`test/plugins/services/plugin_store_link_parser_test.dart`](../test/plugins/services/plugin_store_link_parser_test.dart) | בדיקות פרסר התקנת תוסף |

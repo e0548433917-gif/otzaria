@@ -163,6 +163,7 @@ class TabsBloc extends Bloc<TabsEvent, TabsState> {
     on<UpdateSplitRatio>(_onUpdateSplitRatio, transformer: sequential());
     on<SwapSideBySideTabs>(_onSwapSideBySideTabs, transformer: sequential());
     on<ClosePane>(_onClosePane, transformer: sequential());
+    on<DetachPane>(_onDetachPane, transformer: sequential());
     on<SetActivePane>(_onSetActivePane);
 
     _preCloseCallback = _flushPendingSaves;
@@ -1443,5 +1444,37 @@ class TabsBloc extends Bloc<TabsEvent, TabsState> {
 
     // אין לשחרר את הטאב המפוצל כי האחות ממשיכה להיות מוצגת.
     _disposeTabLater(event.pane);
+  }
+
+  Future<void> _onDetachPane(DetachPane event, Emitter<TabsState> emit) async {
+    final index = state.tabs.indexWhere(
+      (tab) => tab is CombinedTab && tab.sibling(event.pane) != null,
+    );
+    if (index == -1) return;
+
+    final combined = state.tabs[index] as CombinedTab;
+    final survivor = combined.sibling(event.pane)!;
+    // ההצמדה עוברת לשתי החלוניות, כמו בפירוק מלא של הטאב המפוצל.
+    if (combined.isPinned) {
+      survivor.isPinned = true;
+      event.pane.isPinned = true;
+    }
+
+    final newTabs = List<OpenedTab>.from(state.tabs);
+    newTabs[index] = survivor;
+    final insertIndex = event.insertIndex.clamp(0, newTabs.length);
+    newTabs.insert(insertIndex, event.pane);
+
+    emit(
+      state.copyWith(
+        tabs: newTabs,
+        // החלונית שנגררה החוצה נשארת מול העיניים, כמו גרירת כרטיסיה בדפדפן.
+        currentTabIndex: insertIndex,
+        forceUpdate: true,
+        selectedTabs: _normalizedSelection(newTabs),
+      ),
+    );
+    _scheduleSave(newTabs, insertIndex);
+    // אין לשחרר דבר: שתי החלוניות ממשיכות להיות מוצגות ככרטיסיות.
   }
 }

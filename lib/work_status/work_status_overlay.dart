@@ -2,6 +2,7 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:otzaria/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:otzaria/widgets/widgets_exports.dart';
 import 'package:otzaria/work_status/work_status_cubit.dart';
 import 'package:otzaria/work_status/work_status_item.dart';
 
@@ -184,12 +185,45 @@ class _PrimaryItemRow extends StatelessWidget {
                     ),
                   ),
                 ],
+                if (item.actions.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 4,
+                    children: [
+                      for (final action in item.actions)
+                        _ItemActionButton(action: action),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
         ],
       ),
     );
+  }
+}
+
+class _ItemActionButton extends StatelessWidget {
+  const _ItemActionButton({required this.action});
+  final WorkStatusAction action;
+
+  @override
+  Widget build(BuildContext context) {
+    final button = action.emphasized
+        ? ActionButton.neutral(
+            text: action.label,
+            icon: action.icon,
+            onPressed: action.onPressed,
+          )
+        : ActionButton.ghost(
+            text: action.label,
+            icon: action.icon,
+            onPressed: action.onPressed,
+          );
+    final tooltip = action.tooltip;
+    if (tooltip == null) return button;
+    return Tooltip(message: tooltip, child: button);
   }
 }
 

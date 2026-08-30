@@ -72,18 +72,21 @@ applyTheme(theme);
     surfaceTint:             "#...", // גוון העלאה (elevation tint)
   },
   typography: {
-    fontFamily:             "Frank Ruhl Libre", // גופן ראשי (טקסטים עבריים)
+    fontFamily:             "FrankRuhlCLM",     // גופן הקריאה — לטקסט הספר בלבד
     fontSize:               25,                 // גודל גופן בסיסי (px) — לפי הגדרת המשתמש
     lineHeight:             1.5,                // גובה שורה
-    commentatorsFontFamily: "Shofar",           // גופן מפרשים
+    commentatorsFontFamily: "NotoRashiHebrew",  // גופן מפרשים
     commentatorsFontSize:   22,                 // גודל גופן מפרשים (px)
+    uiFontFamily:           "Rubik",            // גופן הממשק — כפתורים, תפריטים, שדות
   }
 }
 ```
 
 > **שים לב:** `fontSize` שונה ממשתמש למשתמש (טווח רגיל: 16–36). עצב את הפריסה כך שתעבוד בכל גודל.
 
-> **הגופנים זמינים אוטומטית ב-WebView:** הגופנים המובנים של אוצריא (`FrankRuhlCLM`, `TaameyDavidCLM`, `Shofar`, `NotoRashiHebrew`, `KeterYG`, `NotoSerifHebrew`, `Tinos`, `Rubik`, `TaameyAshkenaz`) מוזרקים כ-`@font-face` ל-WebView עוד לפני ה-`plugin.boot`, עבור הגופן הראשי וגופן המפרשים שנבחרו בהגדרות. אין צורך לארוז קבצי גופן בתוסף — מספיק להגדיר `font-family: 'FrankRuhlCLM', 'David', serif;` ב-CSS, ולעדכן בזמן אמת מתוך `theme.typography.fontFamily`. גופני מערכת שהמשתמש בחר ידנית (מתוך גופני ההפעלה) אינם מוזרקים — במצב כזה ה-WebView ייפול חזרה ל-fallback שמוגדר ב-CSS, כך שכדאי לשמור `'David', serif` בסוף השרשרת.
+> **גופן ממשק ≠ גופן קריאה — אל תערבב:** `fontFamily` הוא הגופן שהמשתמש בחר ל**קריאת ספרים** — גופן עם תגיות, מצויר ל-25px. החלתו על כפתור או תפריט בן 11-12px מולידה טקסט מטושטש ומרוח. לממשק יש `uiFontFamily` — sans שנשאר חד בקטן. שני משתנים נפרדים, ולא אחד: `--font-ui` לכפתורים/תפריטים/שדות, ו-`--font-main` רק לטקסט הספר עצמו.
+
+> **הגופנים זמינים אוטומטית ב-WebView:** כל הגופנים המובנים של אוצריא (`FrankRuhlCLM`, `TaameyDavidCLM`, `Shofar`, `NotoRashiHebrew`, `KeterYG`, `NotoSerifHebrew`, `Tinos`, `Rubik`, `TaameyAshkenaz`) מוזרקים כ-`@font-face` עוד לפני ה-`plugin.boot`, ואיתם גם גופן מערכת שהמשתמש בחר בהגדרות. אין צורך לארוז קבצי גופן בתוסף — מספיק `font-family: 'FrankRuhlCLM', 'David', serif;` ב-CSS. כל משפחה נשלחת עם ה-face הבולד האמיתי שלה (או עם טווח משקלים בגופן משתנה), כך ש-`font-weight: bold` מקבל ציור אות אמיתי ולא עיבוי מלאכותי.
 
 ---
 
@@ -114,7 +117,8 @@ applyTheme(theme);
   --color-secondary-subtle: rgba(98, 91, 113, 0.12);  /* secondary בשקיפות */
 
   /* --- Typography --- */
-  --font-main:     'Frank Ruhl Libre', 'David', serif;
+  --font-ui:       'Rubik', system-ui, sans-serif;  /* ממשק */
+  --font-main:     'FrankRuhlCLM', 'David', serif;  /* טקסט קריאה */
   --font-size-base: 18px;
   --line-height:    1.5;
 
@@ -160,6 +164,10 @@ function applyTheme(theme) {
 
   if (theme.typography) {
     const t = theme.typography;
+    // מארח ישן אינו שולח uiFontFamily — אז הברירת מחדל שב-CSS נשמרת.
+    if (t.uiFontFamily) {
+      root.style.setProperty('--font-ui', `'${t.uiFontFamily}', system-ui, sans-serif`);
+    }
     root.style.setProperty('--font-main', `'${t.fontFamily}', 'David', serif`);
     root.style.setProperty('--font-size-base', `${t.fontSize}px`);
     root.style.setProperty('--line-height', String(t.lineHeight));
@@ -302,7 +310,7 @@ body.dark-mode .card {
   border: none;
   border-radius: var(--radius-sm);
   padding: 9px 20px;
-  font-family: var(--font-main);
+  font-family: var(--font-ui);
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
@@ -322,7 +330,7 @@ body.dark-mode .card {
   border: 1px solid var(--color-outline);
   border-radius: var(--radius-sm);
   padding: 9px 20px;
-  font-family: var(--font-main);
+  font-family: var(--font-ui);
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
@@ -341,7 +349,7 @@ body.dark-mode .card {
   padding: 9px 12px;
   border: 1.5px solid var(--color-outline);
   border-radius: var(--radius-sm);
-  font-family: var(--font-main);
+  font-family: var(--font-ui);
   font-size: 0.95rem;
   color: var(--color-on-surface);
   background: var(--color-surface);
@@ -356,13 +364,37 @@ body.dark-mode .card {
 }
 ```
 
+### מיקוד אוטומטי בפתיחה
+
+תוסף שנפתח על שדה עיקרי — חיפוש, סיסמה, שאילתה — צריך למקד אותו בעצמו.
+אוצריא מעבירה את פוקוס המקלדת אל ה-WebView כשהטאב נעשה פעיל, אבל **איזה**
+אלמנט בדף יקבל אותו נקבע בדף בלבד. בלי זה המשתמש חייב ללחוץ עם העכבר לפני
+שיוכל להקליד.
+
+```html
+<input class="input" autofocus>
+```
+
+`autofocus` מספיק כשהשדה קיים ב-HTML הראשוני. שדה שנוצר ב-JS צריך `focus()`
+מפורש, אחרי שהוא בעץ ומוצג:
+
+```js
+searchInput.focus();
+```
+
+שני מלכודים:
+
+- שדה שנבנה בתגובה ל-`plugin.boot` — ה-`focus()` בא אחרי ה-render, לא לפניו.
+- `autofocus` על שדה מוסתר (`display: none`, לשונית פנימית שאינה פעילה) אינו
+  עושה דבר. למקד אותו ברגע שהוא מוצג.
+
 ---
 
 ## טיפוגרפיה
 
 ```css
 body {
-  font-family: var(--font-main);
+  font-family: var(--font-ui);
   font-size: var(--font-size-base);
   line-height: var(--line-height);
   direction: rtl;
@@ -537,7 +569,8 @@ body { overflow: hidden; }   /* הגלילה קורית בתוכן, לא בעמ�
       --color-outline: #79747E;
       --color-primary-subtle: rgba(103,80,164,0.12);
       --color-secondary-subtle: rgba(98,91,113,0.12);
-      --font-main: 'Frank Ruhl Libre', 'David', serif;
+      --font-ui: 'Rubik', system-ui, sans-serif;
+      --font-main: 'FrankRuhlCLM', 'David', serif;
       --font-size-base: 18px;
       --line-height: 1.5;
       --radius-sm: 8px; --radius-md: 12px;
@@ -547,7 +580,7 @@ body { overflow: hidden; }   /* הגלילה קורית בתוכן, לא בעמ�
     html, body { height: 100%; }
 
     body {
-      font-family: var(--font-main);
+      font-family: var(--font-ui);
       font-size: var(--font-size-base);
       line-height: var(--line-height);
       background: var(--color-surface);
@@ -607,6 +640,9 @@ body { overflow: hidden; }   /* הגלילה קורית בתוכן, לא בעמ�
       r.style.setProperty('--color-outline',  cs.outline);
       document.body.classList.toggle('dark-mode', theme.mode === 'dark');
       if (theme.typography) {
+        if (theme.typography.uiFontFamily) {
+          r.style.setProperty('--font-ui', `'${theme.typography.uiFontFamily}', system-ui, sans-serif`);
+        }
         r.style.setProperty('--font-main', `'${theme.typography.fontFamily}', 'David', serif`);
         r.style.setProperty('--font-size-base', `${theme.typography.fontSize}px`);
         r.style.setProperty('--line-height', String(theme.typography.lineHeight));
@@ -758,17 +794,20 @@ popover.addEventListener('click', function(e) {
 | `<h1>` ענק בגוף התוכן ככותרת התוסף | פס עליון קבוע ברקע `var(--color-surface-container-high)` |
 | `body { min-height: 100vh }` — העמוד כולו גולל והכותרת נעלמת/נחתכת | `body { height: 100%; overflow: hidden }` + תוכן ב-`overflow-y: auto` |
 | כותרת הפס ב-`em` — מתפוצצת בגופן גדול | `font-size: 16px` בפס בלבד (תוכן התוסף נשאר יחסי) |
+| שדה חיפוש או סיסמה בלי מיקוד — המשתמש חייב ללחוץ לפני שיוכל להקליד | `<input autofocus>`, או `focus()` על שדה שנוצר ב-JS |
 
 ---
 
 ## אייקון לתוסף
 
-אוצריא מאפשרת לתוסף להציג אייקון בשני מקומות:
+אוצריא מאפשרת לתוסף להציג אייקון בארבעה מקומות:
 
 1. **שורת הטאבים במסך "כלים"** — ליד שם הכרטיסייה.
-2. **תפריט לחצן ימין במסכי עיון** — ליד שם הפריט בתפריט ההקשר.
+2. **סרגל הפקדים במסכי עיון** — `reader.addToolbarItem`, כולל ילדים של תפריט נפתח.
+3. **תפריט לחצן ימין במסכי עיון** — ליד שם הפריט בתפריט ההקשר.
+4. **שורת צבעים** בתפריט ההקשר — אייקון במקום גוש הצבע.
 
-שני המקומות משתמשים באייקונים מספריית **FluentUI System Icons** בלבד (אותה ספריה שאוצריא עצמה משתמשת בה).
+כולם מקבלים שם משתי ספריות — **אוצריא** ו-**FluentUI System Icons** — לפי כלל ההכרעה שב-[ICONS.md](ICONS.md).
 
 ---
 
@@ -791,28 +830,31 @@ popover.addEventListener('click', function(e) {
 | שדה | סוג | ברירת מחדל | תיאור |
 |-----|-----|------------|-------|
 | `allowOrderBeforeBuiltIns` | `boolean` | `false` | האם התוסף רשאי להופיע לפני הכלים המובנים במסך "כלים" |
-| `iconName` | `string` | ללא (ללא אייקון) | שם אייקון FluentUI 24px, המסתיים ב-`_24_regular` או `_24_filled` |
+| `iconName` | `string` | ללא (ללא אייקון) | שם אייקון 24px מספריית אוצריא או מ-FluentUI, המסתיים ב-`_24_regular` או `_24_filled` |
 
 כברירת מחדל, גם תוסף עם `order` נמוך יופיע אחרי הכלים המובנים. אם אתם באמת צריכים להקדים אותם, יש להצהיר במפורש על `allowOrderBeforeBuiltIns: true`. השתמשו בזה במשורה, ורק כאשר המיקום המוקדם הוא חלק מהותי מחוויית התוסף.
 
 #### כיצד בוחרים `iconName`?
 
-גלוש ל-[FluentUI System Icons](https://github.com/microsoft/fluentui-system-icons) ובחר אייקון, או חפש בקוד אוצריא שמות בסגנון `FluentIcons.xxx_24_regular`. כלל השמות:
+עומדות לרשותכם שתי ספריות: [אוצריא](https://github.com/Otzaria/otzaria_icons) (135 אייקונים לעולם התוכן היהודי) ו-[FluentUI System Icons](https://github.com/microsoft/fluentui-system-icons) (כללי). אין צורך להצהיר על ספרייה — כתבו שם, והוא ייפתר. כלל השמות:
 - `<base>_24_regular` — גרסה רגילה (קווים)
 - `<base>_24_filled` — גרסה מלאה
 
 **דוגמאות:**
 
-| `iconName` |
-|------------|
-| `calendar_24_regular` |
-| `book_24_regular` |
-| `search_24_regular` |
-| `star_24_filled` |
+| `iconName` | ספרייה |
+|------------|--------|
+| `calendar_24_regular` | אוצריא |
+| `book_open_tzurat_hadaf_24_regular` | אוצריא |
+| `alef_stam_24_regular` | אוצריא |
+| `star_24_filled` | פלואנט |
+| `fluent:book_24_regular` | פלואנט, במפורש |
 
-> **טיפ:** השתמש תמיד בגודל `_24_` — אלה הגדלים שאוצריא מציגה בטאבים. שם שאינו תואם תבנית זו יידחה בולידציה. שמות שאינם קיימים במפת האייקונים של אוצריא יוצגו כפאזל ברירת מחדל.
+> **הרשימה המלאה וכלל ההכרעה:** [ICONS.md](ICONS.md). בקצרה — שם שקיים בשתי הספריות נפתר לגרסת אוצריא, ותחילית `fluent:` / `otzaria:` כופה ספרייה אחת.
 >
-> **למה לא codepoint?** ב-Release Flutter מבצע tree-shaking של פונטי אייקונים — הוא משאיר רק את האייקונים שהוא רואה בקוד כקבועים. שימוש ב-`iconName` עם מפה סטטית מאפשר את האופטימיזציה הזו; codepoint דינמי מתוך manifest היה שובר אותה.
+> **טיפ:** השתמש תמיד בגודל `_24_` — אלה הגדלים שאוצריא מציגה בטאבים. שם שאינו תואם תבנית זו יידחה בולידציה. שמות שאינם קיימים באף אחת מהספריות יוצגו כפאזל ברירת מחדל.
+>
+> **למה לא codepoint?** ב-Release Flutter משאיר בפונט רק אייקונים שהוא רואה בקוד כקבועים. השמות נפתרים דרך מפות סטטיות שכל ערכיהן קבועים, ולכן כל שם שתצהירו עליו קיים בבנייה; codepoint דינמי מתוך manifest לא היה שורד את השלב הזה.
 
 ---
 
@@ -826,13 +868,13 @@ popover.addEventListener('click', function(e) {
 await Otzaria.call('reader.addContextMenuItem', {
   id: 'my-bookmark-item',
   label: 'הוסף לסימניות שלי',
-  icon: 'bookmark_24_regular'   // שם אייקון מ-FluentUI System Icons בגודל 24 (אופציונלי)
+  icon: 'bookmark_24_regular'   // שם אייקון בגודל 24, מאוצריא או מפלואנט (אופציונלי)
 });
 ```
 
 > **הערה:** השדה `icon` הוא אופציונלי. ללא אייקון הפריט עדיין יופיע — רק ללא אייקון לצידו.
 >
-> נתמכים כל אייקוני FluentUI System Icons בגודל 24 (למשל `bookmark_24_regular`, `star_24_filled`). שם לא מוכר לא ישגיא — הפריט יוצג ללא אייקון.
+> נתמכים כל אייקוני אוצריא ו-FluentUI בגודל 24 (למשל `bookmark_24_regular`, `book_open_tzurat_hadaf_24_regular`), לפי אותו כלל הכרעה שב-[ICONS.md](ICONS.md). שם לא מוכר לא ישגיא — הפריט יוצג ללא אייקון.
 
 ---
 

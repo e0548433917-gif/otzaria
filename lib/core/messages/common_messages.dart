@@ -71,6 +71,9 @@ abstract class CommonMessages {
   static const String cannotOpenPhoneApp = 'לא ניתן לפתוח את אפליקציית הטלפון';
   static const String phoneAppOpenError = 'שגיאה בפתיחת אפליקציית הטלפון';
 
+  // ── ניווט ───────────────────────────────────────────────────────────────
+  static const String pressBackAgainToExit = 'לחץ שוב על חזרה ליציאה';
+
   // ── קיצורי מקשים ────────────────────────────────────────────────────────
   static const String shortcutRequired = 'יש לבחור קיצור';
 

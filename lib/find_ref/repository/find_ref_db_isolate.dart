@@ -4,10 +4,12 @@ import 'dart:isolate';
 import 'package:flutter/foundation.dart';
 import 'package:otzaria/core/error_log_file.dart';
 import 'package:otzaria/data/constants/database_constants.dart';
+import 'package:otzaria/find_ref/repository/alt_toc_flat_entry.dart';
 import 'package:otzaria/migration/database/daos/database.dart';
 import 'package:otzaria/migration/database/repository/seforim_repository.dart';
 import 'package:otzaria/migration/database/query_loader.dart';
 import 'package:otzaria/services/commentary_service.dart';
+import 'package:otzaria/utils/text/text_manipulation.dart';
 
 /// מריץ את שאילתות ה-DB הכבדות של "איתור מקורות" ב-isolate נפרד, כך שהן
 /// אינן חוסמות את ה-thread של ה-UI בזמן הקלדה.
@@ -145,6 +147,33 @@ class FindRefDbIsolate {
   Future<List<Map<String, dynamic>>> getAllAltTocFlat() async {
     final res = await _request('allAltTocFlat', const {});
     return _castRows(res);
+  }
+
+  /// מסנן את קאש ה-AltToc השטוח **בתוך ה-worker** ומחזיר רק את ההתאמות —
+  /// כך 61k+ הערכים (והנרמול שלהם) לעולם לא חוצים את גבול ה-isolate.
+  Future<List<Map<String, dynamic>>> searchAltTocFlat(
+    List<String> queryTokens, {
+    int? maxRefTokens,
+  }) async {
+    final res = await _request('searchAltTocFlat', {
+      'queryTokens': queryTokens,
+      'maxRefTokens': maxRefTokens,
+    });
+    return _castRows(res);
+  }
+
+  /// בונה מראש את קאש ה-AltToc השטוח בתוך ה-worker (בנייה + נרמול ~1-2s),
+  /// כדי שהחיפוש הראשון שזקוק לו לא ישלם את המחיר. fire-and-forget.
+  Future<void> prewarmAltTocFlat() async {
+    await _request('prewarmAltTocFlat', const {});
+  }
+
+  /// מזהי הספרים שיש להם מבנה AltToc — מאפשר לדלג על שאילתות AltToc
+  /// עבור ~95% מהספרים שאין להם כזה.
+  Future<List<int>?> getAltStructureBookIds() async {
+    final res = await _request('altBookIds', const {});
+    if (res == null) return null;
+    return (res as List).cast<int>();
   }
 
   Future<List<Map<String, dynamic>>> getCommentatorRows({
@@ -303,6 +332,10 @@ void _workerMain(_Bootstrap bootstrap) {
   var dbPath = bootstrap.dbPath;
   SeforimRepository? repository;
 
+  // קאש AltToc שטוח עם טוקנים מנורמלים מראש — נבנה פעם אחת ב-worker ומשרת
+  // את פקודת searchAltTocFlat. חי עד reset (רענון/החלפת ספרייה).
+  List<({Map<String, dynamic> row, List<String> refTokens})>? altTocFlatCache;
+
   Future<SeforimRepository?> ensureRepo() async {
     if (repository != null) return repository;
     try {
@@ -319,11 +352,32 @@ void _workerMain(_Bootstrap bootstrap) {
     }
   }
 
+  Future<List<({Map<String, dynamic> row, List<String> refTokens})>>
+  ensureAltTocFlatCache() async {
+    final cached = altTocFlatCache;
+    if (cached != null) return cached;
+    final repo = await ensureRepo();
+    if (repo == null) return const [];
+    final rows = await repo.getAllAltTocFlatEntries();
+    final built = [
+      for (final r in rows)
+        (
+          row: r,
+          refTokens: normalizeForFindRefMatch(
+            r['reference'] as String,
+          ).split(' ').where((t) => t.isNotEmpty).toList(growable: false),
+        ),
+    ];
+    altTocFlatCache = built;
+    return built;
+  }
+
   Future<Object?> dispatch(String method, Map<String, Object?> args) async {
     switch (method) {
       case 'reset':
         repository?.database.close();
         repository = null;
+        altTocFlatCache = null;
         final newPath = args['dbPath'] as String?;
         if (newPath != null && newPath.isNotEmpty) dbPath = newPath;
         return null;
@@ -347,6 +401,26 @@ void _workerMain(_Bootstrap bootstrap) {
         final repo = await ensureRepo();
         if (repo == null) return const <Map<String, dynamic>>[];
         return repo.getAllAltTocFlatEntries();
+      case 'searchAltTocFlat':
+        final cache = await ensureAltTocFlatCache();
+        final queryTokens = (args['queryTokens'] as List).cast<String>();
+        final maxRefTokens = args['maxRefTokens'] as int?;
+        return [
+          for (final e in cache)
+            if (altTocFlatMatches(
+              e.refTokens,
+              queryTokens,
+              maxRefTokens: maxRefTokens,
+            ))
+              e.row,
+        ];
+      case 'prewarmAltTocFlat':
+        await ensureAltTocFlatCache();
+        return null;
+      case 'altBookIds':
+        final repo = await ensureRepo();
+        if (repo == null) return null;
+        return repo.getAltStructureBookIds();
       case 'commentators':
         final repo = await ensureRepo();
         if (repo == null) return const <Map<String, dynamic>>[];

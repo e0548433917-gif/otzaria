@@ -96,4 +96,24 @@ class CommentarySyncHelper {
     }
     return delta;
   }
+
+  /// האם להזיז את המפרש אל [targetIndex], בהינתן הסנכרון האחרון.
+  ///
+  /// המפרש זז רק כשהיעד או השורה הנבחרת שממנה הוא נגזר השתנו. הבדיקה היא על
+  /// *שינוי* השורה הנבחרת ולא על עצם קיומה: בחירת טקסט פולטת מצב בכל תזוזת
+  /// עכבר, ואנימציית הגלילה שנורית מחדש בכל אחת מהן מרעידה את המפרש
+  /// (issue #976).
+  ///
+  /// [targetIndex] - אינדקס היעד במפרש
+  /// [selectedMainIndex] - השורה הנבחרת בטקסט הראשי, או null כשאין
+  /// [lastSyncedIndex] / [lastSyncedMainIndex] - מה שסונכרן בפעם הקודמת
+  static bool shouldMoveCommentary({
+    required int targetIndex,
+    required int? selectedMainIndex,
+    required int? lastSyncedIndex,
+    required int? lastSyncedMainIndex,
+  }) {
+    return targetIndex != lastSyncedIndex ||
+        selectedMainIndex != lastSyncedMainIndex;
+  }
 }

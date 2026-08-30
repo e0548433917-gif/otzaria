@@ -17,6 +17,11 @@ class PluginStartupContributions {
   /// פריטי תפריט הקשר — באותה סכימה של `reader.addContextMenuItem`.
   final List<Map<String, dynamic>> contextMenuItems;
 
+  /// קיצורי מקלדת שהתוסף מצהיר עליהם — באותה סכימה של `app.registerShortcut`.
+  /// קיצור יכול להפעיל פקודה חופשית (`command`) או פעולת תפריט הקשר
+  /// (`contextMenuItemId`). דורשים את הרשאת `app.shortcuts`.
+  final List<Map<String, dynamic>> shortcuts;
+
   /// רשומות `publishedData` לזריעה: `{type, key, payload, scope?}`.
   /// המפתח נשמר עם קידומת `manifest:` — רשומות אלו בבעלות המניפסט.
   final List<Map<String, dynamic>> publishedData;
@@ -46,6 +51,7 @@ class PluginStartupContributions {
   const PluginStartupContributions({
     this.toolbarItems = const [],
     this.contextMenuItems = const [],
+    this.shortcuts = const [],
     this.publishedData = const [],
     this.programs = const [],
     this.searchDialogItems = const [],
@@ -58,6 +64,7 @@ class PluginStartupContributions {
   bool get isEmpty =>
       toolbarItems.isEmpty &&
       contextMenuItems.isEmpty &&
+      shortcuts.isEmpty &&
       publishedData.isEmpty &&
       programs.isEmpty &&
       searchDialogItems.isEmpty &&
@@ -92,9 +99,7 @@ class PluginStartupContributions {
     return item['openPlugin'] != true;
   }
 
-  static bool _contextMenuItemActivatesBackground(
-    Map<String, dynamic> item,
-  ) {
+  static bool _contextMenuItemActivatesBackground(Map<String, dynamic> item) {
     switch (item['type']) {
       case 'separator':
         return false;
@@ -154,6 +159,7 @@ class PluginStartupContributions {
     return PluginStartupContributions(
       toolbarItems: mapList('toolbarItems'),
       contextMenuItems: mapList('contextMenuItems'),
+      shortcuts: mapList('shortcuts'),
       publishedData: mapList('publishedData'),
       programs: mapList('programs'),
       searchDialogItems: mapList('searchDialogItems'),
@@ -167,6 +173,7 @@ class PluginStartupContributions {
   Map<String, dynamic> toJson() => {
     if (toolbarItems.isNotEmpty) 'toolbarItems': toolbarItems,
     if (contextMenuItems.isNotEmpty) 'contextMenuItems': contextMenuItems,
+    if (shortcuts.isNotEmpty) 'shortcuts': shortcuts,
     if (publishedData.isNotEmpty) 'publishedData': publishedData,
     if (programs.isNotEmpty) 'programs': programs,
     if (searchDialogItems.isNotEmpty) 'searchDialogItems': searchDialogItems,

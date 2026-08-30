@@ -114,6 +114,11 @@ abstract class SettingsMessages {
 
   static const String noBackupFileFound = 'לא נמצא קובץ גיבוי בתיקיית הגיבוי';
 
+  static const String backupExported = 'קובץ הגיבוי נשמר במיקום שנבחר';
+
+  static String backupExportError(Object error) =>
+      'שגיאה בייצוא הגיבוי: $error';
+
   static const String archiveNotCreatedYet =
       'עדיין לא נוצר ארכיון — הוא נבנה כשגיבויים ישנים ממוזגים';
 

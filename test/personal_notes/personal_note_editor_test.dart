@@ -310,6 +310,60 @@ void main() {
     );
     expect(editor.config.enableSelectionToolbar, isFalse);
   });
+
+  testWidgets('גובה העורך מתכווץ במסך נמוך עם מקלדת פתוחה', (tester) async {
+    final controller = buildPersonalNoteEditorController(
+      initialContent: '',
+      initialFormat: PersonalNoteContentFormat.plain,
+    );
+
+    Widget harness({required Size size, required double keyboardInset}) {
+      return MaterialApp(
+        home: MediaQuery(
+          data: MediaQueryData(
+            size: size,
+            viewInsets: EdgeInsets.only(bottom: keyboardInset),
+          ),
+          // Material ולא Scaffold — כמו בדיאלוג ההערה, שבו ה-viewInsets של
+          // המקלדת מגיעים לעורך ישירות (Scaffold עם resize בולע אותם).
+          child: Material(
+            child: SingleChildScrollView(
+              child: PersonalNoteEditorBody(
+                controller: controller,
+                focusNode: FocusNode(),
+                scrollController: ScrollController(),
+                autofocus: false,
+                linkableNotes: const [],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    double editorHeight() {
+      final box = tester.widget<SizedBox>(
+        find.ancestor(
+          of: find.byType(quill.QuillEditor),
+          matching: find.byType(SizedBox),
+        ),
+      );
+      return box.height!;
+    }
+
+    // מסך גבוה בלי מקלדת — הגובה המלא.
+    await tester.pumpWidget(
+      harness(size: const Size(400, 800), keyboardInset: 0),
+    );
+    expect(editorHeight(), 220);
+
+    // מסך טלפון עם מקלדת פתוחה — הגובה מתכווץ אך לא מתחת לרצפה.
+    await tester.pumpWidget(
+      harness(size: const Size(400, 640), keyboardInset: 300),
+    );
+    expect(editorHeight(), lessThan(220));
+    expect(editorHeight(), greaterThanOrEqualTo(120));
+  });
 }
 
 double? _deltaSizeValue(PersonalNoteEditorController controller) {

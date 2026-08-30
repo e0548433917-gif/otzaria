@@ -471,4 +471,120 @@ void main() {
       expect(result, isEmpty);
     });
   });
+
+  group('Link.toJson — מבנה links.json המקורי', () {
+    test('פולט את חמשת מפתחות הפורמט, כולל שגיאת הכתיב ההיסטורית', () {
+      final json = Link(
+        heRef: 'רש״י על בראשית א, א',
+        index1: 6,
+        path2: 'רש״י על בראשית',
+        index2: 11,
+        connectionType: LinkTypes.commentary,
+      ).toJson();
+
+      expect(json, {
+        'heRef_2': 'רש״י על בראשית א, א',
+        'line_index_1': 6,
+        'path_2': 'רש״י על בראשית',
+        'line_index_2': 11,
+        'Conection Type': LinkTypes.commentary,
+      });
+    });
+
+    test('start/end נפלטים כשקיימים, ומושמטים כשאינם', () {
+      Map<String, dynamic> jsonFor({int? start, int? end}) => Link(
+        heRef: 'בראשית א, א',
+        index1: 1,
+        path2: 'בראשית',
+        index2: 1,
+        connectionType: LinkTypes.reference,
+        start: start,
+        end: end,
+      ).toJson();
+
+      expect(jsonFor(start: 3, end: 9), containsPair('start', 3));
+      expect(jsonFor(start: 3, end: 9), containsPair('end', 9));
+      expect(jsonFor(start: 3), containsPair('start', 3));
+      expect(jsonFor(start: 3).containsKey('end'), isFalse);
+      expect(jsonFor().containsKey('start'), isFalse);
+      expect(jsonFor().containsKey('end'), isFalse);
+    });
+
+    // הבדיקה מקבעת את *קבוצת המפתחות המדויקת*, ולא היעדר שמות ספציפיים:
+    // דליפה אמיתית תיראה 'anchor' או 'line_index_2_end', שרשימת-שלילה תפספס.
+    test('שדות שקיימים רק במסד אינם נפלטים לפורמט', () {
+      final json = Link(
+        heRef: 'רש״י על בראשית א, א',
+        index1: 6,
+        path2: 'רש״י על בראשית',
+        index2: 11,
+        connectionType: LinkTypes.commentary,
+        // category_id_2 הוא מזהה פנימי של seforim.db ואינו חלק מהפורמט,
+        // אף שהקורא הסלחני Link.fromJson מקבל אותו.
+        targetCategoryId: 42,
+        targetFileType: 'txt',
+        targetIsUserBook: true,
+        anchorStart: 4,
+        anchorEnd: 9,
+        anchorLabel: 'א',
+        anchorSpans: const [LinkAnchorSpan(start: 4, end: 9, label: 'א')],
+        heRefEnd: 'רש״י על בראשית א, ב',
+        index2End: 13,
+        baseProvenance: 2,
+        linkedAnchorStart: 1,
+        linkedAnchorEnd: 5,
+      ).toJson();
+
+      expect(json.keys, [
+        'heRef_2',
+        'line_index_1',
+        'path_2',
+        'line_index_2',
+        'Conection Type',
+      ]);
+    });
+
+    test('פולט בדיוק את המפתחות של הכותב הקנוני LinkData.toJson', () {
+      // המקור: lib/migration/generator/link_processor.dart
+      const canonicalKeys = {
+        'heRef_2',
+        'line_index_1',
+        'path_2',
+        'line_index_2',
+        'Conection Type',
+      };
+
+      final json = Link(
+        heRef: 'בראשית א, א',
+        index1: 1,
+        path2: 'בראשית',
+        index2: 1,
+        connectionType: LinkTypes.reference,
+      ).toJson();
+
+      expect(json.keys.toSet(), canonicalKeys);
+    });
+
+    test('toJson → fromJson משמר את שדות הפורמט', () {
+      final original = Link(
+        heRef: 'רש״י על בראשית א, א',
+        index1: 6,
+        path2: 'רש״י על בראשית',
+        index2: 11,
+        connectionType: LinkTypes.targum,
+        start: 3,
+        end: 9,
+      );
+
+      final restored = Link.fromJson(original.toJson());
+
+      expect(restored.heRef, original.heRef);
+      expect(restored.index1, original.index1);
+      expect(restored.path2, original.path2);
+      expect(restored.index2, original.index2);
+      expect(restored.connectionType, original.connectionType);
+      expect(restored.start, original.start);
+      expect(restored.end, original.end);
+    });
+  });
 }

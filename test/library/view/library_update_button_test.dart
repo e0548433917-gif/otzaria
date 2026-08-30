@@ -22,6 +22,13 @@ void main() {
       );
     });
 
+    test('כשל מקבל סמל שגיאה — העוגן לניסיון חוזר אחרי שהחיווי נסגר מעצמו', () {
+      expect(
+        libraryUpdateButtonIcon(LibraryUpdateStatus.error),
+        FluentIcons.error_circle_24_regular,
+      );
+    });
+
     test('שאר המצבים שומרים על הסמלים הקיימים', () {
       expect(
         libraryUpdateButtonIcon(LibraryUpdateStatus.completed),
@@ -35,7 +42,6 @@ void main() {
         LibraryUpdateStatus.refreshing,
         LibraryUpdateStatus.needsFullConfirmation,
         LibraryUpdateStatus.blocked,
-        LibraryUpdateStatus.error,
       ]) {
         expect(
           libraryUpdateButtonIcon(status),

@@ -680,11 +680,15 @@ $detailsSection
       }
 
       if (result.isSent) {
-        await showDirectReportDetailsDialog(
-          context,
-          title: ReportMessages.sentSuccessTitle,
-          report: reportData,
-        );
+        if (result.isDuplicate) {
+          UiSnack.show(result.message);
+        } else {
+          await showDirectReportDetailsDialog(
+            context,
+            title: ReportMessages.sentSuccessTitle,
+            report: reportData,
+          );
+        }
       } else if (result.isQueued) {
         UiSnack.show(result.message);
       } else {
@@ -732,9 +736,12 @@ $detailsSection
 
       // קביעת כתובות המייל לפי מקור הספר
       // סדר המפתחות חשוב כדי לחקות את סדר הבדיקות המקורי
+      // חייב להישאר תואם ל-getEmailRecipients בשרת (Otzaria_Website)
       final sourceToEmailMap = {
-        'sefariaToOtzaria': 'corrections@sefaria.org',
-        'sefaria': 'corrections@sefaria.org',
+        'sefariaToOtzaria':
+            'corrections@sefaria.org,jewishoffice@gmail.com', // שליחה לספריא עם עותק לתא שמע
+        'sefaria':
+            'corrections@sefaria.org,jewishoffice@gmail.com', // שליחה לספריא עם עותק לתא שמע
         'wiki_jewish_books':
             '$_fallbackMail,WikiJewishBooks@gmail.com', // שליחה גם לאוצריא וגם ל-WikiJewishBooks
         'wikiSource':

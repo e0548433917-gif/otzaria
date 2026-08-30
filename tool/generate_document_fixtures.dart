@@ -65,6 +65,11 @@ Map<String, Uint8List> buildFixtureCorpus() => {
   'unicode_escapes.rtf': _latin1Bytes(_unicodeEscapeRtf()),
   'advanced.rtf': _utf8Bytes(_richRtf()),
 
+  // ── HTML ──
+  'basic.html': _utf8Bytes(_basicHtml()),
+  'advanced.html': _utf8Bytes(_richHtml()),
+  'hebrew_cp1255.htm': _cp1255Bytes(_legacyHebrewHtml()),
+
   // ── Word שנשמר כ-XML ──
   'flat_opc.xml': _buildFlatOpc(_basicWordBody()),
   'wordml_2003.xml': _buildWordMl2003(),
@@ -91,11 +96,82 @@ Map<String, Uint8List> buildFixtureCorpus() => {
   ),
   'empty.docx': _buildDocx(''),
   'empty.rtf': _rtfBytes('rtf1', 'ansi', ''),
+  'empty.html': _utf8Bytes(
+    '<html><head><title>ריק</title></head>'
+    '<body></body></html>',
+  ),
   'invalid.wbk': _utf8Bytes('%PDF-1.7 גיבוי שאינו Word כלל'),
+  // חבילת ZIP שהוסוותה בסיומת ‎.html‎ — אין לקרוא אותה כטקסט.
+  'fake.html': _buildDocx(_basicWordBody()),
 };
 
 Uint8List _utf8Bytes(String text) => Uint8List.fromList(utf8.encode(text));
 Uint8List _latin1Bytes(String text) => Uint8List.fromList(latin1.encode(text));
+
+/// קידוד Windows-1255 — ‏ISO-8859-8 חופף לו בטווח האותיות העבריות, וזה כל
+/// מה שהדגימה מכילה מעבר ל-ASCII.
+Uint8List _cp1255Bytes(String text) => Uint8List.fromList(
+  text.runes
+      .map((r) => r >= 0x05D0 && r <= 0x05EA ? r - 0x05D0 + 0xE0 : r)
+      .toList(),
+);
+
+// ═══ HTML ══════════════════════════════════════════════════════════════════
+
+String _basicHtml() =>
+    '<!DOCTYPE html><html dir="rtl"><head><meta charset="utf-8">'
+    '<title>בדיקה</title></head><body>'
+    '<p>שלום עולם — מסמך בדיקה בסיסי של אוצריא</p>'
+    '</body></html>';
+
+/// מסמך עשיר: כותרות, עיצוב תווים, רשימות, טבלה, תמונה מוטמעת ועוגן פנימי —
+/// **ולצדם** כל מה שהממיר חייב למחוק: סקריפט, מטפל אירועים, `javascript:`,
+/// תמונה מהרשת, iframe וטקסט מוסתר.
+String _richHtml() =>
+    '<!DOCTYPE html><html dir="rtl"><head><meta charset="utf-8">'
+    '<script>alert("לא אמור להופיע")</script>'
+    '<style>body { color: red }</style></head>'
+    '<body onload="track()">'
+    '<h1>מסמך בדיקה מתקדם לאוצריא</h1>'
+    '<h2>פרק ראשון — בראשית</h2>'
+    '<p>פסקת פתיחה רגילה בעברית, לבדיקת כיווניות RTL.</p>'
+    '<p><b>טקסט מודגש</b> ואחריו <i>טקסט נטוי</i> ו-<u>קו תחתי</u>, '
+    'וכן <font color="#c00000">טקסט צבוע</font>.</p>'
+    '<h3>סימן א — רשימות</h3>'
+    '<ol type="a"><li>פריט ראשון ברשימה</li>'
+    '<li>פריט שני<ul><li>תת-פריט מקונן</li></ul></li></ol>'
+    '<h3>סעיף קטן — טבלה</h3>'
+    '<table><tr><th>כותרת א</th><th>כותרת ב</th></tr>'
+    '<tr><td>ערך 1</td><td>ערך 2</td></tr></table>'
+    '<h3>סעיף קטן — הערות שוליים ומבנים</h3>'
+    '<p>מילה<sup class="footnote-marker">1</sup>'
+    '<i class="footnote">גוף ההערה, שאינו מוצג בגוף הספר.</i> והמשך.</p>'
+    '<p><ruby>אנפין<rt>פנים</rt></ruby> עם פירוש מעל.</p>'
+    '<blockquote>ציטוט מוזח משני הצדדים.</blockquote>'
+    '<details><summary>הצג עוד</summary>תוכן מתקפל.</details>'
+    '<hr style="border-top:3px solid #8B0000;">'
+    '<div style="border:1px solid #8B0000; padding:10px;">תיבה ממוסגרת</div>'
+    '<h2>פרק שני — מדיה וקישורים</h2>'
+    '<p><img src="data:image/png;base64,${base64Encode(_tinyPng)}" '
+    'width="24" height="24" alt="אייקון"></p>'
+    '<p><img src="https://tracker.example/pixel.png"></p>'
+    '<p><a href="https://otzaria.org">קישור פתוח</a>, '
+    '<a href="book://ברכות#דף ב:">קישור לספר</a>, '
+    '<a href="javascript:steal()">קישור חסום</a>, '
+    '<a href="otzaria://note?line=3">סכימה שמורה</a>, '
+    '<a href="#סיום">קישור פנימי</a>.</p>'
+    '<iframe src="https://evil.example">מסגרת</iframe>'
+    '<p style="display:none">טקסט מוסתר</p>'
+    '<p style="transform:rotate(5deg); position:absolute">עיצוב מתקדם</p>'
+    '<p id="סיום">סיום המסמך.</p>'
+    '</body></html>';
+
+/// דף עברי ישן: קידוד Windows-1255 מוצהר ב-`http-equiv`, בלי BOM.
+String _legacyHebrewHtml() =>
+    '<html><head>'
+    '<meta http-equiv="Content-Type" content="text/html; '
+    'charset=windows-1255"></head><body>'
+    '<p>שלום עולם בקידוד ישן</p></body></html>';
 
 // ═══ OOXML ═════════════════════════════════════════════════════════════════
 

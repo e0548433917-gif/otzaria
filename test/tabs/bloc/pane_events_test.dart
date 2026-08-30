@@ -445,6 +445,100 @@ void main() {
     });
   });
 
+  group('DetachPane — גרירת חלונית חזרה לשורת הכרטיסיות', () {
+    test('החלונית נכנסת במיקום ההכנסה והאחות תופסת את מקום המפוצל', () async {
+      final a = leaf('א');
+      final b = leaf('ב');
+      final after = leaf('אחרי');
+      final bloc = await blocWith([
+        CombinedTab(rightTab: a, leftTab: b),
+        after,
+      ]);
+
+      // מיקום 2 = אחרי שתי הכרטיסיות שבשורה (המפוצל ו"אחרי").
+      bloc.add(DetachPane(b, insertIndex: 2));
+      await bloc.stream.firstWhere((s) => s.tabs.length == 3);
+
+      expect(bloc.state.tabs, [same(a), same(after), same(b)]);
+      // החלונית שנגררה נשארת מול העיניים.
+      expect(bloc.state.currentTabIndex, 2);
+
+      await bloc.close();
+    });
+
+    test('הכנסה לפני הטאב המפוצל משאירה את האחות אחרי החלונית', () async {
+      final a = leaf('א');
+      final b = leaf('ב');
+      final bloc = await blocWith([CombinedTab(rightTab: a, leftTab: b)]);
+
+      bloc.add(DetachPane(a, insertIndex: 0));
+      await bloc.stream.firstWhere((s) => s.tabs.length == 2);
+
+      expect(bloc.state.tabs, [same(a), same(b)]);
+      expect(bloc.state.currentTabIndex, 0);
+
+      await bloc.close();
+    });
+
+    test('מיקום מחוץ לתחום נחתך לגבולות הרשימה', () async {
+      final a = leaf('א');
+      final b = leaf('ב');
+      final bloc = await blocWith([CombinedTab(rightTab: a, leftTab: b)]);
+
+      bloc.add(DetachPane(b, insertIndex: 99));
+      await bloc.stream.firstWhere((s) => s.tabs.length == 2);
+
+      expect(bloc.state.tabs, [same(a), same(b)]);
+
+      await bloc.close();
+    });
+
+    test('הצמדת הטאב המפוצל עוברת לשתי הכרטיסיות', () async {
+      final a = leaf('א');
+      final b = leaf('ב');
+      final bloc = await blocWith([
+        CombinedTab(rightTab: a, leftTab: b, isPinned: true),
+      ]);
+
+      bloc.add(DetachPane(b, insertIndex: 1));
+      await bloc.stream.firstWhere((s) => s.tabs.length == 2);
+
+      expect(bloc.state.tabs.map((t) => t.isPinned), [isTrue, isTrue]);
+
+      await bloc.close();
+    });
+
+    test('חלונית שאינה בשום טאב מפוצל אינה משנה דבר', () async {
+      final plain = leaf('רגיל');
+      final stranger = leaf('זר');
+      final bloc = await blocWith([plain]);
+
+      bloc.add(DetachPane(stranger, insertIndex: 0));
+      await settle();
+
+      expect(bloc.state.tabs, [same(plain)]);
+
+      await bloc.close();
+    });
+
+    test('הפרדת חלונית מטאב שאינו המוצג אינה בונה מחדש את השאר', () async {
+      final a = leaf('א');
+      final b = leaf('ב');
+      final current = leaf('נוכחי');
+      final bloc = await blocWith([
+        CombinedTab(rightTab: a, leftTab: b),
+        current,
+      ], current: 1);
+
+      bloc.add(DetachPane(b, insertIndex: 1));
+      await bloc.stream.firstWhere((s) => s.tabs.length == 3);
+
+      expect(bloc.state.tabs, [same(a), same(b), same(current)]);
+
+      await bloc.close();
+    });
+  });
+
   group('SetActivePane', () {
     test('חלונית של הטאב המוצג הופכת לפעילה', () async {
       final a = leaf('א');

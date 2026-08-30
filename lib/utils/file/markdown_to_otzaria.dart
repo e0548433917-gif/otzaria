@@ -8,11 +8,12 @@ import 'package:markdown/markdown.dart' as markdown;
 import 'package:path/path.dart' as path;
 
 import 'package:otzaria/utils/file/html_sanitizer.dart';
+import 'package:otzaria/utils/file/embedded_media.dart';
 import 'package:otzaria/utils/file/text_encoding.dart';
 import 'package:otzaria/utils/text/heading_slug.dart';
 
 /// גרסת הממיר. שינוי בפלט פוסל רק רשומות Cache של Markdown.
-const int kMarkdownConverterVersion = 7;
+const int kMarkdownConverterVersion = 8;
 
 /// מסומן על כל בלוק שנוצר מהמרת Markdown, כדי שהעיצוב הייעודי לא יחול על
 /// ספרי אוצריא רגילים שחולקים את אותו מנוע תצוגה.
@@ -76,13 +77,26 @@ class MarkdownToOtzaria {
   }
 
   DocumentFragment _parseMarkdown(String body) => html_parser.parseFragment(
-    _sanitizer.sanitize(
-      markdown.markdownToHtml(
-        body,
-        extensionSet: markdown.ExtensionSet.gitHubWeb,
+    _stripExternalImages(
+      _sanitizer.sanitize(
+        markdown.markdownToHtml(
+          body,
+          extensionSet: markdown.ExtensionSet.gitHubWeb,
+        ),
       ),
     ),
   );
+
+  String _stripExternalImages(String source) {
+    final fragment = html_parser.parseFragment(source);
+    for (final image in fragment.querySelectorAll('img')) {
+      final src = image.attributes['src']?.trim() ?? '';
+      if (!_isRelativeUrl(src) && !_isEmbeddedImageUrl(src)) {
+        image.attributes.remove('src');
+      }
+    }
+    return fragment.outerHtml;
+  }
 
   /// הנרמול המשותף לכל מסלולי ההמרה. כל שינוי כאן מחייב העלאת
   /// [kMarkdownConverterVersion], אחרת המטמון יגיש פלט ישן.
@@ -95,34 +109,64 @@ class MarkdownToOtzaria {
   Future<void> _resolveLocalImages(
     DocumentFragment fragment,
     String baseDirectory,
-  ) => Future.wait(
-    fragment
-        .querySelectorAll('img')
-        .map((image) => _resolveLocalImage(image, baseDirectory)),
-  );
+  ) async {
+    var embeddedBytes = 0;
+    for (final image in fragment.querySelectorAll('img')) {
+      embeddedBytes += await _resolveLocalImage(
+        image,
+        baseDirectory,
+        embeddedBytes: embeddedBytes,
+      );
+    }
+  }
 
-  Future<void> _resolveLocalImage(Element image, String baseDirectory) async {
+  Future<int> _resolveLocalImage(
+    Element image,
+    String baseDirectory, {
+    required int embeddedBytes,
+  }) async {
     final source = image.attributes['src'];
-    if (source == null || !_isRelativeUrl(source)) return;
-    final decoded = Uri.decodeComponent(source.split('#').first);
-    final resolved = path.normalize(path.join(baseDirectory, decoded));
-    if (!path.isWithin(baseDirectory, resolved) && resolved != baseDirectory) {
+    if (source == null) {
       image.attributes.remove('src');
-      return;
+      return 0;
     }
-    final file = File(resolved);
-    final stat = await file.stat();
-    if (stat.type != FileSystemEntityType.file) {
+    if (_isEmbeddedImageUrl(source)) return 0;
+    if (!_isRelativeUrl(source)) {
       image.attributes.remove('src');
-      return;
+      return 0;
     }
-    if (stat.size > _maxInlineImageSize) {
-      image.attributes['src'] = Uri.file(resolved).toString();
-      return;
+    try {
+      final decoded = Uri.decodeComponent(source.split('#').first);
+      final realBase = await Directory(baseDirectory).resolveSymbolicLinks();
+      final candidate = path.normalize(path.join(realBase, decoded));
+      final resolved = await File(candidate).resolveSymbolicLinks();
+      if (!path.isWithin(realBase, resolved)) {
+        image.attributes.remove('src');
+        return 0;
+      }
+      final file = File(resolved);
+      final stat = await file.stat();
+      final mime = imageMimeForPath(resolved);
+      if (stat.type != FileSystemEntityType.file ||
+          stat.size > _maxInlineImageSize ||
+          stat.size > EmbeddedMediaLimits.maxImageBytes ||
+          mime == null ||
+          mime == 'image/svg+xml' ||
+          embeddedBytes + stat.size > EmbeddedMediaLimits.maxTotalImageBytes) {
+        image.attributes.remove('src');
+        return 0;
+      }
+      final bytes = await file.readAsBytes();
+      image.attributes['src'] =
+          'data:$mime;base64,${base64Encode(bytes)}';
+      return bytes.length;
+    } on FormatException {
+      image.attributes.remove('src');
+      return 0;
+    } on FileSystemException {
+      image.attributes.remove('src');
+      return 0;
     }
-    final bytes = await file.readAsBytes();
-    image.attributes['src'] =
-        'data:${_mimeType(resolved)};base64,${base64Encode(bytes)}';
   }
 
   void _applyBlockDirections(DocumentFragment fragment) {
@@ -228,6 +272,9 @@ bool _isRelativeUrl(String value) {
       !value.startsWith('#');
 }
 
+bool _isEmbeddedImageUrl(String value) =>
+    value.trim().toLowerCase().startsWith('data:image/');
+
 /// כיוון של בלוק תוכן, נגזר מהטקסט שמחוץ ל-`code`/`pre`: טוקני קוד לטיניים
 /// בפתח שורה עברית (למשל «`side` — העוגן») סיווגו אותה כ-LTR והפכו אותה.
 String _blockDirection(Element element) {
@@ -265,14 +312,6 @@ String? _firstStrongDirection(String text) {
   }
   return null;
 }
-
-String _mimeType(String filePath) =>
-    switch (path.extension(filePath).toLowerCase()) {
-      '.gif' => 'image/gif',
-      '.jpg' || '.jpeg' => 'image/jpeg',
-      '.webp' => 'image/webp',
-      _ => 'image/png',
-    };
 
 /// עוטפים שקופים שיש לפרק. מסמך עברי נפתח לרוב ב-`<div dir="rtl">` שעוטף את
 /// כל הגוף, ובלי פירוקו הספר כולו נשמר כשורה אחת — בלי תוכן עניינים וניווט.

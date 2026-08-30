@@ -7,7 +7,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:otzaria/plugins/bloc/plugin_system_bloc.dart';
 import 'package:otzaria/plugins/bloc/plugin_system_state.dart';
 import 'package:otzaria/plugins/models/installed_plugin.dart';
-import 'package:otzaria/plugins/utils/fluent_icon_resolver.dart';
+import 'package:otzaria/plugins/services/plugin_shortcut_registry.dart';
+import 'package:otzaria/plugins/utils/plugin_icon_resolver.dart';
 import 'package:otzaria/settings/engine/settings_engine_exports.dart';
 import 'package:otzaria/settings/l10n/settings_l10n_exports.dart';
 import 'package:otzaria/settings/search/settings_search_models.dart';
@@ -140,6 +141,14 @@ class ShortcutsSettingsTab extends StatelessWidget {
       tab: SettingsTab.shortcuts,
       cardId: 'shortcuts.main',
       keywords: ['סימניה', 'הוסף סימניה', 'ctrl+b', 'מקלדת'],
+    ),
+    SettingsSearchEntry(
+      id: 'shortcuts.book.group_bookmark',
+      title: 'קיצור לשמירת סימניה מרוכזת',
+      subtitle: 'שמירת סימניה אחת לכל הספרים הפתוחים',
+      tab: SettingsTab.shortcuts,
+      cardId: 'shortcuts.main',
+      keywords: ['סימניה מרוכזת', 'סימניות', 'ספרים פתוחים', 'מקלדת'],
     ),
     SettingsSearchEntry(
       id: 'shortcuts.book.note',
@@ -449,10 +458,13 @@ class ShortcutsSettingsTab extends StatelessWidget {
       child: ToolPanelWrapper(
         // עוטף ב-BlocBuilder כדי לרענן את רשימת הטיילים והכרטיס "הוסף קיצור"
         // מיד עם שינוי הקיצורים (פעולה זמינה -> מוגדרת ולהיפך).
-        child: BlocBuilder<SettingsBloc, SettingsState>(
-          buildWhen: (previous, current) =>
-              previous.shortcuts != current.shortcuts,
-          builder: (context, _) => _buildContent(context),
+        child: ListenableBuilder(
+          listenable: PluginShortcutRegistry.instance,
+          builder: (context, _) => BlocBuilder<SettingsBloc, SettingsState>(
+            buildWhen: (previous, current) =>
+                previous.shortcuts != current.shortcuts,
+            builder: (context, _) => _buildContent(context),
+          ),
         ),
       ),
     );
@@ -525,8 +537,18 @@ class ShortcutsSettingsTab extends StatelessWidget {
             args: {'plugin': plugin.name},
           ),
           icon:
-              fluentIconFromName(plugin.manifest.toolTabIconName) ??
+              pluginIconFromName(plugin.manifest.toolTabIconName) ??
               FluentIcons.puzzle_piece_24_regular,
+          allShortcuts: _shortcutsList,
+        ),
+    ]);
+
+    final pluginShortcutTiles = _onlyConfigured([
+      for (final entry in ShortcutValidator.pluginShortcuts.entries)
+        _ShortcutTile(
+          settingKey: entry.key,
+          label: entry.value.label,
+          icon: FluentIcons.keyboard_24_regular,
           allShortcuts: _shortcutsList,
         ),
     ]);
@@ -679,6 +701,12 @@ class ShortcutsSettingsTab extends StatelessWidget {
               settingKey: 'key-shortcut-add-bookmark',
               label: context.settingsText('הוסף סימניה'),
               icon: FluentIcons.bookmark_24_regular,
+              allShortcuts: _shortcutsList,
+            ),
+            _ShortcutTile(
+              settingKey: 'key-shortcut-save-group-bookmark',
+              label: context.settingsText('שמור סימניה לכל הספרים הפתוחים'),
+              icon: FluentIcons.bookmark_multiple_24_regular,
               allShortcuts: _shortcutsList,
             ),
             _ShortcutTile(
@@ -840,6 +868,18 @@ class ShortcutsSettingsTab extends StatelessWidget {
               'קיצורים להעתקת קישור ישיר לספר, למקטע/לעמוד ולהדגשות',
             ),
             children: copyLinkTiles,
+          ),
+        ],
+
+        if (pluginShortcutTiles.isNotEmpty) ...[
+          kSettingsCardSpacing,
+          SettingsCard(
+            title: context.settingsText('קיצורי תוספים'),
+            subtitle: context.settingsText(
+              'קיצורי מקלדת שתוספים הוסיפו: פקודות שלהם או פעולות תפריט '
+              'הלחיצה הימנית על טקסט',
+            ),
+            children: pluginShortcutTiles,
           ),
         ],
 

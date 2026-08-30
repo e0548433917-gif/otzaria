@@ -8,6 +8,7 @@ import 'package:otzaria/widgets/misc/app_popup_menu.dart';
 import 'package:otzaria/widgets/navigation/responsive_action_bar.dart';
 import 'package:otzaria/widgets/controls/bar_button.dart';
 import 'package:otzaria/widgets/controls/bar_split_button.dart';
+import 'package:otzaria_icons/otzaria_icons.dart';
 
 void main() {
   Future<Map<String, dynamic>> emptyLocation() async => const {};
@@ -31,6 +32,21 @@ void main() {
     expect(action.widget, isA<BarButton>());
     expect(action.onPressed, isNotNull);
     expect(action.submenuItems, isNull);
+  });
+
+  test('שם משותף נפתר לאוצריא, ותחילית fluent כופה את פלואנט', () {
+    ActionButtonData actionFor(String icon) => buildPluginToolbarActions(
+      records: [('marker', PluginToolbarItem(id: 'i', title: 'T', icon: icon))],
+      context: 'reader-text',
+      compact: false,
+      locationPayload: emptyLocation,
+    ).single;
+
+    expect(actionFor('book_24_regular').icon, OtzariaIcons.book_24_regular);
+    expect(
+      actionFor('fluent:book_24_regular').icon,
+      FluentIcons.book_24_regular,
+    );
   });
 
   test('buildOrderedPluginOverflowActions מחזיר רק overflow עם המשקל', () {

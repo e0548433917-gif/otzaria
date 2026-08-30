@@ -1,109 +1,113 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:otzaria/plugins/services/plugin_protocol_registration_service.dart';
+import 'package:win32_registry/win32_registry.dart';
 
 void main() {
   group('PluginProtocolRegistrationService', () {
-    test('resolveWindowsRegistryExecutable prefers WINDIR', () {
-      final executable =
-          PluginProtocolRegistrationService.resolveWindowsRegistryExecutable({
-            'WINDIR': r'D:\Windows',
-            'SystemRoot': r'C:\Windows',
-          });
-
-      expect(executable, r'D:\Windows\System32\reg.exe');
-    });
-
     test(
-      'buildWindowsRegistrationCommands uses executable for icon and open command',
+      'buildWindowsRegistrationEntries uses executable for icon and open command',
       () {
-        final commands =
-            PluginProtocolRegistrationService.buildWindowsRegistrationCommands(
+        final entries =
+            PluginProtocolRegistrationService.buildWindowsRegistrationEntries(
               r'C:\Program Files\Otzaria\otzaria.exe',
             );
 
-        expect(commands.length, greaterThanOrEqualTo(4));
-        expect(commands[2], [
-          'add',
-          r'HKCU\Software\Classes\otzaria\DefaultIcon',
-          '/ve',
-          '/d',
-          r'C:\Program Files\Otzaria\otzaria.exe',
-          '/f',
-        ]);
-        expect(commands[3], [
-          'add',
-          r'HKCU\Software\Classes\otzaria\shell\open\command',
-          '/ve',
-          '/d',
-          r'"C:\Program Files\Otzaria\otzaria.exe" "%1"',
-          '/f',
-        ]);
+        expect(entries.length, greaterThanOrEqualTo(4));
+        expect(entries[2], (
+          subkey: r'otzaria\DefaultIcon',
+          name: '',
+          value: const StringValue(r'C:\Program Files\Otzaria\otzaria.exe'),
+        ));
+        expect(entries[3], (
+          subkey: r'otzaria\shell\open\command',
+          name: '',
+          value: const StringValue(
+            r'"C:\Program Files\Otzaria\otzaria.exe" "%1"',
+          ),
+        ));
       },
     );
 
-    test('buildWindowsRegistrationCommands כולל שיוך קובץ .otzplugin', () {
-      final commands =
-          PluginProtocolRegistrationService.buildWindowsRegistrationCommands(
+    test('buildWindowsRegistrationEntries מגדיר את פרוטוקול otzaria://', () {
+      final entries =
+          PluginProtocolRegistrationService.buildWindowsRegistrationEntries(
             r'C:\Program Files\Otzaria\otzaria.exe',
           );
 
-      // ProgID open command — `reg add` שפותח את אוצריא כשמשתמש פותח קובץ ‎.otzplugin
+      // בלי הערך הריק 'URL Protocol' — Windows לא מזהה את המפתח כפרוטוקול.
       expect(
-        commands.any(
-          (cmd) =>
-              cmd.length >= 6 &&
-              cmd[0] == 'add' &&
-              cmd[1] ==
-                  r'HKCU\Software\Classes\OtzariaPluginFile\shell\open\command' &&
-              cmd[4] == r'"C:\Program Files\Otzaria\otzaria.exe" "%1"',
-        ),
-        isTrue,
+        entries,
+        contains((
+          subkey: 'otzaria',
+          name: 'URL Protocol',
+          value: const StringValue(''),
+        )),
+        reason: 'חסר הסימון שהופך את המפתח ל-URL protocol',
+      );
+    });
+
+    test('buildWindowsRegistrationEntries כולל שיוך קובץ .otzplugin', () {
+      final entries =
+          PluginProtocolRegistrationService.buildWindowsRegistrationEntries(
+            r'C:\Program Files\Otzaria\otzaria.exe',
+          );
+
+      // פקודת open של ה-ProgID — פותחת את אוצריא בלחיצה על קובץ ‎.otzplugin
+      expect(
+        entries,
+        contains((
+          subkey: r'OtzariaPluginFile\shell\open\command',
+          name: '',
+          value: const StringValue(
+            r'"C:\Program Files\Otzaria\otzaria.exe" "%1"',
+          ),
+        )),
         reason: 'חסר הרישום של פקודת open עבור ProgID של ‎.otzplugin',
       );
 
       // DefaultIcon מצביע על משאב ‎1 ב-EXE (האייקון הייעודי לתוסף)
       expect(
-        commands.any(
-          (cmd) =>
-              cmd.length >= 6 &&
-              cmd[0] == 'add' &&
-              cmd[1] ==
-                  r'HKCU\Software\Classes\OtzariaPluginFile\DefaultIcon' &&
-              cmd[4] == r'C:\Program Files\Otzaria\otzaria.exe,1',
-        ),
-        isTrue,
+        entries,
+        contains((
+          subkey: r'OtzariaPluginFile\DefaultIcon',
+          name: '',
+          value: const StringValue(r'C:\Program Files\Otzaria\otzaria.exe,1'),
+        )),
         reason: 'DefaultIcon חייב להצביע על משאב ‎1 ב-EXE',
       );
 
       // Extension → ProgID
       expect(
-        commands.any(
-          (cmd) =>
-              cmd.length >= 6 &&
-              cmd[0] == 'add' &&
-              cmd[1] == r'HKCU\Software\Classes\.otzplugin' &&
-              cmd[2] == '/ve' &&
-              cmd[4] == 'OtzariaPluginFile',
-        ),
-        isTrue,
+        entries,
+        contains((
+          subkey: '.otzplugin',
+          name: '',
+          value: const StringValue('OtzariaPluginFile'),
+        )),
         reason: 'חסר הקישור בין סיומת ‎.otzplugin ל-ProgID',
       );
 
       // EditFlags=FTA_NoRecentDocs — מונע הוספת ‎.otzplugin ל-Jump List
       expect(
-        commands.any(
-          (cmd) =>
-              cmd.length >= 9 &&
-              cmd[0] == 'add' &&
-              cmd[1] == r'HKCU\Software\Classes\OtzariaPluginFile' &&
-              cmd[2] == '/v' &&
-              cmd[3] == 'EditFlags' &&
-              cmd[5] == 'REG_DWORD' &&
-              cmd[7] == '0x00100000',
-        ),
-        isTrue,
+        entries,
+        contains((
+          subkey: 'OtzariaPluginFile',
+          name: 'EditFlags',
+          value: const DwordValue(0x00100000),
+        )),
         reason: 'חסר דגל FTA_NoRecentDocs שמונע כניסה ל"מסמכים אחרונים"',
       );
+    });
+
+    test('כל המפתחות יחסיים — בלי קידומת hive', () {
+      final entries =
+          PluginProtocolRegistrationService.buildWindowsRegistrationEntries(
+            r'C:\otzaria.exe',
+          );
+      for (final entry in entries) {
+        expect(entry.subkey, isNot(startsWith('HKCU')));
+        expect(entry.subkey, isNot(contains('Software\\Classes')));
+      }
     });
 
     test('buildLinuxDesktopEntry does not add leading or empty lines', () {

@@ -13,6 +13,7 @@ import 'package:otzaria/plugins/services/plugin_condition_evaluator.dart';
 import 'package:otzaria/plugins/services/plugin_external_editions_registry.dart';
 import 'package:otzaria/plugins/services/plugin_lazy_activation_service.dart';
 import 'package:otzaria/plugins/services/plugin_search_dialog_registry.dart';
+import 'package:otzaria/plugins/services/plugin_shortcut_registry.dart';
 import 'package:otzaria/plugins/services/plugin_startup_contributions_service.dart';
 import 'package:otzaria/plugins/services/plugin_toolbar_registry.dart';
 
@@ -161,6 +162,9 @@ Map<String, dynamic> _fullStartup() => {
   'contextMenuItems': [
     {'id': 'm1', 'title': 'פריט'},
   ],
+  'shortcuts': [
+    {'id': 's1', 'label': 'קיצור', 'key': 'ctrl+alt+s', 'command': 'run'},
+  ],
   'publishedData': [
     {
       'type': 'calendar.event',
@@ -181,6 +185,7 @@ Map<String, dynamic> _fullStartup() => {
 
 const _allPermissions = {
   'app.startup_contributions',
+  'app.shortcuts',
   'reader.toolbar',
   'reader.context_menu',
   'published_data.write',
@@ -191,6 +196,7 @@ const _allPermissions = {
 void main() {
   late PluginToolbarRegistry toolbar;
   late ContextMenuRegistry contextMenu;
+  late PluginShortcutRegistry shortcuts;
   late PluginLazyActivationService activation;
   late PluginSearchDialogRegistry searchDialog;
   late PluginExternalEditionsRegistry externalEditions;
@@ -200,6 +206,7 @@ void main() {
   setUp(() {
     toolbar = PluginToolbarRegistry.forTesting();
     contextMenu = ContextMenuRegistry.forTesting();
+    shortcuts = PluginShortcutRegistry.forTesting();
     activation = PluginLazyActivationService.forTesting();
     searchDialog = PluginSearchDialogRegistry.forTesting();
     externalEditions = PluginExternalEditionsRegistry.detached();
@@ -207,6 +214,7 @@ void main() {
       toolbarRegistry: toolbar,
       contextMenuRegistry: contextMenu,
       activationService: activation,
+      shortcutRegistry: shortcuts,
       searchDialogRegistry: searchDialog,
       externalEditionsRegistry: externalEditions,
     );
@@ -220,6 +228,8 @@ void main() {
 
     expect(toolbar.getAll().single.$2.id, 'b1');
     expect(contextMenu.getAll().single.$2.id, 'm1');
+    expect(shortcuts.getAll().single.$2.id, 's1');
+    expect(shortcuts.getAll().single.$2.key, 'ctrl+alt+s');
     expect(searchDialog.getAll().single.$2.id, 'include-external');
     final record = repo.records.single;
     expect(record.key, 'manifest:k1');
@@ -230,6 +240,19 @@ void main() {
       reason: 'בלי app.run_on_startup אין הערה שקטה — לחיצה תפתח את הדף',
     );
   });
+
+  test(
+    'shortcuts are not registered without the app.shortcuts permission',
+    () async {
+      repo.grantedByPlugin['p1'] = {..._allPermissions}
+        ..remove('app.shortcuts');
+
+      await service.sync([_plugin(startup: _fullStartup())], repo);
+
+      expect(shortcuts.getAll(), isEmpty);
+      expect(contextMenu.getAll().single.$2.id, 'm1');
+    },
+  );
 
   group('externalEditions', () {
     InstalledPlugin editionsPlugin({List<String> permissions = const []}) {
@@ -425,10 +448,10 @@ void main() {
     await service.sync([_plugin(startup: pair('a1', 'a2'))], repo);
     await service.sync([_plugin(startup: pair('b1', 'b2'))], repo);
 
-    expect(
-      toolbar.getAll().map((record) => record.$2.id).toSet(),
-      {'b1', 'b2'},
-    );
+    expect(toolbar.getAll().map((record) => record.$2.id).toSet(), {
+      'b1',
+      'b2',
+    });
   });
 
   test('an unchanged publishedData seed is not rewritten', () async {
@@ -560,17 +583,14 @@ void main() {
         'app.startup_contributions',
         'app.run_on_startup',
       };
-      await service.sync(
-        [
-          _plugin(
-            id: 'p2',
-            startup: {
-              'activationEvents': ['app.startup'],
-            },
-          ),
-        ],
-        repo,
-      );
+      await service.sync([
+        _plugin(
+          id: 'p2',
+          startup: {
+            'activationEvents': ['app.startup'],
+          },
+        ),
+      ], repo);
       await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(startupScheduled, isTrue);
     },
@@ -600,10 +620,7 @@ void main() {
               'id': 'host-only',
               'title': 'Host',
               'icon': 'book_24_regular',
-              'binding': {
-                'program': 'links',
-                'visibleOutput': 'book',
-              },
+              'binding': {'program': 'links', 'visibleOutput': 'book'},
               'action': {
                 'type': 'reader.openBook',
                 'args': {
@@ -754,9 +771,7 @@ void main() {
         conditionEvaluator: evaluator,
       );
       conditionalService = PluginStartupContributionsService.forTesting(
-        toolbarRegistry: PluginToolbarRegistry.forTesting(
-          evaluator: evaluator,
-        ),
+        toolbarRegistry: PluginToolbarRegistry.forTesting(evaluator: evaluator),
         contextMenuRegistry: ContextMenuRegistry.forTesting(
           evaluator: evaluator,
         ),

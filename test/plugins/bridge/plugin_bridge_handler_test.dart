@@ -7,6 +7,7 @@ import 'package:otzaria/plugins/models/installed_plugin.dart';
 import 'package:otzaria/plugins/models/plugin_manifest.dart';
 import 'package:otzaria/plugins/models/plugin_valid_permissions.dart';
 import 'package:otzaria/plugins/repository/plugin_registry_repository.dart';
+import 'package:otzaria/plugins/services/plugin_extended_validator.dart';
 
 /// adapter פיקטיבי: מיישם רק את execute (השאר דרך noSuchMethod), סופר קריאות
 /// ומחזיר ערך מוגדר מראש — כך אפשר לוודא אם execute נקרא בכלל ובאילו ארגומנטים.
@@ -206,6 +207,9 @@ void main() {
       expect(PluginBridgeHandler.hasOwnTimeout('fs.extractZip'), isTrue);
       // ממתין לדיאלוג אישור — timeout גנרי היה מדווח כשל אחרי שליחה בפועל.
       expect(PluginBridgeHandler.hasOwnTimeout('feedback.report'), isTrue);
+      // דיאלוג ההדפסה של המערכת ממתין לבחירת מדפסת ללא הגבלת זמן.
+      expect(PluginBridgeHandler.hasOwnTimeout('ui.print'), isTrue);
+      expect(PluginBridgeHandler.hasOwnTimeout('ui.exportPdf'), isTrue);
     });
 
     test('שאר הקריאות נשארות תחת timeout ברירת המחדל', () {
@@ -854,7 +858,10 @@ void main() {
     test('commitUserFileWrite אינו כפוף ל-timeout הגנרי', () {
       // הוא ממתין לדיאלוג „שמור בשם”; timeout גנרי היה מחזיר error.timeout
       // בזמן שהמשתמש בוחר תיקייה, אחרי שהבייטים כבר עלו.
-      expect(PluginBridgeHandler.hasOwnTimeout('fs.commitUserFileWrite'), isTrue);
+      expect(
+        PluginBridgeHandler.hasOwnTimeout('fs.commitUserFileWrite'),
+        isTrue,
+      );
       expect(PluginBridgeHandler.hasOwnTimeout('fs.beginBinaryWrite'), isFalse);
     });
 
@@ -943,6 +950,74 @@ void main() {
 
       expect(resp['error']['code'], 'error.rate_limited');
       expect(limiter.consumeCalls, 1);
+    });
+  });
+
+  group('התאמה בין ההרשאה שנאכפת לזו שהאריזה מסתמכת עליה', () {
+    // ההרשאה שנאכפת ב-runtime וזו שהאריזה בודקת מוגדרות בשני מקומות נפרדים,
+    // וסטייה ביניהן עוברת אריזה בשקט ונכשלת רק אצל המשתמש.
+
+    /// ההרשאה נגזרת מכתובת היעד (`network.localhost` מול `network.access`)
+    /// ולכן נאכפת באדפטר; מפורש ולא `startsWith`, כדי ש-network חדש יחייב
+    /// החלטה מודעת.
+    const enforcedInAdapter = {
+      'network.fetch',
+      'network.fetchStream',
+      'network.download',
+    };
+
+    PluginBridgeHandler buildHandler() => PluginBridgeHandler(
+      _buildInstalledPlugin(permissions: const []),
+      adapter: _FakeAdapter(),
+      registry: _StubRegistry(true),
+    );
+
+    test('כל method ידוע נאכף בדיוק לפי methodRequiredPermissions', () {
+      final handler = buildHandler();
+      final expected = PluginExtendedValidator.methodRequiredPermissions;
+
+      final mismatches = <String>[];
+      for (final method in PluginExtendedValidator.knownApiMethods) {
+        if (enforcedInAdapter.contains(method)) continue;
+        final parts = method.split('.');
+        if (parts.length != 2) {
+          fail('method בעל יותר משני חלקים אינו נתמך בבדיקה: $method');
+        }
+        final enforced = handler.requiredPermissionForTesting(
+          parts[0],
+          parts[1],
+        );
+        if (enforced != expected[method]) {
+          mismatches.add(
+            '$method: runtime=$enforced, אריזה=${expected[method]}',
+          );
+        }
+      }
+
+      expect(mismatches, isEmpty, reason: mismatches.join('\n'));
+    });
+
+    test('אין רשומת הרשאה ל-method שאינו ב-knownApiMethods', () {
+      // הכיוון ההפוך של הבדיקה שמעליה, שרצה על knownApiMethods בלבד: רשומה
+      // שנוספה למפה בלי להוסיף אותה לקבוצה לא הייתה מבוקרת כלל.
+      expect(
+        PluginExtendedValidator.methodRequiredPermissions.keys.where(
+          (m) => !PluginExtendedValidator.knownApiMethods.contains(m),
+        ),
+        isEmpty,
+      );
+    });
+
+    test('הרשאות ה-network נאכפות באדפטר ולא בגשר', () {
+      final handler = buildHandler();
+      for (final method in enforcedInAdapter) {
+        final parts = method.split('.');
+        expect(
+          handler.requiredPermissionForTesting(parts[0], parts[1]),
+          isNull,
+          reason: '$method לא אמור להיות מגודר לפי שם ה-method',
+        );
+      }
     });
   });
 }

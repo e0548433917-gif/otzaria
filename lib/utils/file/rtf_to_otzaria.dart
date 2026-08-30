@@ -21,7 +21,7 @@ import 'package:otzaria/utils/text/otzaria_markup.dart';
 /// v5: בית גבוה גולמי עובר דרך דף-הקוד המוצהר (עברית שנשמרה בלי `\'hh`
 /// הפכה ללטינית), `\tab`/`\~` אינם קוטעים את ה-run המעוצב, ורקע תא לבן
 /// אינו נכתב.
-const int kRtfConverterVersion = 5;
+const int kRtfConverterVersion = 6;
 
 /// רווח קשיח. `\tab` ו-`\~` מייצגים רווחים שהמסמך דורש שיישמרו, ורווח
 /// רגיל היה נבלע ברינדור ה-HTML.
@@ -300,7 +300,7 @@ class _RtfParser {
   bool _isPicture = false;
 
   String run() {
-    _output.add('<h1>${escapeHtmlText(_title)}</h1>');
+    _output.add(otzariaInlineText('<h1>${escapeHtmlText(_title)}</h1>'));
     _parse();
     // קבוצה שלא נסגרה (קובץ קטוע): מה שנצבר בה היה נמחק בשקט.
     _flushRun();

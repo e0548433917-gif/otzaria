@@ -6,11 +6,13 @@ import 'package:otzaria/plugins/plugin_constants.dart';
 import 'package:otzaria/plugins/repository/plugin_registry_repository.dart';
 import 'package:otzaria/plugins/services/context_menu_registry.dart';
 import 'package:otzaria/plugins/services/plugin_condition_evaluator.dart';
+import 'package:otzaria/plugins/services/plugin_shortcut_registry.dart';
 import 'package:otzaria/plugins/services/plugin_toolbar_registry.dart';
 import 'package:otzaria/plugins/services/plugin_highlight_registry.dart';
 import 'package:otzaria/plugins/services/plugin_lazy_activation_service.dart';
 import 'package:otzaria/plugins/services/plugin_page_launcher.dart';
 import 'package:otzaria/plugins/services/plugin_startup_contributions_service.dart';
+import 'package:otzaria/plugins/services/plugin_webview_focus.dart';
 
 enum _PluginRuntimeShutdownMode { idle, restart, exit }
 
@@ -30,6 +32,10 @@ class _PluginInstance {
 
   /// מופע קדמי מושהה — evaluateJavascript עליו נבלע בשקט.
   bool suspended = false;
+
+  /// בקשת פוקוס מקלדת שהגיעה לפני שה-WebView היה מוכן (הטאב נפתח לפני
+  /// שנוצר, או שה-resume עוד רץ) — תתבצע ברגע שיהיה.
+  bool pendingKeyboardFocus = false;
 
   /// אירועים שהוזרקו בזמן השעיה וממתינים למסירה חוזרת אחרי boot.
   final List<({String topic, String jsonPayload, DateTime at})>
@@ -128,6 +134,13 @@ class PluginRuntimeDispatcher {
   InAppWebViewController? _backgroundControllerOf(String pluginId) =>
       _instances[_keyOf(pluginId, PluginInstanceIds.background)]?.controller;
 
+  /// ה-WebView של מופע ריצה מסוים, או `null` אם אינו חי. משמש קריאות RPC
+  /// שפועלות על התוכן המוצג עצמו (כמו `ui.print`).
+  InAppWebViewController? controllerOf(
+    String pluginId, {
+    PluginInstanceId instanceId = PluginInstanceIds.defaultForeground,
+  }) => _instances[_keyOf(pluginId, instanceId)]?.controller;
+
   /// המופע הקדמי ה"ראשי" של [pluginId]: הגלוי כרגע, ואם אין גלוי —
   /// האחרון שנרשם (סדר ההכנסה באינדקס).
   PluginInstanceKey? _primaryForegroundKey(String pluginId) {
@@ -188,7 +201,76 @@ class PluginRuntimeDispatcher {
     }
     _shutdownMode = _PluginRuntimeShutdownMode.idle;
     _eventTimedOutControllers.remove(controller);
+    // בקשת פוקוס ממתינה אינה מבוצעת כאן אלא ב-onForegroundInstanceReady:
+    // העברת פוקוס ל-WebView שהדף בו עוד לא נטען מקדימה את ה-autofocus שלו.
     _instanceFor(pluginId, instanceId).controller = controller;
+  }
+
+  /// מעביר את פוקוס המקלדת אל המופע הקדמי [instanceId] של [pluginId], כדי
+  /// שניתן יהיה להקליד בתוסף מיד בפתיחתו בלי קליק.
+  ///
+  /// מחזיר האם הפוקוס הועבר עכשיו. אם המופע הנכון עדיין אינו מוכן (ה-WebView
+  /// נוצר אחרי פתיחת הטאב, או שההחייאה שלו עוד רצה) הבקשה נזכרת ומתבצעת
+  /// ברגע שיהיה מוכן.
+  ///
+  /// [deferred] - הבקשה נזכרה קודם ומתבצעת באיחור. רק אז שדה טקסט פעיל
+  /// חוסם אותה: בבקשה ישירה המשתמש בדיוק עבר לטאב התוסף ועזב את השדה,
+  /// ובאיחור הוא כבר עלול להקליד במקום אחר.
+  Future<bool> requestKeyboardFocus(
+    String pluginId, {
+    PluginInstanceId instanceId = PluginInstanceIds.defaultForeground,
+    bool deferred = false,
+  }) async {
+    final key = _keyOf(pluginId, instanceId);
+    final instance = _instances[key];
+    final controller = instance?.controller;
+    final isBackground = instanceId == PluginInstanceIds.background;
+    final platformNeedsHandoff = supportsPluginKeyboardFocusHandoff(
+      defaultTargetPlatform,
+    );
+    if (instance != null &&
+        controller != null &&
+        shouldMoveKeyboardFocusToPlugin(
+          isBackground: instance.isBackground,
+          hasController: true,
+          isVisible: isInstanceVisible(key),
+          isSuspended: instance.suspended,
+          readerScreenVisible: _readerScreenVisible,
+          platformNeedsHandoff: platformNeedsHandoff,
+          appIsActive: appIsActiveNow(),
+          flutterOwnsKeyboard: deferred && flutterOwnsKeyboardNow(),
+        )) {
+      instance.pendingKeyboardFocus = false;
+      return PluginWebViewFocus.request(controller);
+    }
+    if (shouldRememberKeyboardFocusRequest(
+      isBackground: isBackground,
+      isVisible: isInstanceVisible(key),
+      readerScreenVisible: _readerScreenVisible,
+      platformNeedsHandoff: platformNeedsHandoff,
+    )) {
+      _instanceFor(pluginId, instanceId).pendingKeyboardFocus = true;
+    }
+    return false;
+  }
+
+  /// מבטל בקשות פוקוס שנזכרו. נדרש בעזיבת מסך העיון: בקשה ששרדה הייתה
+  /// יורה כשהתוסף כבר אינו על המסך, ומעבירה את המקלדת לחלון בלתי-נראה.
+  void cancelPendingKeyboardFocus() {
+    for (final instance in _instances.values) {
+      instance.pendingKeyboardFocus = false;
+    }
+  }
+
+  /// מבצע בקשת פוקוס שנזכרה, עכשיו שהמופע מוכן.
+  Future<void> _flushPendingKeyboardFocus(PluginInstanceKey key) async {
+    final instance = _instances[key];
+    if (instance == null || !instance.pendingKeyboardFocus) return;
+    await requestKeyboardFocus(
+      key.pluginId,
+      instanceId: key.instanceId,
+      deferred: true,
+    );
   }
 
   void unregisterController(
@@ -203,6 +285,7 @@ class PluginRuntimeDispatcher {
       }
       instance.controller = null;
       instance.suspended = false;
+      instance.pendingKeyboardFocus = false;
       instance.pendingRedeliveries.clear();
       instance.graceTimer?.cancel();
       instance.graceTimer = null;
@@ -213,6 +296,7 @@ class PluginRuntimeDispatcher {
       _enabledCache.remove(pluginId);
       _permissionCache.remove(pluginId);
       ContextMenuRegistry.instance.removeAll(pluginId);
+      PluginShortcutRegistry.instance.removeAll(pluginId);
       PluginToolbarRegistry.instance.removeAll(pluginId);
       // רישומים דקלרטיביים מהמניפסט אינם תלויים במנוע חי — נשארים גם אחרי
       // כיבוי עצל של מופע הרקע (אחרת הפקדים היו נעלמים אחרי 3 דקות).
@@ -249,6 +333,7 @@ class PluginRuntimeDispatcher {
     _runningForegroundKeys = const {};
     for (final instance in _instances.values) {
       instance.suspended = false;
+      instance.pendingKeyboardFocus = false;
       instance.pendingRedeliveries.clear();
       instance.graceTimer?.cancel();
       instance.graceTimer = null;
@@ -309,6 +394,7 @@ class PluginRuntimeDispatcher {
         // המופע נטען כשהוא כבר מוצג — מסירים סימון השהיה שנשאר מטעינה קודמת.
         _runningForegroundKeys = {..._runningForegroundKeys, key};
         instance?.suspended = false;
+        await _flushPendingKeyboardFocus(key);
       }
     });
   }
@@ -350,6 +436,8 @@ class PluginRuntimeDispatcher {
     if (instance == null || controller == null) return;
     // הסימון לפני ההשהיה: מרגע זה כל אירוע חייב ללכת למופע אחר.
     instance.suspended = true;
+    // המשתמש עזב את הטאב — בקשת פוקוס שנזכרה תחטוף את המקלדת מהטאב החדש.
+    instance.pendingKeyboardFocus = false;
     // מודיעים ל-JS לפני ההקפאה כדי שיעצור timers בעצמו — זו ההגנה היחידה
     // בפלטפורמות שבהן pause נייטיב אינו נתמך (macOS/iOS/Linux).
     await _dispatchLifecycleEvent(controller, key.pluginId, 'plugin.suspended');
@@ -381,6 +469,7 @@ class PluginRuntimeDispatcher {
     _eventTimedOutControllers.remove(controller);
     await _dispatchLifecycleEvent(controller, key.pluginId, 'plugin.resumed');
     await _resyncThemeOnResume(controller, key.pluginId);
+    await _flushPendingKeyboardFocus(key);
   }
 
   /// שולח מחדש את ה-theme העדכני לתוסף שזה עתה התעורר — בזמן שהיה הוא לא
@@ -465,6 +554,7 @@ class PluginRuntimeDispatcher {
 
     for (final pluginId in pluginIds) {
       ContextMenuRegistry.instance.removeAll(pluginId);
+      PluginShortcutRegistry.instance.removeAll(pluginId);
       PluginToolbarRegistry.instance.removeAll(pluginId);
     }
 
@@ -528,6 +618,7 @@ class PluginRuntimeDispatcher {
   Future<void> reloadPlugin(String pluginId) async {
     if (_shutdownMode != _PluginRuntimeShutdownMode.idle) return;
     ContextMenuRegistry.instance.removeAll(pluginId);
+    PluginShortcutRegistry.instance.removeAll(pluginId);
     PluginToolbarRegistry.instance.removeAll(pluginId);
     PluginHighlightRegistry.instance.removePlugin(pluginId);
     // רישומים דקלרטיביים מהמניפסט אינם תלויים ב-JS — מוחזרים מיד.

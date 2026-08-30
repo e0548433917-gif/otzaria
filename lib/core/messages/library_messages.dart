@@ -31,7 +31,7 @@ abstract class LibraryMessages {
       'תוכן הספר השתנה מאז עדכון האינדקס — מומלץ לעדכן את אינדקס החיפוש.';
 
   static String indexingCompletedWithFailures(int count) =>
-      'האינדוקס הסתיים עם $count בעיות. הפרטים נשמרו בקובץ השגיאות.';
+      'האינדוקס הסתיים עם $count בעיות. לחץ לפתיחת קובץ השגיאות.';
 
   static const String emptySearchQuery = 'נא להזין טקסט לחיפוש';
 

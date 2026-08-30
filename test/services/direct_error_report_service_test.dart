@@ -333,6 +333,58 @@ void main() {
       },
     );
 
+    test(
+      '200 with duplicate:true is sent-as-duplicate with a dedicated message',
+      () async {
+        final repository = InMemoryDirectErrorReportRepository();
+        final sentRepository = InMemoryDirectErrorReportRepository();
+        final service = DirectErrorReportService(
+          client: MockClient(
+            (request) async => http.Response(
+              jsonEncode({'success': true, 'duplicate': true}),
+              200,
+            ),
+          ),
+          queueRepository: repository,
+          sentRepository: sentRepository,
+        );
+
+        final result = await service.submitReport(
+          _buildReport(id: 'duplicate-report', sourceFolder: 'sefaria'),
+        );
+
+        expect(result.status, DirectReportDeliveryStatus.sent);
+        expect(result.isDuplicate, isTrue);
+        expect(result.message, contains('כבר נשלח'));
+        expect(result.message, contains('לספריא'));
+        expect((await sentRepository.load()).single.id, 'duplicate-report');
+      },
+    );
+
+    test(
+      '200 with non-json or duplicate:false body is a regular send',
+      () async {
+        for (final body in [
+          '',
+          'ok',
+          jsonEncode({'duplicate': false}),
+        ]) {
+          final service = DirectErrorReportService(
+            client: MockClient((request) async => http.Response(body, 200)),
+            queueRepository: InMemoryDirectErrorReportRepository(),
+            sentRepository: InMemoryDirectErrorReportRepository(),
+          );
+
+          final result = await service.submitReport(
+            _buildReport(id: 'regular-report'),
+          );
+
+          expect(result.status, DirectReportDeliveryStatus.sent);
+          expect(result.isDuplicate, isFalse);
+        }
+      },
+    );
+
     test('submitPendingReport removes sent report from queue', () async {
       final repository = InMemoryDirectErrorReportRepository();
       final sentRepository = InMemoryDirectErrorReportRepository();

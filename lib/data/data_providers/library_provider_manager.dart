@@ -6,6 +6,7 @@ import 'package:otzaria/data/data_providers/library_provider.dart';
 import 'package:otzaria/library/models/library.dart';
 import 'package:otzaria/models/books.dart';
 import 'package:otzaria/models/links.dart';
+import 'package:path/path.dart' as p;
 
 /// Manages multiple library providers and coordinates book loading.
 ///
@@ -516,7 +517,12 @@ class LibraryProviderManager {
 
   /// Gets the content of a specific link from the appropriate provider
   Future<String> getLinkContent(Link link) async {
-    final targetTitle = link.path2.split('/').last.replaceAll('.txt', '');
+    final targetName = link.path2.split('/').last;
+    final targetExtension = p.extension(targetName).toLowerCase();
+    final targetTitle =
+        (targetExtension == '.txt' || targetExtension == '.text')
+            ? targetName.substring(0, targetName.length - targetExtension.length)
+            : targetName;
 
     BookCompositeKey? targetKey;
     for (final key in _bookToProvider.keys) {

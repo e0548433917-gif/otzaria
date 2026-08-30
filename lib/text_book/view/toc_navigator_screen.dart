@@ -69,6 +69,10 @@ class _TocViewerState extends State<TocViewer>
   Timer? _searchDebounce;
   String _appliedQuery = '';
 
+  // סימון הדפדוף בחיצים בין תוצאות החיפוש (index של TocEntry). הפוקוס נשאר
+  // בשדה החיפוש, כמו ב"איתור". מתאפס בכל שינוי שאילתה.
+  int? _highlightedEntryIndex;
+
   // משמשים במסלול הוירטואלי בלבד. ScrollablePositionedList מאפשר גלילה
   // לפי אינדקס פריט גם אם הפריט עוד לא נבנה בעץ.
   final ItemScrollController _virtualScrollController = ItemScrollController();
@@ -100,7 +104,10 @@ class _TocViewerState extends State<TocViewer>
     _searchDebounce?.cancel();
     // ניקוי הוא חזרה לעץ המלא - זול, ואין סיבה להשהות אותו.
     if (value.isEmpty) {
-      setState(() => _appliedQuery = '');
+      setState(() {
+        _appliedQuery = '';
+        _highlightedEntryIndex = null;
+      });
       return;
     }
     // רענון מיידי של השדה (כפתור הניקוי) - הסינון עצמו ממתין לטיימר,
@@ -108,8 +115,88 @@ class _TocViewerState extends State<TocViewer>
     setState(() {});
     _searchDebounce = Timer(const Duration(milliseconds: 220), () {
       if (!mounted) return;
-      setState(() => _appliedQuery = value);
+      setState(() {
+        _appliedQuery = value;
+        _highlightedEntryIndex = null;
+      });
     });
+  }
+
+  /// מזיז את סימון הדפדוף בין תוצאות החיפוש בלי להוציא את הפוקוס מהשדה.
+  void _moveHighlight(int delta) {
+    final state = context.read<TextBookBloc>().state;
+    if (state is! TextBookLoaded) return;
+    final display = _displayDataFor(state.tableOfContents);
+    if (!display.isSearching) return;
+    final flat = _flatItemsFor(display);
+    if (flat.isEmpty) return;
+
+    final current = _highlightedEntryIndex == null
+        ? -1
+        : flat.indexWhere((item) => item.entry.index == _highlightedEntryIndex);
+    final start = current >= 0 ? current : (delta >= 0 ? -1 : flat.length);
+    final next = (start + delta).clamp(0, flat.length - 1);
+    if (next == current) return;
+
+    setState(() => _highlightedEntryIndex = flat[next].entry.index);
+    final useFlat = display.totalCount > _kTocFlattenThreshold;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _scrollEntryIntoView(
+        flat[next].entry.index,
+        display: display,
+        useFlat: useFlat,
+      );
+    });
+  }
+
+  /// גולל את הספר אל השורה של ערך ה-TOC (לחיצה על שורה או אנטר בחיפוש).
+  void _navigateToLine(int lineIndex) {
+    setState(() {
+      _isManuallyScrolling = false;
+      _lastScrolledTocIndex = null;
+    });
+    final state = context.read<TextBookBloc>().state;
+    if (state is! TextBookLoaded) {
+      return;
+    }
+    final navigation = scrollToSourceLine(
+      scrollController: widget.scrollController,
+      scrollOffsetController: state.scrollOffsetController,
+      positionsListener: state.positionsListener,
+      segments: state.readingSegments,
+      lineIndex: lineIndex,
+      viewportExtent: context.size?.height ?? MediaQuery.sizeOf(context).height,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.ease,
+    );
+    if (Platform.isAndroid) {
+      unawaited(
+        closePaneAfterNavigation(
+          navigation: navigation,
+          closePane: () {
+            if (mounted) widget.closeLeftPaneCallback();
+          },
+        ),
+      );
+    } else {
+      unawaited(navigation);
+    }
+  }
+
+  /// אנטר בשדה החיפוש: פתיחת התוצאה המסומנת, ובהיעדר סימון — הראשונה.
+  void _openHighlightedEntry() {
+    final state = context.read<TextBookBloc>().state;
+    if (state is! TextBookLoaded) return;
+    final display = _displayDataFor(state.tableOfContents);
+    if (!display.isSearching) return;
+    final flat = _flatItemsFor(display);
+    if (flat.isEmpty) return;
+
+    final target = _highlightedEntryIndex == null
+        ? flat.first.entry.index
+        : _highlightedEntryIndex!;
+    _navigateToLine(target);
   }
 
   void _ensureParentsOpen(List<TocEntry> entries, int targetIndex) {
@@ -169,100 +256,108 @@ class _TocViewerState extends State<TocViewer>
 
       SchedulerBinding.instance.addPostFrameCallback((_) {
         if (!mounted || _isManuallyScrolling) return;
-
-        if (useFlat) {
-          // במסלול הוירטואלי הפריט הפעיל עשוי לא להיות בעץ. גוללים לפי
-          // אינדקס ברשימה השטוחה דרך ItemScrollController, שמטפל בגלילה
-          // לפריטים שאינם מורכבים.
-          if (!_virtualScrollController.isAttached) return;
-          final flat = _flatItemsFor(display);
-          final flatEntryIndex = flat.indexWhere(
-            (item) => item.entry.index == activeIndex,
-          );
-          if (flatEntryIndex < 0) return;
-          // +1: פריט 0 ברשימה הוא הכותרת הראשית.
-          final flatIndex = flatEntryIndex + 1;
-
-          final positions = _virtualPositionsListener.itemPositions.value;
-          ItemPosition? current;
-          for (final p in positions) {
-            if (p.index == flatIndex) {
-              current = p;
-              break;
-            }
-          }
-          // כבר גלוי במלואו - לא גוללים.
-          if (current != null &&
-              current.itemLeadingEdge >= 0 &&
-              current.itemTrailingEdge <= 1) {
-            _lastScrolledTocIndex = activeIndex;
-            return;
-          }
-
-          // לא גלוי - מביאים לקצה הקרוב (עליון/תחתון), לא למרכז.
-          final bool below = current != null
-              ? current.itemLeadingEdge >= 1
-              : (positions.isNotEmpty &&
-                    flatIndex >
-                        positions
-                            .map((p) => p.index)
-                            .reduce((a, b) => a > b ? a : b));
-          _virtualScrollController.scrollTo(
-            index: flatIndex,
-            alignment: below ? 0.85 : 0.0,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-          );
+        if (_scrollEntryIntoView(
+          activeIndex,
+          display: display,
+          useFlat: useFlat,
+        )) {
           _lastScrolledTocIndex = activeIndex;
-          return;
         }
-
-        // מסלול רקורסיבי - הפריט תמיד בנוי בעץ, ניתן להשתמש ב-GlobalKey
-        final key = _tocItemKeys[activeIndex];
-        final itemContext = key?.currentContext;
-        if (itemContext == null) return;
-
-        final itemRenderObject = itemContext.findRenderObject();
-        if (itemRenderObject is! RenderBox) return;
-
-        final scrollableBox =
-            _tocScrollController.position.context.storageContext
-                    .findRenderObject()
-                as RenderBox;
-
-        final itemOffset = itemRenderObject
-            .localToGlobal(Offset.zero, ancestor: scrollableBox)
-            .dy;
-        final viewportHeight = scrollableBox.size.height;
-        final itemHeight = itemRenderObject.size.height;
-
-        final itemBottom = itemOffset + itemHeight;
-        // כבר גלוי במלואו - לא גוללים.
-        if (itemOffset >= 0 && itemBottom <= viewportHeight) {
-          _lastScrolledTocIndex = activeIndex;
-          return;
-        }
-
-        // לא גלוי - גוללים לקצה הקרוב (עליון/תחתון), לא למרכז.
-        const double margin = 8.0;
-        final double target = itemOffset < 0
-            ? _tocScrollController.offset + itemOffset - margin
-            : _tocScrollController.offset +
-                  (itemBottom - viewportHeight) +
-                  margin;
-
-        _tocScrollController.animateTo(
-          target.clamp(
-            0.0,
-            _tocScrollController.position.maxScrollExtent,
-          ),
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
-
-        _lastScrolledTocIndex = activeIndex;
       });
     });
+  }
+
+  /// גולל את הערך אל תוך אזור התצוגה אם אינו גלוי במלואו.
+  /// מחזיר אמת כשהערך גלוי או שהגלילה בוצעה, ושקר כשהערך לא נמצא.
+  bool _scrollEntryIntoView(
+    int targetIndex, {
+    required _TocDisplayData display,
+    required bool useFlat,
+  }) {
+    if (useFlat) {
+      // במסלול הוירטואלי הפריט עשוי לא להיות בעץ. גוללים לפי אינדקס ברשימה
+      // השטוחה דרך ItemScrollController, שמטפל בגלילה לפריטים שאינם מורכבים.
+      if (!_virtualScrollController.isAttached) return false;
+      final flat = _flatItemsFor(display);
+      final flatEntryIndex = flat.indexWhere(
+        (item) => item.entry.index == targetIndex,
+      );
+      if (flatEntryIndex < 0) return false;
+      // +1: פריט 0 ברשימה הוא הכותרת הראשית.
+      final flatIndex = flatEntryIndex + 1;
+
+      final positions = _virtualPositionsListener.itemPositions.value;
+      ItemPosition? current;
+      for (final p in positions) {
+        if (p.index == flatIndex) {
+          current = p;
+          break;
+        }
+      }
+      // כבר גלוי במלואו - לא גוללים.
+      if (current != null &&
+          current.itemLeadingEdge >= 0 &&
+          current.itemTrailingEdge <= 1) {
+        return true;
+      }
+
+      // לא גלוי - מביאים לקצה הקרוב (עליון/תחתון), לא למרכז.
+      final bool below = current != null
+          ? current.itemLeadingEdge >= 1
+          : (positions.isNotEmpty &&
+                flatIndex >
+                    positions
+                        .map((p) => p.index)
+                        .reduce((a, b) => a > b ? a : b));
+      _virtualScrollController.scrollTo(
+        index: flatIndex,
+        alignment: below ? 0.85 : 0.0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+      return true;
+    }
+
+    // מסלול רקורסיבי - הפריט תמיד בנוי בעץ, ניתן להשתמש ב-GlobalKey
+    final key = _tocItemKeys[targetIndex];
+    final itemContext = key?.currentContext;
+    if (itemContext == null) return false;
+
+    final itemRenderObject = itemContext.findRenderObject();
+    if (itemRenderObject is! RenderBox) return false;
+
+    final scrollableBox =
+        _tocScrollController.position.context.storageContext.findRenderObject()
+            as RenderBox;
+
+    final itemOffset = itemRenderObject
+        .localToGlobal(Offset.zero, ancestor: scrollableBox)
+        .dy;
+    final viewportHeight = scrollableBox.size.height;
+    final itemHeight = itemRenderObject.size.height;
+
+    final itemBottom = itemOffset + itemHeight;
+    // כבר גלוי במלואו - לא גוללים.
+    if (itemOffset >= 0 && itemBottom <= viewportHeight) {
+      return true;
+    }
+
+    // לא גלוי - גוללים לקצה הקרוב (עליון/תחתון), לא למרכז.
+    const double margin = 8.0;
+    final double target = itemOffset < 0
+        ? _tocScrollController.offset + itemOffset - margin
+        : _tocScrollController.offset + (itemBottom - viewportHeight) + margin;
+
+    _tocScrollController.animateTo(
+      target.clamp(
+        0.0,
+        _tocScrollController.position.maxScrollExtent,
+      ),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+
+    return true;
   }
 
   _TocDisplayData _displayDataFor(List<TocEntry> tableOfContents) {
@@ -312,41 +407,12 @@ class _TocViewerState extends State<TocViewer>
     bool isGroupEnd = false,
   }) {
     final itemKey = _tocItemKeys.putIfAbsent(entry.index, () => GlobalKey());
-    void navigateToEntry() {
-      setState(() {
-        _isManuallyScrolling = false;
-        _lastScrolledTocIndex = null;
-      });
-      final state = context.read<TextBookBloc>().state;
-      if (state is! TextBookLoaded) {
-        return;
-      }
-      final navigation = scrollToSourceLine(
-        scrollController: widget.scrollController,
-        scrollOffsetController: state.scrollOffsetController,
-        positionsListener: state.positionsListener,
-        segments: state.readingSegments,
-        lineIndex: entry.index,
-        viewportExtent:
-            context.size?.height ?? MediaQuery.sizeOf(context).height,
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.ease,
-      );
-      if (Platform.isAndroid) {
-        unawaited(
-          closePaneAfterNavigation(
-            navigation: navigation,
-            closePane: () {
-              if (mounted) widget.closeLeftPaneCallback();
-            },
-          ),
-        );
-      } else {
-        unawaited(navigation);
-      }
-    }
+    void navigateToEntry() => _navigateToLine(entry.index);
 
-    final bool selected = activeIndex == entry.index;
+    // בזמן דפדוף בחיצים הסימון הוא של תוצאת הדפדוף, לא של מיקום הקריאה.
+    final bool selected = _highlightedEntryIndex != null
+        ? _highlightedEntryIndex == entry.index
+        : activeIndex == entry.index;
     final title = showFullText ? entry.fullText : entry.text;
     // רמות ה-TOC מתחילות ב-1, ורמת ההזחה של עץ הניווט מתחילה ב-0.
     final level = (entry.level - 1).clamp(0, 100);
@@ -532,8 +598,13 @@ class _TocViewerState extends State<TocViewer>
             hintText: 'איתור כותרת...',
             focusNode: widget.focusNode,
             onChanged: _onSearchChanged,
-            onSubmitted: (_) => widget.focusNode.requestFocus(),
+            onSubmitted: (_) {
+              _openHighlightedEntry();
+              widget.focusNode.requestFocus();
+            },
             onClear: () => _onSearchChanged(''),
+            onArrowDown: display.isSearching ? () => _moveHighlight(1) : null,
+            onArrowUp: display.isSearching ? () => _moveHighlight(-1) : null,
           );
           final hoisted = NavPanelSearch.isHoisted(context);
 

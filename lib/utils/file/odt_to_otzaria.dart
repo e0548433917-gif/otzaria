@@ -25,7 +25,7 @@ import 'package:xml/xml.dart' as xml;
 /// המקדימה של החבילה (`Thumbnails/`) אינה נספרת בתקרת ההטמעה.
 /// v6: חבילה בלי `office:text` זורקת חריגה, `draw:frame` ברמת הבלוק אינו
 /// נמחק, `text:list-header` אינו ממוספר, צבעים מסוננים וכותרת עוברת trim.
-const int kOdtConverterVersion = 6;
+const int kOdtConverterVersion = 7;
 
 /// רווח קשיח. `text:s` ו-`text:tab` מייצגים רווחים שהמסמך דורש שיישמרו,
 /// ורווח רגיל היה נבלע ברינדור ה-HTML.
@@ -94,7 +94,9 @@ String odtToText(Uint8List bytes, String title, {bool embedImages = true}) {
     );
   }
 
-  final output = <String>['<h1>${escapeHtmlText(title)}</h1>'];
+  final output = <String>[
+    otzariaInlineText('<h1>${escapeHtmlText(title)}</h1>'),
+  ];
 
   final ctx = _OdtContext(
     styles: _extractStyles(document, archive),
@@ -1051,7 +1053,7 @@ void _collectInline(
           inherited: formatting,
           depth: depth + 1,
         );
-        final safeHref = href == null ? null : _safeLinkTarget(href);
+        final safeHref = href == null ? null : safeLinkTarget(href);
         segments.add(
           _Segment.raw(
             safeHref == null
@@ -1141,20 +1143,6 @@ String _renderImage(xml.XmlElement element, _OdtContext ctx, {int depth = 0}) {
             'background-repeat: no-repeat; background-position: center; ';
   return '<div style="${backgroundCss}border: 1px solid #999; '
       'padding: 8px; margin: 4px 0;">$body</div>';
-}
-
-/// סכימות שמותר לקשר אליהן. escape מונע שבירת מאפיין אבל לא
-/// `javascript:`/`data:text/html`; קישור בסכימה אחרת מוצג כטקסט בלבד.
-const Set<String> _allowedLinkSchemes = {'http', 'https', 'mailto'};
-
-String? _safeLinkTarget(String href) {
-  final trimmed = href.trim();
-  if (trimmed.isEmpty) return null;
-  if (trimmed.startsWith('#')) return trimmed; // עוגן פנימי
-  final colon = trimmed.indexOf(':');
-  if (colon < 0) return trimmed; // נתיב יחסי
-  final scheme = trimmed.substring(0, colon).toLowerCase();
-  return _allowedLinkSchemes.contains(scheme) ? trimmed : null;
 }
 
 _Formatting _merge(_Formatting parent, _Formatting child) {

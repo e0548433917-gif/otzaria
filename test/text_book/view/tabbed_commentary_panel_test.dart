@@ -36,10 +36,13 @@ void main() {
     TextBookTab? tab,
     _RecordingTabsBloc? tabsBloc,
     List<String> activeCommentators = const [],
+    _TestTextBookBloc? textBookBlocOverride,
   }) {
-    final textBookBloc = _TestTextBookBloc(
-      _loadedState(activeCommentators: activeCommentators),
-    );
+    final textBookBloc =
+        textBookBlocOverride ??
+        _TestTextBookBloc(
+          _loadedState(activeCommentators: activeCommentators),
+        );
     final personalNotesBloc = _TestPersonalNotesBloc(
       const PersonalNotesState.initial(),
     );
@@ -67,6 +70,50 @@ void main() {
       ),
     );
   }
+
+  testWidgets('סימון טקסט בטקסט הראשי אינו בונה מחדש את חלונית המפרשים', (
+    tester,
+  ) async {
+    // הסימון מתעדכן בכל תזוזת עכבר בזמן גרירה, והחלונית מאזינה ל-bloc בעצמה:
+    // בלי שער כל תזוזה בונה את כל המפרשים מחדש (issue #976).
+    final initial = _loadedState();
+    final textBookBloc = _TestTextBookBloc(initial);
+    await tester.pumpWidget(buildPanel(textBookBlocOverride: textBookBloc));
+    await tester.pump();
+
+    final before = tester.widget(find.byType(TabBarView));
+
+    for (var i = 0; i < 3; i++) {
+      textBookBloc.emitState(
+        initial.copyWith(
+          selectedTextForNote: 'טקסט $i',
+          selectedTextSectionIndex: 0,
+          selectedTextStart: i,
+          selectedTextEnd: i + 4,
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+    }
+
+    expect(
+      identical(tester.widget(find.byType(TabBarView)), before),
+      isTrue,
+      reason: 'החלונית לא נבנתה מחדש בגלל עדכוני סימון',
+    );
+
+    textBookBloc.emitState(
+      initial.copyWith(activeCommentators: const ['רש"י']),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      identical(tester.widget(find.byType(TabBarView)), before),
+      isFalse,
+      reason: 'שינוי אמיתי במפרשים הפעילים כן בונה מחדש',
+    );
+  });
 
   testWidgets('מציג את שלושת הכרטיסיות', (tester) async {
     await tester.pumpWidget(buildPanel());
@@ -308,6 +355,8 @@ class _TestTextBookBloc extends Bloc<TextBookEvent, TextBookState>
   _TestTextBookBloc(super.initialState) {
     on<TextBookEvent>((event, emit) {});
   }
+
+  void emitState(TextBookState next) => emit(next);
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

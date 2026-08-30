@@ -24,5 +24,6 @@ IconData bookFormatIcon(Book book) {
   }
   if (format == DocumentFormat.pdf) return OtzariaIcons.book_pdf_24_regular;
   if (format.isWordDocument) return FluentIcons.document_edit_24_regular;
+  if (format.isHtmlDocument) return FluentIcons.document_globe_24_regular;
   return FluentIcons.document_text_24_regular;
 }

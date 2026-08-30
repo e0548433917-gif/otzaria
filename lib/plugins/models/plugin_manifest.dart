@@ -1,9 +1,10 @@
 import 'package:otzaria/plugins/models/plugin_startup_contributions.dart';
 
 class PluginManifest {
-  /// תבנית של שם אייקון תקין: למשל `'book_24_regular'` או `'calendar_24_filled'`.
+  /// תבנית של שם אייקון תקין: למשל `'book_24_regular'`, `'calendar_24_filled'`
+  /// או שם עם תחילית ספרייה מפורשת — `'fluent:book_24_regular'`.
   static final RegExp toolTabIconNamePattern = RegExp(
-    r'^[a-z0-9_]+_24_(regular|filled)$',
+    r'^(?:otzaria:|fluent:)?[a-z0-9_]+_24_(regular|filled)$',
   );
 
   final int schemaVersion;
@@ -42,11 +43,11 @@ class PluginManifest {
   final bool allowOrderBeforeBuiltIns;
   final bool defaultPinned;
 
-  /// שם אייקון FluentUI 24px עבור לשונית הכלים, למשל `'book_24_regular'`.
+  /// שם אייקון 24px עבור לשונית הכלים, למשל `'book_24_regular'`.
   ///
-  /// נפתר ל-`IconData` קבוע באמצעות `fluentIconFromName`, מה שמאפשר ל-Flutter
-  /// לבצע tree-shaking של פונט האייקונים ב-Release. אם השם לא נמצא במפה
-  /// הסטטית, יוצג אייקון ברירת מחדל (פאזל).
+  /// נפתר ל-`IconData` קבוע באמצעות `pluginIconFromName` — קודם בספריית
+  /// האייקונים של אוצריא ואז ב-FluentUI. אם השם לא נמצא באף אחת מהן, יוצג
+  /// אייקון ברירת מחדל (פאזל).
   final String? toolTabIconName;
   final List<String> publishedDataTypes;
 

@@ -4,7 +4,7 @@ import 'package:otzaria/plugins/models/plugin_context_menu_item.dart';
 import 'package:otzaria/plugins/services/context_menu_registry.dart';
 import 'package:otzaria/plugins/services/plugin_page_launcher.dart';
 import 'package:otzaria/plugins/services/plugin_runtime_dispatcher.dart';
-import 'package:otzaria/plugins/utils/fluent_icon_resolver.dart';
+import 'package:otzaria/plugins/utils/plugin_icon_resolver.dart';
 import 'package:otzaria/widgets/misc/app_popup_menu.dart';
 import 'package:provider/provider.dart';
 
@@ -75,7 +75,7 @@ AppContextMenuEntry _buildEntry({
           id: color.id,
           color: _parseColor(color.color),
           label: color.label,
-          icon: fluentIconFromName(color.icon),
+          icon: pluginIconFromName(color.icon),
           selected: color.selected,
           onTap: () => dispatcher.dispatchEventToPlugin(
             pluginId,
@@ -95,7 +95,7 @@ AppContextMenuEntry _buildEntry({
   if (item.type == 'submenu') {
     return AppContextMenuEntry(
       label: item.label,
-      icon: fluentIconFromName(item.icon),
+      icon: pluginIconFromName(item.icon),
       children: [
         for (final child in item.children)
           if (child.contexts.contains(context) &&
@@ -115,7 +115,7 @@ AppContextMenuEntry _buildEntry({
   if (action != null) {
     return AppContextMenuEntry(
       label: item.label,
-      icon: fluentIconFromName(item.icon),
+      icon: pluginIconFromName(item.icon),
       onTap: () => selectionActionDispatcher?.call(
         pluginId,
         action,
@@ -125,8 +125,8 @@ AppContextMenuEntry _buildEntry({
   }
   return AppContextMenuEntry(
     label: item.label,
-    icon: fluentIconFromName(item.icon),
-    onTap: () => _dispatchItemClick(
+    icon: pluginIconFromName(item.icon),
+    onTap: () => dispatchPluginContextMenuItemClick(
       dispatcher: dispatcher,
       pluginId: pluginId,
       item: item,
@@ -163,13 +163,18 @@ String? _targetInstanceId(
   ContextMenuRegistry.instance.instanceIdsForItem(pluginId, item.id),
 );
 
-Future<void> _dispatchItemClick({
+Future<void> dispatchPluginContextMenuItemClick({
   required PluginRuntimeDispatcher dispatcher,
   required String pluginId,
   required PluginContextMenuItem item,
   required Map<String, dynamic> selection,
+  PluginSelectionActionDispatcher? selectionActionDispatcher,
 }) async {
   final payload = _clickPayload(item: item, selection: selection);
+  if (item.action case final action?) {
+    await selectionActionDispatcher?.call(pluginId, action, payload);
+    return;
+  }
   if (item.openPlugin) {
     // אותם אירועים כמו במסלול הרגיל, בתור המסירה של דף התוסף.
     PluginPageLauncher.instance.open(

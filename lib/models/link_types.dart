@@ -46,6 +46,44 @@ class LinkTypes {
     explication,
   };
 
+  /// סוגי הפניה צדדית — קישורים שאינם טקסט תלוי, ולכן שני צדדיהם שקולים:
+  /// אזכור בין שני חיבורים עומד באותה מידה משני הכיוונים. עד סכמה 3 הם עלו
+  /// רק מצד ה-source השמור, ולכן דיכוי הצד הזה היה מעלים אותם לגמרי במקום
+  /// להעביר אותם לצד המצטט; מכאן הצורך בדו-כיווניות.
+  ///
+  /// מכסה בדיוק את ערכי ה-ConnectionType שהגנרטור יכול לכתוב: תלויי-טקסט
+  /// ב-[dependentTextTypes], הפניות כאן, ו-[source] (וירטואלי, לא נשמר)
+  /// ו-[linker] חד-כיווניים. ערכים שאינם ConnectionType ([altToc],
+  /// [footnotes]) וכאלה ש-fromKnownStringOrNull ממפה לסוג אחר לפני האחסון
+  /// ([quotationAuto], [relatedPassage], [none]) אינם כאן — הם לא יכולים
+  /// להופיע בעמודה ולכן היו רק פרמטרים מתים בשאילתה.
+  ///
+  /// [linker] מוחרג משום שהוא תוצר הלינקר שלנו ולא של ספריא: הוא לעולם אינו
+  /// עובר דרך ה-mask המיוצא, ולכן לא ניתן לדעת אם צדו הוסתר. הנימוק אינו
+  /// נפח — ל-[other], שכן נכלל, יש יותר קישורים ממנו.
+  static const Set<String> referenceTypes = {
+    reference,
+    quotation,
+    mesoratHashas,
+    einMishpat,
+    mishnahInTalmud,
+    related,
+    other,
+    sifreiMitzvot,
+    essay,
+    allusion,
+    liturgy,
+    law,
+    summary,
+  };
+
+  /// סוגים שהשאילתה ההפוכה מחזירה כשה-DB תומך בדיכוי פר-צד. בלי התמיכה
+  /// חוזרים בדיוק להתנהגות הקודמת — רק תלויי-טקסט.
+  static List<String> inverseQueryTypes({required bool bidirectional}) => [
+    ...dependentTextTypes,
+    if (bidirectional) ...referenceTypes,
+  ];
+
   /// האם הקישור הוא תלוי-טקסט (מפרש) — מוצג בפאנל המפרשים ולא כהפניה צדדית.
   ///
   /// ההשוואה אינה תלוית רישיות — חלק ממקורות הנתונים עשויים לספק ערכים

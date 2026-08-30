@@ -38,7 +38,7 @@ import 'package:xml/xml.dart' as xml;
 /// הזרקת תגיות לגוף הספר), גוף הערת שוליים רב-פסקתית מופרד ברווח,
 /// `w:customXml` שקוף, כל תיבות הטקסט בשייף מקובץ מרונדרות, `w:vMerge` בלי
 /// תא פותח אינו נמחק, וכותרת עוברת trim.
-const int kOoxmlWordConverterVersion = 13;
+const int kOoxmlWordConverterVersion = 14;
 
 /// שם ותיק ל-[kOoxmlWordConverterVersion]. הערך משותף לכל פורמטי OOXML —
 /// הם חולקים מנוע אחד, ולכן שינוי בפלט פוסל את המטמון של כולם יחד.
@@ -1161,7 +1161,9 @@ String ooxmlWordArchiveToText(
     _extractNumbering(archive),
     _extractHeadingStyles(archive),
   );
-  final List<String> list = ['<h1>${escapeHtmlText(title)}</h1>'];
+  final List<String> list = [
+    otzariaInlineText('<h1>${escapeHtmlText(title)}</h1>'),
+  ];
 
   // גוף המסמך חסר או אינו קריא = כשל מפורש. פלט "כותרת בלבד" נראה כמו ספר
   // תקין וריק: הוא נשמר במטמון, מאונדקס, ומסמן כל הערה אישית כחסרה.
@@ -1234,7 +1236,9 @@ String wordMl2003ToText(
     _headingStylesFrom(document),
   );
 
-  final list = <String>['<h1>${escapeHtmlText(title)}</h1>'];
+  final list = <String>[
+    otzariaInlineText('<h1>${escapeHtmlText(title)}</h1>'),
+  ];
   _processBlockChildren(body.childElements, ctx, list);
   return list.join('\n');
 }

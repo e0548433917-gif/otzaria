@@ -206,6 +206,7 @@ class LibraryUpdateBloc extends Bloc<LibraryUpdateEvent, LibraryUpdateState> {
         status: LibraryUpdateStatus.error,
         message: message,
         errorMessage: error.toString(),
+        isCheckFailure: true,
       );
     }
     return const LibraryUpdateState(

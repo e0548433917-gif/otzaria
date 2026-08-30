@@ -41,6 +41,8 @@ import 'package:otzaria/widgets/misc/app_cursors.dart';
 import 'package:otzaria/pdf_book/view/page_turn_geometry.dart';
 import 'package:otzaria/pdf_book/view/pdf_page_number_display.dart';
 import 'package:otzaria/pdf_book/view/pdf_commentary_panel.dart';
+import 'package:otzaria/library/bloc/library_bloc.dart';
+import 'package:otzaria/library/bloc/library_state.dart';
 import 'package:otzaria/library/services/parallel_editions_service.dart';
 import 'package:otzaria/pdf_book/view/pdf_external_matches_bar.dart';
 import 'package:otzaria/plugins/models/plugin_book_identity.dart';
@@ -401,6 +403,7 @@ class _PdfBookScreenState extends State<PdfBookScreen>
   final GlobalKey _pdfViewportBoundaryKey = GlobalKey();
   final GlobalKey<AppContextMenuRegionState> _pdfContextMenuKey = GlobalKey();
   late final StreamSubscription<SettingsState> _settingsSub;
+  StreamSubscription<LibraryState>? _libraryReloadSub;
   late final AnimationController _pageTurnController;
 
   // גלילה רציפה
@@ -717,6 +720,25 @@ class _PdfBookScreenState extends State<PdfBookScreen>
     );
 
     _loadInitialLayoutMode();
+
+    // רענון ספרייה עשוי להוסיף מהדורות מקבילות — מאתרים מחדש כדי שהכפתור
+    // יופיע בלי לפתוח את הטאב מחדש. עץ בלי LibraryBloc (בדיקות) מוותר.
+    try {
+      final libraryBloc = context.read<LibraryBloc>();
+      var previousLibraryState = libraryBloc.state;
+      _libraryReloadSub = libraryBloc.stream.listen((libState) {
+        final completed = LibraryState.reloadCompleted(
+          previousLibraryState,
+          libState,
+        );
+        previousLibraryState = libState;
+        if (!completed || !mounted) return;
+        _resolvedParallelEditions = false;
+        unawaited(_resolveParallelEditions());
+      });
+    } on ProviderNotFoundException {
+      // בדיקות widget בונות את המסך בלי LibraryBloc.
+    }
 
     // הגדרת ערכים התחלתיים מ-Settings
     _settingsSub = settingsBloc.stream.listen((state) {
@@ -3681,6 +3703,7 @@ class _PdfBookScreenState extends State<PdfBookScreen>
     _navigationFieldFocusNode.dispose();
     _pdfViewFocusNode.dispose();
     _settingsSub.cancel();
+    _libraryReloadSub?.cancel();
     _bloc.close();
     _openPdfFilterNotifier.dispose();
 

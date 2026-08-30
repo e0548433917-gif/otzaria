@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:otzaria/settings/settings_exports.dart';
+import 'package:otzaria/tabs/view/pane_drag_handle.dart';
 import 'package:otzaria/theme/theme_exports.dart';
 import 'package:otzaria/utils/ui/fullscreen_helper.dart';
 import 'package:otzaria/widgets/widgets_exports.dart';
@@ -261,9 +262,15 @@ class _AppTopBarState extends State<AppTopBar>
         final hPad = AppTopBar.horizontalPadding(isCompact);
         final vPad = isCompact ? 4.0 : 8.0;
 
+        // בחלונית של טאב מפוצל הפריט הראשון הוא ידית גרירה שמחזירה את
+        // החלונית לשורת הכרטיסיות.
+        final dragPane = PaneDragHandleScope.paneOf(context);
+
         // במסך מלא לחצן היציאה משולב כפריט ראשון בסרגל (ולא כלחצן צף),
         // כדי שלא יכסה ולא יחסום לחיצות על פריטים אחרים.
         final leadingItems = [
+          if (dragPane != null)
+            AppTopBarItem(widget: PaneDragHandleButton(pane: dragPane)),
           if (settingsState.isFullscreen)
             AppTopBarItem(
               widget: BarButton.icon(

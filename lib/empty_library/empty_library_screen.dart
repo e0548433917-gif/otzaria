@@ -22,6 +22,7 @@ class LibrarySetupView extends StatefulWidget {
 
 class _LibrarySetupViewState extends State<LibrarySetupView> {
   String _defaultTargetPath = '';
+  bool _sdLibraryWiped = false;
 
   @override
   void initState() {
@@ -32,6 +33,11 @@ class _LibrarySetupViewState extends State<LibrarySetupView> {
           if (mounted) {
             setState(() => _defaultTargetPath = AppPaths.libraryRootOf(path));
           }
+        })
+        .catchError((_) {});
+    AppPaths.wasSdLibraryWiped()
+        .then((wiped) {
+          if (mounted && wiped) setState(() => _sdLibraryWiped = true);
         })
         .catchError((_) {});
   }
@@ -82,6 +88,24 @@ class _LibrarySetupViewState extends State<LibrarySetupView> {
               style: TextStyle(fontSize: 16, color: cs.onSurfaceVariant),
               textAlign: TextAlign.center,
             ),
+            if (_sdLibraryWiped) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: cs.errorContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'הספרייה שהייתה שמורה על כרטיס ה-SD נמחקה — ככל הנראה '
+                  'בניקוי מטמון של המכשיר, שמוחק את תיקיית האפליקציה '
+                  'שבכרטיס. כדי שזה לא יחזור, מומלץ להתקין את הספרייה '
+                  'באחסון הפנימי.',
+                  style: TextStyle(fontSize: 14, color: cs.onErrorContainer),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,

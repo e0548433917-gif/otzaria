@@ -229,6 +229,7 @@ class _PersonalNoteEditorDialogState extends State<PersonalNoteEditorDialog>
           await _handleCancel();
         },
         child: AlertDialog(
+          scrollable: true,
           title: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -247,9 +248,14 @@ class _PersonalNoteEditorDialogState extends State<PersonalNoteEditorDialog>
             ],
           ),
           content: ConstrainedBox(
-            constraints: const BoxConstraints(
+            // minWidth קשיח של 450 חורג מרוחב טלפון וגורם חיתוך — מצמידים
+            // לרוחב המסך בפועל (בניכוי שולי הדיאלוג).
+            constraints: BoxConstraints(
               maxWidth: 480,
-              minWidth: 450,
+              minWidth: (MediaQuery.sizeOf(context).width - 96).clamp(
+                0.0,
+                450.0,
+              ),
             ),
             child: PersonalNoteEditorBody(
               controller: _editorController,

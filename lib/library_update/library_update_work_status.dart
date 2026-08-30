@@ -5,6 +5,9 @@ import 'package:otzaria/work_status/work_status_item.dart';
 /// מזהה פריט חיווי העבודה של עדכון הספרייה.
 const kLibraryUpdateWorkStatusId = 'library_update';
 
+/// משך הצגת כשל בדיקת העדכונים לפני סגירה אוטומטית.
+const kCheckFailureAutoDismiss = Duration(seconds: 8);
+
 /// פריט חיווי העבודה לעדכון הספרייה, או `null` כשאין מה להציג.
 ///
 /// [LibraryUpdateStatus.checking] שקט; עבודה ממשית ממופה למצבים הפעילים.
@@ -25,6 +28,8 @@ WorkStatusItem? libraryUpdateWorkStatusItem(
   }
 
   if (state.status == LibraryUpdateStatus.error) {
+    // כשל בבדיקה בלבד נסגר מעצמו — סמל הכשל בכפתור עדכון הספרייה נשאר
+    // כעוגן לניסיון חוזר. כשל בהורדה/החלה נשאר עד סגירה ידנית.
     return WorkStatusItem(
       id: kLibraryUpdateWorkStatusId,
       title: 'עדכון ספרייה',
@@ -32,6 +37,7 @@ WorkStatusItem? libraryUpdateWorkStatusItem(
       detail: 'לחץ לניסיון חוזר',
       kind: WorkStatusKind.failed,
       onTap: onRetry,
+      autoDismissAfter: state.isCheckFailure ? kCheckFailureAutoDismiss : null,
     );
   }
 

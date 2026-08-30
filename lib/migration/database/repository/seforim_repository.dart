@@ -3423,6 +3423,14 @@ extension BookAcronymRepository on SeforimRepository {
   /// כל map בתוצאה כולל את המפתחות:
   /// `bookId`, `bookTitle`, `bookOrderIndex`, `reference` (נתיב מלא יחסי
   /// לספר, ללא שם הספר), `segment` (=lineIndex), `level`, `dbLineId`.
+  /// מזהי כל הספרים שיש להם מבנה AltToc — מאפשר לצרכן לדלג על שאילתות
+  /// AltToc פר-ספר עבור הרוב המכריע של הספרים שאין להם כזה.
+  Future<List<int>> getAltStructureBookIds() async {
+    final db = await _database.database;
+    final rows = db.select('SELECT DISTINCT bookId FROM alt_toc_structure');
+    return [for (final r in rows) r['bookId'] as int];
+  }
+
   Future<List<Map<String, dynamic>>> getAllAltTocFlatEntries() async {
     final db = await _database.database;
     final rows = db.select('''

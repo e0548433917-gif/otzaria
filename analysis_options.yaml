@@ -3,6 +3,13 @@ include: package:flutter_lints/flutter.yaml
 analyzer:
   exclude:
     - otzaria_search_engine/**
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
 
 # גרסת שפה 3.12 מפעילה את הפורמטר החדש (tall style) שמפרמט מחדש קבצים שלמים.
 # preserve משאיר את הפסיקים הנגררים הקיימים — וכך את הסגנון הנוכחי של הקוד —

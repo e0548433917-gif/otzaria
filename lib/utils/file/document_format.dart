@@ -12,6 +12,7 @@ import 'package:otzaria/data/data_providers/book_composite_key.dart';
 /// קיימים.
 enum DocumentFormat {
   txt,
+  text,
   pdf,
   epub,
 
@@ -34,6 +35,12 @@ enum DocumentFormat {
 
   rtf,
   odt,
+
+  /// שתי סיומות HTML נפרדות; שתיהן עוברות את אותו מנוע ונשמרות כ-`fileType`
+  /// נבדל, מאותה סיבה כמו `md`/`markdown`.
+  html,
+  htm,
+  xhtml,
 }
 
 /// תכונות סמנטיות של פורמט. כל predicate מתאר מציאות *אחת* — אין כאן
@@ -57,7 +64,7 @@ extension DocumentFormatProperties on DocumentFormat {
   /// PDF הוא `false` — לא מפני שהוא טקסט, אלא מפני שאין לו ממיר-לטקסט
   /// בצנרת הזו כלל. תמיד יש לבדוק `isTextual` לפני שמסיקים מכאן.
   bool get requiresConversion => switch (this) {
-    DocumentFormat.txt || DocumentFormat.pdf => false,
+    DocumentFormat.txt || DocumentFormat.text || DocumentFormat.pdf => false,
     _ => true,
   };
 
@@ -84,6 +91,12 @@ extension DocumentFormatProperties on DocumentFormat {
   bool get isLegacyWord =>
       this == DocumentFormat.doc || this == DocumentFormat.dot;
 
+  /// מסמך HTML עצמאי — ‎.html‎ ו-‎.htm‎ עוברים את אותו מנוע המרה.
+  bool get isHtmlDocument =>
+      this == DocumentFormat.html ||
+      this == DocumentFormat.htm ||
+      this == DocumentFormat.xhtml;
+
   /// האם המסמך הוא חבילת ZIP — קובע את מגבלות ה-decompression (ראו
   /// `zip_limits.dart`) ואת אופן זיהוי התוכן.
   bool get isZipPackage =>
@@ -91,11 +104,16 @@ extension DocumentFormatProperties on DocumentFormat {
 
   /// האם שורות התוכן יכולות להישמר ב-DB במקום להיקרא מהקובץ בכל פתיחה.
   /// רק TXT — כל השאר file-backed תמיד, כי תוכנם דורש המרה בזמן קריאה.
-  bool get canStoreLinesInDb => this == DocumentFormat.txt;
+  bool get canStoreLinesInDb => isPlainText;
+
+  /// Plain text files. Both the modern `.txt` and legacy `.text` extensions
+  /// use the same decoding, rendering, indexing and storage pipeline.
+  bool get isPlainText =>
+      this == DocumentFormat.txt || this == DocumentFormat.text;
 
   /// האם הפורמט יכול להכיל תמונות מוטמעות שיש להמיר ל-data URI.
   bool get supportsEmbeddedImages => switch (this) {
-    DocumentFormat.txt || DocumentFormat.pdf => false,
+    DocumentFormat.txt || DocumentFormat.text || DocumentFormat.pdf => false,
     _ => true,
   };
 
@@ -135,6 +153,9 @@ extension DocumentFormatProperties on DocumentFormat {
           DocumentFormat.md || DocumentFormat.markdown => 'Markdown',
           DocumentFormat.rtf => 'RTF',
           DocumentFormat.odt => 'ODT',
+          DocumentFormat.html ||
+          DocumentFormat.htm ||
+          DocumentFormat.xhtml => 'HTML',
           _ => 'טקסט',
         };
 }
@@ -146,6 +167,7 @@ extension DocumentFormatProperties on DocumentFormat {
 /// TOC → אינדוקס → restart), ולא ברגע שנוסף ערך ב-[DocumentFormat].
 const Set<DocumentFormat> kProductionBookFormats = {
   DocumentFormat.txt,
+  DocumentFormat.text,
   DocumentFormat.pdf,
   DocumentFormat.epub,
   DocumentFormat.md,
@@ -169,6 +191,11 @@ const Set<DocumentFormat> kProductionBookFormats = {
 
   // מסמך Word שנשמר כ-XML. נאסף בסריקה רק אם תוכנו אכן מסמך Word.
   DocumentFormat.xml,
+
+  // שתי סיומות ה-HTML, אותו מנוע.
+  DocumentFormat.html,
+  DocumentFormat.htm,
+  DocumentFormat.xhtml,
 };
 
 /// סיומות הספרים הנתמכות (ללא נקודה), נגזרות מ-[kProductionBookFormats].
@@ -323,6 +350,7 @@ bool _sameEngine(DocumentFormat a, DocumentFormat b) {
   if (a == b) return true;
   if (a.isOoxmlWord && b.isOoxmlWord) return true;
   if (a.isLegacyWord && b.isLegacyWord) return true;
+  if (a.isHtmlDocument && b.isHtmlDocument) return true;
   return false;
 }
 

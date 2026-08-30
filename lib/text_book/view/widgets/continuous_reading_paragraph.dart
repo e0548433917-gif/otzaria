@@ -605,10 +605,13 @@ Color? _inlineDecorationColor(dom.Element element) {
 double? _inlineDecorationThickness(dom.Element element) {
   final inlineStyle = element.attributes['style'] ?? '';
   final match = RegExp(
-    r'text-decoration-thickness\s*:\s*([0-9]+(?:\.[0-9]+)?)\s*px',
+    r'text-decoration-thickness\s*:\s*([0-9]+(?:\.[0-9]+)?)\s*(px|%)',
     caseSensitive: false,
   ).firstMatch(inlineStyle);
-  return match == null ? null : double.tryParse(match.group(1)!);
+  if (match == null) return null;
+  final value = double.tryParse(match.group(1)!);
+  if (value == null) return null;
+  return match.group(2) == '%' ? value / 100 : value;
 }
 
 Color? _parseCssColor(String value) {

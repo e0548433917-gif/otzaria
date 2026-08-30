@@ -4,6 +4,7 @@ import 'package:otzaria/plugins/bridge/plugin_bridge_adapter.dart';
 import 'package:otzaria/plugins/bridge/plugin_bridge_handler.dart';
 import 'package:otzaria/plugins/models/installed_plugin.dart';
 import 'package:otzaria/plugins/models/plugin_manifest.dart';
+import 'package:otzaria/plugins/models/plugin_valid_permissions.dart';
 import 'package:otzaria/plugins/repository/plugin_registry_repository.dart';
 import 'package:otzaria/plugins/services/plugin_extended_validator.dart';
 
@@ -83,14 +84,37 @@ void main() {
 
     test('הטבלה תואמת את מפת ההרשאות של הוולידטור', () {
       final validator = PluginExtendedValidator.methodRequiredPermissions;
-      final mismatched = <String>[];
+      final mismatched = <String>{};
       for (final entry in validator.entries) {
         // network.* נאכפת באדפטר לפי היעד, ולכן היא noManifestPermission בגשר.
         if (entry.key.startsWith('network.')) continue;
         if (table[entry.key] != entry.value) mismatched.add(entry.key);
       }
-      expect(mismatched, isEmpty);
+      for (final entry in table.entries) {
+        if (entry.value == PluginBridgeHandler.noManifestPermission ||
+            entry.key == 'plugin.requestInstall' ||
+            entry.key.startsWith('network.')) {
+          continue;
+        }
+        if (validator[entry.key] != entry.value) mismatched.add(entry.key);
+      }
+      expect(mismatched.toList()..sort(), isEmpty);
     });
+
+    test(
+      'apiCallsWithoutPermission תואמת בדיוק את רישומי noManifestPermission',
+      () {
+        final fromTable =
+            table.entries
+                .where(
+                  (e) => e.value == PluginBridgeHandler.noManifestPermission,
+                )
+                .map((e) => e.key)
+                .toList()
+              ..sort();
+        expect(apiCallsWithoutPermission.toList()..sort(), fromTable);
+      },
+    );
 
     test('כל ערך בטבלה הוא הרשאה מוכרת או הסמן המפורש', () {
       for (final entry in table.entries) {

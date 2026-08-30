@@ -47,6 +47,13 @@ abstract class NotesMessages {
   static const String allBookmarksDeleted = 'כל הסימניות נמחקו';
   static const String bookBookmarksDeleted = 'סימניות הספר נמחקו';
 
+  // ===== סימניות מרוכזות =====
+  static const String groupBookmarkSaved = 'הסימניה המרוכזת נשמרה';
+  static const String groupBookmarkReplaced = 'הסימניה המרוכזת עודכנה';
+  static const String groupBookmarkDeleted = 'הסימניה המרוכזת נמחקה';
+  static const String noOpenBooksForGroupBookmark = 'אין ספרים פתוחים לשמירה';
+  static const String groupBookmarkNoSelection = 'לא נבחרו ספרים לשמירה';
+
   // ===== היסטוריה =====
   static const String historyEntryDeleted = 'נמחק בהצלחה';
   static const String allHistoryDeleted = 'כל ההיסטוריה נמחקה';

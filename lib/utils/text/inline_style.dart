@@ -61,7 +61,7 @@ UnderlineKind underlineKindFromName(String? value) {
   if (style != null) css.write(' $style');
   css.write(';');
   if (hasColor) css.write(' text-decoration-color: $color;');
-  if (thick) css.write(' text-decoration-thickness: 2px;');
+  if (thick) css.write(' text-decoration-thickness: 200%;');
   return (open: '<span style="$css">', close: '</span>');
 }
 
@@ -124,6 +124,29 @@ String? sanitizeCssColor(String? value) {
 
 final RegExp _cssColorPattern = RegExp(
   r'^(?:#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|[a-zA-Z]+)$',
+);
+
+/// כמו [sanitizeCssColor], ובנוסף מקבל את הצורות הפונקציונליות של CSS.
+///
+/// נפרד ממנו בכוונה: Word, ODF ו-RTF אינם מייצרים `rgb()` לעולם, ולכן אין
+/// טעם להרחיב עבורם את שטח התקיפה. מסמך HTML **כן** כותב אותן, ומנוע התצוגה
+/// מכיר אותן.
+///
+/// הפסיקים והסוגריים מאומתים במלואם: ערך שאינו תואם בדיוק לאחת הצורות נדחה,
+/// ולכן אין דרך להחליק דרכו `url(...)` או תו שסוגר את המאפיין.
+String? sanitizeCssColorValue(String? value) {
+  final v = value?.trim();
+  if (v == null || v.isEmpty) return null;
+  if (_cssColorPattern.hasMatch(v)) return v;
+  return _cssColorFunctionPattern.hasMatch(v) ? v : null;
+}
+
+/// `rgb()`/`rgba()`/`hsl()`/`hsla()` עם 3–4 רכיבים מספריים (ואחוזים).
+final RegExp _cssColorFunctionPattern = RegExp(
+  r'^(?:rgba?|hsla?)\(\s*'
+  r'-?[\d.]+%?\s*,\s*-?[\d.]+%?\s*,\s*-?[\d.]+%?'
+  r'(?:\s*,\s*-?[\d.]+%?)?\s*\)$',
+  caseSensitive: false,
 );
 
 /// ממפה יישור אנכי בתא לערך CSS. שני התקנים חולקים את רוב המילים, אך Word

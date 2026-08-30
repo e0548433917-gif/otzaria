@@ -15,10 +15,13 @@ import 'package:otzaria/tabs/bloc/tabs_state.dart';
 import 'package:otzaria/navigation/bloc/navigation_bloc.dart';
 import 'package:otzaria/navigation/bloc/navigation_state.dart';
 import 'package:otzaria/core/focus_repository.dart';
+import 'package:otzaria/history/bloc/history_bloc.dart';
+import 'package:otzaria/history/bloc/history_event.dart';
 import 'package:otzaria/search/search_query_builder.dart';
 import 'package:otzaria/search/view/full_text_settings_widgets.dart';
 import 'package:otzaria/search/view/tantivy_search_results.dart';
 import 'package:otzaria/search/view/full_text_facet_filtering.dart';
+import 'package:otzaria/search/view/layout_fix_suggestion_banner.dart';
 import 'package:otzaria/search/view/search_dialog.dart';
 import 'package:otzaria/widgets/controls/bar_button.dart';
 import 'package:otzaria/widgets/navigation/nav_panel_search.dart';
@@ -90,6 +93,52 @@ class _TantivyFullTextSearchState extends State<TantivyFullTextSearch>
   void dispose() {
     _searchHost.dispose();
     super.dispose();
+  }
+
+  /// המשתמש לחץ על הצעת תיקון-המקלדת: מריצים חיפוש חדש של הטקסט המומר,
+  /// כאילו הוקלד ונשלח ידנית (עדכון שדה, כותרת והיסטוריה). אפשרויות
+  /// פר-מילה של השאילתה הקודמת לא רלוונטיות למילים החדשות — מתחילים נקי.
+  /// זו הפעולה היחידה שמחליפה את השאילתה, והיא תמיד ביוזמת המשתמש.
+  void _acceptLayoutFixSuggestion(String suggestion) {
+    widget.tab.queryController.value = TextEditingValue(
+      text: suggestion,
+      selection: TextSelection.collapsed(offset: suggestion.length),
+    );
+    widget.tab.searchOptions.clear();
+    widget.tab.alternativeWords.clear();
+    widget.tab.spacingValues.clear();
+    widget.tab.updateTitleFromAppliedQuery(suggestion);
+    context.read<HistoryBloc>().add(AddHistory(widget.tab));
+
+    final searchMode = widget.tab.searchBloc.state.configuration.searchMode;
+    final normalizedParameters = SearchQueryBuilder.normalizeParametersForMode(
+      searchMode,
+      customSpacing: widget.tab.spacingValues,
+      alternativeWords: widget.tab.alternativeWords,
+      searchOptions: widget.tab.effectiveSearchOptions(query: suggestion),
+    );
+    final negativeQuery = widget.tab.negativeQueryController.text;
+    final normalizedNegativeParameters =
+        SearchQueryBuilder.normalizeParametersForMode(
+          searchMode,
+          customSpacing: widget.tab.negativeSpacingValues,
+          alternativeWords: widget.tab.negativeAlternativeWords,
+          searchOptions: widget.tab.effectiveNegativeSearchOptions(
+            query: negativeQuery,
+          ),
+        );
+    widget.tab.searchBloc.add(
+      UpdateSearchQuery(
+        suggestion,
+        negativeQuery: negativeQuery,
+        customSpacing: normalizedParameters.customSpacing,
+        alternativeWords: normalizedParameters.alternativeWords,
+        searchOptions: normalizedParameters.searchOptions,
+        negativeCustomSpacing: normalizedNegativeParameters.customSpacing,
+        negativeAlternativeWords: normalizedNegativeParameters.alternativeWords,
+        negativeSearchOptions: normalizedNegativeParameters.searchOptions,
+      ),
+    );
   }
 
   void _openEditDialog() {
@@ -282,6 +331,15 @@ class _TantivyFullTextSearchState extends State<TantivyFullTextSearch>
               // חיווי סינון קטגוריות
               if (_shouldShowFacetFilterBanner(state))
                 _buildFacetFilterBanner(context, state),
+              // הצעת תיקון להקלדה עברית במצב מקלדת אנגלי (issue #975).
+              // הטקסט הגולמי מהשדה ולא state.searchQuery — הנרמול מוחק
+              // פסיק/נקודה שהם המקשים של ת/ץ, וההצעה הייתה יוצאת חסרה.
+              if (state.searchQuery.isNotEmpty)
+                LayoutFixSuggestionBanner(
+                  query: widget.tab.queryController.text,
+                  hint: 'לחיצה תריץ את החיפוש המוצע',
+                  onAccept: _acceptLayoutFixSuggestion,
+                ),
               Expanded(
                 child: Stack(
                   children: [
@@ -341,6 +399,14 @@ class _TantivyFullTextSearchState extends State<TantivyFullTextSearch>
                   ),
                   if (_shouldShowFacetFilterBanner(state))
                     _buildFacetFilterBanner(context, state),
+                  // הצעת תיקון להקלדה עברית במצב מקלדת אנגלי (975#).
+                  // הטקסט הגולמי מהשדה — ראו הערה בפריסה הצרה.
+                  if (state.searchQuery.isNotEmpty)
+                    LayoutFixSuggestionBanner(
+                      query: widget.tab.queryController.text,
+                      hint: 'לחיצה תריץ את החיפוש המוצע',
+                      onAccept: _acceptLayoutFixSuggestion,
+                    ),
                   Expanded(
                     child: ValueListenableBuilder<bool>(
                       valueListenable: widget.tab.isLeftPaneOpen,

@@ -1,4 +1,5 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:otzaria/widgets/misc/app_cursors.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
@@ -7,8 +8,7 @@ import 'package:otzaria/plugins/bloc/plugin_system_bloc.dart';
 import 'package:otzaria/plugins/bloc/plugin_system_event.dart';
 import 'package:otzaria/plugins/bloc/plugin_system_state.dart';
 import 'package:otzaria/plugins/models/installed_plugin.dart';
-import 'package:otzaria/plugins/utils/fluent_icon_resolver.dart';
-import 'package:otzaria/plugins/utils/plugin_dev_tools_mode.dart';
+import 'package:otzaria/plugins/utils/plugin_icon_resolver.dart';
 import 'package:otzaria/plugins/view/plugin_actions.dart';
 import 'package:otzaria/plugins/view/plugin_settings_screen.dart';
 import 'package:otzaria/plugins/view/widgets/plugin_drop_zone.dart';
@@ -20,15 +20,13 @@ import 'package:otzaria/widgets/misc/app_popup_menu.dart';
 
 class PluginSidePanel extends StatefulWidget {
   final Function(InstalledPlugin)? onPluginSelected;
-
-  /// `null` — לפי [PluginDevToolsMode.enabled] (debug או דגל `--dev-plugins`).
-  final bool? showDevTools;
+  final bool showDevTools;
   final VoidCallback? onClose;
 
   const PluginSidePanel({
     super.key,
     this.onPluginSelected,
-    this.showDevTools,
+    this.showDevTools = kDebugMode,
     this.onClose,
   });
 
@@ -99,7 +97,6 @@ class _PluginSidePanelState extends State<PluginSidePanel> {
 
   @override
   Widget build(BuildContext context) {
-    final showDevTools = widget.showDevTools ?? PluginDevToolsMode.enabled;
     return PluginDropZone(
       child: Column(
         children: [
@@ -125,19 +122,19 @@ class _PluginSidePanelState extends State<PluginSidePanel> {
                   tooltip: 'התקן תוסף חדש',
                   onPressed: () => _installPlugin(context),
                 ),
-                if (showDevTools)
+                if (widget.showDevTools)
                   IconButton(
                     icon: Icon(FluentIcons.folder_add_24_regular),
                     tooltip: 'טען תיקיית תוסף',
                     onPressed: () => _loadDevPlugin(context),
                   ),
-                if (showDevTools)
+                if (widget.showDevTools)
                   IconButton(
                     icon: Icon(FluentIcons.globe_add_24_regular),
                     tooltip: 'טען תוסף מ-localhost',
                     onPressed: () => _loadLocalhostPlugin(context),
                   ),
-                if (showDevTools)
+                if (widget.showDevTools)
                   IconButton(
                     icon: Icon(FluentIcons.arrow_sync_24_regular),
                     tooltip: 'רענן תוספים',
@@ -303,7 +300,7 @@ class _PluginListTile extends StatelessWidget {
         clipBehavior: Clip.none,
         children: [
           Icon(
-            fluentIconFromName(plugin.manifest.toolTabIconName) ??
+            pluginIconFromName(plugin.manifest.toolTabIconName) ??
                 FluentIcons.puzzle_piece_24_regular,
           ),
           if (plugin.isDevelopment)
@@ -507,7 +504,7 @@ class _DragFeedback extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              fluentIconFromName(plugin.manifest.toolTabIconName) ??
+              pluginIconFromName(plugin.manifest.toolTabIconName) ??
                   FluentIcons.puzzle_piece_24_regular,
             ),
             const SizedBox(width: 8),

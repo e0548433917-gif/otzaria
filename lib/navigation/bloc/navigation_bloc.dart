@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:otzaria/core/app_paths.dart';
 import 'package:otzaria/navigation/bloc/navigation_event.dart';
 import 'package:otzaria/navigation/navigation_repository.dart';
 import 'package:otzaria/navigation/bloc/navigation_state.dart';
@@ -56,6 +57,9 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     Emitter<NavigationState> emit,
   ) {
     final isEmpty = _repository.checkLibraryIsEmpty();
+    if (!isEmpty) {
+      unawaited(AppPaths.markLibraryLoadedOnce());
+    }
     emit(state.copyWith(isLibraryEmpty: isEmpty, hasCheckedLibrary: true));
   }
 

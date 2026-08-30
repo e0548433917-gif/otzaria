@@ -109,16 +109,12 @@ List<String> pluginBackgroundActivationReasons(PluginManifest manifest) {
 
 bool _toolbarItemActivatesBackground(Map<String, dynamic> item) =>
     PluginStartupContributions(
-      toolbarItems: [
-        item,
-      ],
+      toolbarItems: [item],
     ).hasBackgroundActivationTrigger;
 
 bool _contextMenuItemActivatesBackground(Map<String, dynamic> item) =>
     PluginStartupContributions(
-      contextMenuItems: [
-        item,
-      ],
+      contextMenuItems: [item],
     ).hasBackgroundActivationTrigger;
 
 /// האם הרשאה מתחילה מאושרת במסך ההתקנה.
@@ -132,7 +128,8 @@ bool pluginPermissionDefaultGrant(
 }) {
   if (permission == pluginRunOnStartupPermission ||
       permission == pluginStartupContributionsPermission ||
-      permission == pluginBackgroundKeepAlivePermission) {
+      permission == pluginBackgroundKeepAlivePermission ||
+      permission == pluginClipboardReadPermission) {
     return false;
   }
   return !(isOfflineMode && permission == pluginNetworkAccessPermission);
@@ -148,7 +145,8 @@ List<String> orderedPluginPermissions(
     pluginStartupContributionsPermission => 1,
     pluginBackgroundKeepAlivePermission => 2,
     pluginNetworkAccessPermission when isOfflineMode => 3,
-    _ => 4,
+    pluginClipboardReadPermission => 4,
+    _ => 5,
   };
   final indexed = permissions.indexed.toList();
   indexed.sort((a, b) {
@@ -196,6 +194,13 @@ const Map<String, PluginPermissionInfo> _permissionLabels = {
     description:
         'מאפשר לתוסף להוסיף פקדים, פריטי תפריט ונתונים שמנוהלים בידי אוצריא. '
         'פעולות מובנות עשויות להתבצע בלי לפתוח את דף התוסף.',
+  ),
+  'app.shortcuts': PluginPermissionInfo(
+    label: 'קיצורי מקלדת',
+    icon: FluentIcons.keyboard_24_regular,
+    description:
+        'רישום קיצורי מקלדת שהתוסף מציע: הפעלת פקודות שלו או פעולות '
+        'תפריט הלחיצה הימנית. הקיצורים נשלטים במסך הגדרות קיצורי המקשים.',
   ),
 
   // ===== ספרייה =====
@@ -305,6 +310,16 @@ const Map<String, PluginPermissionInfo> _permissionLabels = {
     label: 'יצירת קיצור דרך',
     icon: FluentIcons.desktop_24_regular,
     description: 'יצירת קיצור דרך בשולחן העבודה או בתפריט ההתחל (לאחר אישור)',
+  ),
+
+  // ===== לוח העתקה =====
+  'clipboard.read': PluginPermissionInfo(
+    label: 'קריאת לוח ההעתקה',
+    icon: FluentIcons.clipboard_paste_24_regular,
+    description:
+        'קריאת מה שמועתק ללוח ההעתקה של המחשב — כולל תוכן שהועתק מתוכנות '
+        'אחרות, כגון סיסמאות. נדרשת לכפתור "הדבק" של תוסף עורך. הדבקה עם '
+        'Ctrl+V עובדת גם בלעדיה.',
   ),
 
   // ===== קבצים אישיים =====

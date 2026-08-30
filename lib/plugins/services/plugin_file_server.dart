@@ -668,6 +668,7 @@ class PluginFileServer {
       case '.pdf':
         return ContentType('application', 'pdf');
       case '.txt':
+      case '.text':
         return ContentType('text', 'plain', charset: 'utf-8');
       case '.html':
       case '.htm':

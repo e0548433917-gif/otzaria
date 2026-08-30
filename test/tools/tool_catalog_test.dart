@@ -97,7 +97,7 @@ void main() {
       expect(ids, isNot(contains('p.hidden')));
     });
 
-    test('תוסף מוצמד-לסרגל מופיע גם כשהוא מוסתר מהממשק', () {
+    test('תוסף מוסתר לא מופיע בכלים גם כשהוא מוצמד לסרגל (issue #966)', () {
       final entries = buildToolCatalog(
         hiddenBuiltInToolIds: const {},
         isOfflineMode: false,
@@ -105,7 +105,7 @@ void main() {
           _plugin('p.pinned', showInTools: false, pinnedToNavRail: true),
         ]),
       );
-      expect(entries.map((e) => e.toolId), contains('p.pinned'));
+      expect(entries.map((e) => e.toolId), isNot(contains('p.pinned')));
     });
 
     test('מצב מנותק מסנן תוסף שדורש רשת והרשאתו הוענקה', () {
@@ -320,6 +320,14 @@ void main() {
         ToolUnavailableReason.pluginRequiresInternet,
       );
       expect(lookup('p.net', state: state), isA<ToolAvailable>());
+    });
+
+    // הלחיצה על פריט מוצמד בסרגל עוברת דרך lookupTool — חייבת להישאר זמינה
+    test('תוסף מוסתר אך מוצמד-לסרגל נפתח דרך lookupTool', () {
+      final state = PluginSystemLoaded([
+        _plugin('p.pinned', showInTools: false, pinnedToNavRail: true),
+      ]);
+      expect(lookup('p.pinned', state: state), isA<ToolAvailable>());
     });
   });
 }

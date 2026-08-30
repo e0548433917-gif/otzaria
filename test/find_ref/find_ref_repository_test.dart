@@ -846,6 +846,106 @@ void main() {
         reason: 'התוצאות חתוכות ל-20 גם כשיש יותר ספרים',
       );
     });
+
+    test(
+      'מילה בודדת מוצאת כותרות AltToc קצרות (פרשיות — issue #983)',
+      () async {
+        final repo = FindRefRepository(
+          dataRepository: MockDataRepository(),
+          isReferenceBooksCacheLoaded: () => true,
+          warmUpReferenceBooksCache: () async {},
+          searchReferenceBooks: (query, {int limit = 50}) {
+            if (query == 'נח') {
+              return [_hit(bookId: 5, title: 'נחום', orderIndex: 34.0)];
+            }
+            return const <ReferenceBookHit>[];
+          },
+          getTocEntriesForReference: (_, _, {queryTokens}) async => const [],
+          getAllAltTocFlatEntries: () async => const [
+            {
+              'bookId': 1,
+              'bookTitle': 'בראשית',
+              'bookOrderIndex': 1.0,
+              'reference': 'נח',
+              'segment': 30,
+              'level': 0,
+              'dbLineId': 0,
+            },
+            {
+              'bookId': 1,
+              'bookTitle': 'בראשית',
+              'bookOrderIndex': 1.0,
+              'reference': 'נח עליה ב',
+              'segment': 32,
+              'level': 1,
+              'dbLineId': 0,
+            },
+            {
+              'bookId': 2,
+              'bookTitle': 'ספר הזהר',
+              'bookOrderIndex': 50.0,
+              'reference': 'פרשת נח',
+              'segment': 10,
+              'level': 0,
+              'dbLineId': 0,
+            },
+          ],
+        );
+
+        final results = await repo.findRefs('נח');
+
+        expect(
+          results.any((r) => r.isAltToc && r.reference == 'בראשית נח'),
+          isTrue,
+          reason: 'כותרת AltToc בת מילה אחת חייבת להימצא במילה בודדת',
+        );
+        expect(
+          results.any((r) => r.isAltToc && r.reference == 'ספר הזהר פרשת נח'),
+          isTrue,
+          reason: 'כותרת בת שתי מילים ("פרשת נח") נכללת גם היא',
+        );
+        expect(
+          results.any((r) => r.reference.contains('עליה')),
+          isFalse,
+          reason: 'צאצאים עמוקים (3 טוקנים ומעלה) לא נכללים במילה בודדת',
+        );
+        expect(
+          results.any((r) => r.title == 'נחום'),
+          isTrue,
+          reason: 'התאמות שם-ספר רגילות נשמרות לצד ה-AltToc',
+        );
+      },
+    );
+
+    test('מילה בודדת באות אחת לא מפעילה את ה-fallback הגלובלי', () async {
+      var flatCalls = 0;
+      final repo = FindRefRepository(
+        dataRepository: MockDataRepository(),
+        isReferenceBooksCacheLoaded: () => true,
+        warmUpReferenceBooksCache: () async {},
+        searchReferenceBooks: (query, {int limit = 50}) =>
+            const <ReferenceBookHit>[],
+        getTocEntriesForReference: (_, _, {queryTokens}) async => const [],
+        getAllAltTocFlatEntries: () async {
+          flatCalls++;
+          return const [
+            {
+              'bookId': 1,
+              'bookTitle': 'בראשית',
+              'bookOrderIndex': 1.0,
+              'reference': 'ב',
+              'segment': 2,
+              'level': 0,
+              'dbLineId': 0,
+            },
+          ];
+        },
+      );
+
+      final results = await repo.findRefs('ב');
+      expect(flatCalls, equals(0), reason: 'אות בודדת לא סורקת את הקאש');
+      expect(results, isEmpty);
+    });
   });
 
   // ─── הגנת hasExactNextTokenMatch ────────────────────────────────────────────
@@ -4026,6 +4126,173 @@ void main() {
         greaterThan(20),
         reason: 'הכלל הגלובלי מציג את כל שווי-הרלוונטיות, לא רק 20',
       );
+    });
+  });
+
+  group('FindRef — מסלול ה-worker לקאש ה-AltToc הגלובלי', () {
+    test(
+      'כשמוזרק searchAltTocFlatEntries — הסינון עובר אליו עם maxRefTokens',
+      () async {
+        final calls = <(List<String>, int?)>[];
+        final repo = FindRefRepository(
+          dataRepository: MockDataRepository(),
+          isReferenceBooksCacheLoaded: () => true,
+          warmUpReferenceBooksCache: () async {},
+          searchReferenceBooks: (query, {int limit = 50}) =>
+              const <ReferenceBookHit>[],
+          getTocEntriesForReference: (_, _, {queryTokens}) async => const [],
+          getAllAltTocFlatEntries: () async =>
+              throw StateError('המסלול המקומי לא אמור לרוץ כשיש hook'),
+          searchAltTocFlatEntries: (queryTokens, {maxRefTokens}) async {
+            calls.add((queryTokens, maxRefTokens));
+            return const [
+              {
+                'bookId': 1,
+                'bookTitle': 'בראשית',
+                'bookOrderIndex': 1.0,
+                'reference': 'נח',
+                'segment': 30,
+                'level': 0,
+                'dbLineId': 7,
+              },
+            ];
+          },
+        );
+
+        final single = await repo.findRefs('נח');
+        expect(calls.single.$1, equals(['נח']));
+        expect(
+          calls.single.$2,
+          equals(2),
+          reason: 'מילה בודדת מגבילה לערכים קצרים',
+        );
+        final hit = single.singleWhere((r) => r.isAltToc);
+        expect(hit.reference, equals('בראשית נח'));
+        expect(hit.sourceLineId, equals(7));
+
+        calls.clear();
+        await repo.findRefs('נח עליה ב');
+        expect(calls.single.$1, equals(['נח', 'עליה', 'ב']));
+        expect(calls.single.$2, isNull, reason: 'רב-מילים — ללא הגבלת אורך');
+      },
+    );
+
+    test('prewarmGlobalAltToc קורא ל-hook החימום ואינו זורק בכשל', () async {
+      var prewarmCalls = 0;
+      final repo = FindRefRepository(
+        dataRepository: MockDataRepository(),
+        prewarmAltTocFlatEntries: () async {
+          prewarmCalls++;
+          if (prewarmCalls == 2) throw StateError('כשל מדומה');
+        },
+      );
+      await repo.prewarmGlobalAltToc();
+      expect(prewarmCalls, equals(1));
+      await repo.prewarmGlobalAltToc(); // הכשל נבלע — best effort
+      expect(prewarmCalls, equals(2));
+    });
+  });
+
+  group('FindRef — דילוג AltToc לספרים ללא מבנה חלופי', () {
+    test(
+      'fetchAltTocEntries נקראת רק לספרים שב-getAltStructureBookIds',
+      () async {
+        final altCalls = <int>[];
+        var idsFetches = 0;
+        final repo = FindRefRepository(
+          dataRepository: MockDataRepository(),
+          isReferenceBooksCacheLoaded: () => true,
+          warmUpReferenceBooksCache: () async {},
+          searchReferenceBooks: (query, {int limit = 50}) {
+            if (query == 'שער') {
+              return [
+                _hit(bookId: 1, title: 'שער הכוונות', orderIndex: 1.0),
+                _hit(bookId: 2, title: 'שער הגלגולים', orderIndex: 2.0),
+              ];
+            }
+            return const <ReferenceBookHit>[];
+          },
+          getTocEntriesForReference: (_, _, {queryTokens}) async => const [],
+          getAltTocEntriesForReference: (bookId, _, {queryTokens}) async {
+            altCalls.add(bookId);
+            return const [];
+          },
+          getAllAltTocFlatEntries: () async => const [],
+          getAltStructureBookIds: () async {
+            idsFetches++;
+            return [2];
+          },
+        );
+
+        await repo.findRefs('שער הקדמה');
+        expect(altCalls, equals([2]), reason: 'ספר 1 חסר AltToc — מדולג');
+
+        await repo.findRefs('שער הקדמה שניה');
+        expect(
+          idsFetches,
+          equals(1),
+          reason: 'סט המזהים נטען פעם אחת ונשמר בקאש',
+        );
+      },
+    );
+
+    test('כשל פתיחה זמני אינו נשמר כרשימת AltToc ריקה', () async {
+      final altCalls = <int>[];
+      var idsFetches = 0;
+      final repo = FindRefRepository(
+        dataRepository: MockDataRepository(),
+        isReferenceBooksCacheLoaded: () => true,
+        warmUpReferenceBooksCache: () async {},
+        searchReferenceBooks: (query, {int limit = 50}) => query == 'שער'
+            ? [
+                _hit(bookId: 1, title: 'שער הכוונות', orderIndex: 1.0),
+                _hit(bookId: 2, title: 'שער הגלגולים', orderIndex: 2.0),
+              ]
+            : const <ReferenceBookHit>[],
+        getTocEntriesForReference: (_, _, {queryTokens}) async => const [],
+        getAltTocEntriesForReference: (bookId, _, {queryTokens}) async {
+          altCalls.add(bookId);
+          return const [];
+        },
+        getAllAltTocFlatEntries: () async => const [],
+        getAltStructureBookIds: () async {
+          idsFetches++;
+          return idsFetches == 1 ? null : [2];
+        },
+      );
+
+      await repo.findRefs('שער הקדמה');
+      await repo.findRefs('שער הקדמה שניה');
+
+      expect(idsFetches, equals(2));
+      expect(altCalls, equals([1, 2, 2]));
+    });
+
+    test('כשה-hook חסר — אין דילוג (התנהגות קודמת)', () async {
+      final altCalls = <int>[];
+      final repo = FindRefRepository(
+        dataRepository: MockDataRepository(),
+        isReferenceBooksCacheLoaded: () => true,
+        warmUpReferenceBooksCache: () async {},
+        searchReferenceBooks: (query, {int limit = 50}) {
+          if (query == 'שער') {
+            return [
+              _hit(bookId: 1, title: 'שער הכוונות', orderIndex: 1.0),
+              _hit(bookId: 2, title: 'שער הגלגולים', orderIndex: 2.0),
+            ];
+          }
+          return const <ReferenceBookHit>[];
+        },
+        getTocEntriesForReference: (_, _, {queryTokens}) async => const [],
+        getAltTocEntriesForReference: (bookId, _, {queryTokens}) async {
+          altCalls.add(bookId);
+          return const [];
+        },
+        getAllAltTocFlatEntries: () async => const [],
+      );
+
+      await repo.findRefs('שער הקדמה');
+      expect(altCalls, equals([1, 2]));
     });
   });
 }

@@ -1,10 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:otzaria/models/books.dart';
 import 'package:otzaria/settings/settings_exports.dart';
+import 'package:otzaria/tabs/models/pdf_tab.dart';
+import 'package:otzaria/tabs/view/pane_drag_handle.dart';
+import 'package:flutter_settings_screens/flutter_settings_screens.dart';
 import 'package:otzaria/widgets/navigation/app_top_bar.dart';
 
+import '../helpers/memory_settings_cache.dart';
+
 void main() {
+  // PdfBookTab (חלונית הדוגמה של ידית הגרירה) קורא הגדרות בבנייתו.
+  setUp(() async {
+    await Settings.init(cacheProvider: MemorySettingsCache());
+  });
+
   group('AppTopBar', () {
     testWidgets(
       'does not update height notifier synchronously when visibility notifier instance changes',
@@ -107,6 +118,63 @@ void main() {
     );
 
     testWidgets(
+      'בתוך scope פעיל של חלונית מפוצלת מוזרקת ידית גרירה',
+      (tester) async {
+        final settingsBloc = _TestSettingsBloc(SettingsState.initial());
+        addTearDown(settingsBloc.close);
+        final pane = _pane();
+
+        await tester.pumpWidget(
+          _buildBar(
+            settingsBloc: settingsBloc,
+            center: const SizedBox(width: 100, height: 8),
+            wrap: (bar) =>
+                PaneDragHandleScope(pane: pane, enabled: true, child: bar),
+          ),
+        );
+
+        expect(find.byType(PaneDragHandleButton), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'scope כבוי (טאב שאינו מפוצל) אינו מזריק ידית',
+      (tester) async {
+        final settingsBloc = _TestSettingsBloc(SettingsState.initial());
+        addTearDown(settingsBloc.close);
+        final pane = _pane();
+
+        await tester.pumpWidget(
+          _buildBar(
+            settingsBloc: settingsBloc,
+            center: const SizedBox(width: 100, height: 8),
+            wrap: (bar) =>
+                PaneDragHandleScope(pane: pane, enabled: false, child: bar),
+          ),
+        );
+
+        expect(find.byType(PaneDragHandleButton), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'ללא scope אין ידית גרירה',
+      (tester) async {
+        final settingsBloc = _TestSettingsBloc(SettingsState.initial());
+        addTearDown(settingsBloc.close);
+
+        await tester.pumpWidget(
+          _buildBar(
+            settingsBloc: settingsBloc,
+            center: const SizedBox(width: 100, height: 8),
+          ),
+        );
+
+        expect(find.byType(PaneDragHandleButton), findsNothing);
+      },
+    );
+
+    testWidgets(
       'center רחב לא גולש ולא חוסם לחיצות על trailing',
       (tester) async {
         final settingsBloc = _TestSettingsBloc(SettingsState.initial());
@@ -139,25 +207,28 @@ void main() {
   });
 }
 
+PdfBookTab _pane() => PdfBookTab(
+  book: PdfBook(title: 'ספר', path: '/tmp/ספר.pdf'),
+  pageNumber: 1,
+);
+
 Widget _buildBar({
   required SettingsBloc settingsBloc,
   List<AppTopBarItem> leadingItems = const [],
   Widget? center,
   List<AppTopBarItem> trailingItems = const [],
+  Widget Function(Widget bar)? wrap,
 }) {
+  final bar = AppTopBar(
+    leadingItems: leadingItems,
+    center: center,
+    trailingItems: trailingItems,
+  );
   return MaterialApp(
     home: Scaffold(
       body: BlocProvider<SettingsBloc>.value(
         value: settingsBloc,
-        child: Column(
-          children: [
-            AppTopBar(
-              leadingItems: leadingItems,
-              center: center,
-              trailingItems: trailingItems,
-            ),
-          ],
-        ),
+        child: Column(children: [wrap == null ? bar : wrap(bar)]),
       ),
     ),
   );

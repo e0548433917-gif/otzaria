@@ -283,16 +283,29 @@ class Link {
     return null;
   }
 
-  /// Constructs a [Link] object from a JSON object.
+  /// מסדר את הקישור לחמשת המפתחות של פורמט `links.json`, בדיוק כפי שהכותב
+  /// הקנוני של הפורמט פולט אותם (`LinkData.toJson` שב-`link_processor.dart`).
   ///
-  /// The JSON object should have the following keys:
-  /// - 'heRef_2': The Hebrew reference of the link.
-  /// - 'line_index_1': The index of the first book in the link.
-  /// - 'path_2': The path of the second book in the link.
-  /// - 'line_index_2': The index of the second book in the link.
-  /// - 'Conection Type': The type of the connection in the link.
-  /// - 'start': (optional) The start character position of the link.
-  /// - 'end': (optional) The end character position of the link.
+  /// אינו ההופכי של [Link.fromJson]: הקורא סלחני וקולט גם `category_id_2`,
+  /// `file_type_2`, `start` ו-`end`, אך אלה אינם חלק מהפורמט ואף כותב אינו
+  /// מייצר אותם — `category_id_2` הוא אפילו מזהה פנימי של seforim.db.
+  /// [start]/[end] נפלטים כשקיימים, כי הם מגיעים רק מקובץ שכבר נשא אותם.
+  ///
+  /// שגיאת הכתיב ב-`'Conection Type'` היא חלק מהפורמט. אל תתקנו.
+  Map<String, dynamic> toJson() => {
+    'heRef_2': heRef,
+    'line_index_1': index1,
+    'path_2': path2,
+    'line_index_2': index2,
+    'Conection Type': connectionType,
+    if (start != null) 'start': start,
+    if (end != null) 'end': end,
+  };
+
+  /// בונה [Link] משורת `links.json`. סלחני בכוונה: מקבל אינדקסים כמספר או
+  /// כמחרוזת (`"3.0"` → `3`), וסוג חיבור ריק הופך ל-`reference`.
+  ///
+  /// עוגני-מילה, קישורי-טווח ו-[baseProvenance] מגיעים רק מהמסד ולכן מאופסים.
   Link.fromJson(Map<String, dynamic> json)
     : heRef = json['heRef_2'].toString(),
       index1 = int.parse(json['line_index_1'].toString().split('.').first),

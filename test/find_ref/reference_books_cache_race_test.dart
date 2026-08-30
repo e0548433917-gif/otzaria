@@ -32,6 +32,18 @@ void main() {
     ReferenceBooksCache.instance.clear();
     BooksCache.instance.clear();
     AcronymsCache.instance.clear();
+    // warmUp לא מסמן loaded על קאש ריק (ראה קבוצת "קאש ריק" למטה), ולכן
+    // טסטי המירוץ זורעים ספר אחד כדי שהטעינה תוכל להגיע ל-isLoaded=true.
+    BooksCache.instance.setBooksForTesting(const [
+      BookCacheEntry(
+        id: 1,
+        title: 'בראשית',
+        filePath: '',
+        fileType: 'txt',
+        categoryId: 2,
+        orderIndex: 0.0,
+      ),
+    ]);
     ReferenceBooksCache.instance.categoriesProviderOverride = null;
     ReferenceBooksCache.instance.pdfOutlineCacheRepositoryOverride = cacheRepo;
     ReferenceBooksCache.instance.pdfFileMetadataProviderOverride = null;
@@ -167,9 +179,9 @@ void main() {
       expect(attempt, 2, reason: 'הניסיון השני באמת נקרא — אין caching של כשל');
     });
 
-    test('בלי DB ובלי override — prewarm מסתיים בהצלחה (אין מה לחמם)', () async {
-      // טסטים אחרים בריצה ללא SqliteDataProvider מאותחל. במצב הזה אין
-      // מה לחמם, אבל אין סיבה לסמן כשל — `isLoaded` חייב להפוך true.
+    test('בלי DB אבל עם ספרים בקאש — prewarm מסתיים בהצלחה', () async {
+      // אין SqliteDataProvider מאותחל, אבל BooksCache נזרע ב-setUp. אין מה
+      // לחמם מה-DB, ואין סיבה לסמן כשל — `isLoaded` חייב להפוך true.
       final cache = ReferenceBooksCache.instance;
       // categoriesProviderOverride = null (default), SqliteDataProvider = null.
 
@@ -178,7 +190,7 @@ void main() {
       expect(
         cache.isLoaded,
         isTrue,
-        reason: 'no-DB-no-override = הצלחה טריוויאלית, לא כשל',
+        reason: 'no-DB-no-override עם ספרים = הצלחה טריוויאלית, לא כשל',
       );
     });
 

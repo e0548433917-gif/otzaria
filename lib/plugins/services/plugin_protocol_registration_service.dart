@@ -3,13 +3,21 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:otzaria/core/app_paths.dart';
 import 'package:path/path.dart' as p;
+import 'package:win32_registry/win32_registry.dart';
+
+/// רשומת רישום אחת ב-Windows: מפתח יחסי ל-`HKCU\Software\Classes`, שם ערך
+/// ('' = ערך ברירת המחדל של המפתח) והערך עצמו.
+typedef WindowsRegistrationEntry = ({
+  String subkey,
+  String name,
+  RegistryValue value,
+});
 
 class PluginProtocolRegistrationService {
   static const String scheme = 'otzaria';
   static const String pluginFileExtension = '.otzplugin';
   static const String pluginFileProgId = 'OtzariaPluginFile';
   static const String pluginMimeType = 'application/x-otzaria-plugin';
-  static const Duration _windowsRegistrationTimeout = Duration(seconds: 5);
 
   Future<void> ensureRegistered() async {
     // במצב נייד אין לרשום שיוכים מערכתיים: הרישום מצביע על נתיב EXE
@@ -29,31 +37,19 @@ class PluginProtocolRegistrationService {
     }
   }
 
+  // הכתיבה ישירה דרך ה-API של הרגיסטרי, לא דרך תת-תהליכי reg.exe: במחשב
+  // עם סוכן סינון/אנטי-וירוס שמאט יצירת תהליכים, 10 spawn-ים סדרתיים חרגו
+  // מכל timeout והרישום נכשל בכל הפעלה (issue #989).
   Future<void> _ensureWindowsRegistration() async {
-    final exePath = Platform.resolvedExecutable;
-    final regExecutable = resolveWindowsRegistryExecutable(
-      Platform.environment,
+    final entries = buildWindowsRegistrationEntries(
+      Platform.resolvedExecutable,
     );
-    final commands = buildWindowsRegistrationCommands(exePath);
-
-    for (final arguments in commands) {
-      final result =
-          await Process.run(
-            regExecutable,
-            arguments,
-          ).timeout(
-            _windowsRegistrationTimeout,
-            onTimeout: () => ProcessResult(
-              0,
-              -1,
-              '',
-              'Timed out after ${_windowsRegistrationTimeout.inSeconds} seconds',
-            ),
-          );
-      if (result.exitCode != 0) {
-        throw Exception(
-          'רישום פרוטוקול התוספים נכשל: ${result.stderr}'.trim(),
-        );
+    for (final entry in entries) {
+      final key = CURRENT_USER.create('Software\\Classes\\${entry.subkey}');
+      try {
+        key.setValue(entry.name, entry.value);
+      } finally {
+        key.close();
       }
     }
   }
@@ -253,71 +249,60 @@ $iconLine    <glob pattern="$pattern"/>
   }
 
   @visibleForTesting
-  static String resolveWindowsRegistryExecutable(
-    Map<String, String> environment,
+  static List<WindowsRegistrationEntry> buildWindowsRegistrationEntries(
+    String exePath,
   ) {
-    final windowsDirectory =
-        environment['WINDIR'] ?? environment['SystemRoot'] ?? r'C:\Windows';
-    return p.windows.join(windowsDirectory, 'System32', 'reg.exe');
-  }
+    final command = StringValue('"$exePath" "%1"');
+    const protocolRoot = scheme;
+    const progIdRoot = pluginFileProgId;
+    const extensionRoot = pluginFileExtension;
 
-  @visibleForTesting
-  static List<List<String>> buildWindowsRegistrationCommands(String exePath) {
-    final command = '"$exePath" "%1"';
-    final protocolRoot = r'HKCU\Software\Classes\otzaria';
-    final progIdRoot = r'HKCU\Software\Classes\' + pluginFileProgId;
-    final extensionRoot = r'HKCU\Software\Classes\' + pluginFileExtension;
-
-    return <List<String>>[
+    return <WindowsRegistrationEntry>[
       // ===== otzaria:// protocol =====
-      ['add', protocolRoot, '/ve', '/d', 'URL:Otzaria Protocol', '/f'],
-      ['add', protocolRoot, '/v', 'URL Protocol', '/d', '', '/f'],
-      ['add', '$protocolRoot\\DefaultIcon', '/ve', '/d', exePath, '/f'],
-      [
-        'add',
-        '$protocolRoot\\shell\\open\\command',
-        '/ve',
-        '/d',
-        command,
-        '/f',
-      ],
+      (
+        subkey: protocolRoot,
+        name: '',
+        value: const StringValue('URL:Otzaria Protocol'),
+      ),
+      (
+        subkey: protocolRoot,
+        name: 'URL Protocol',
+        value: const StringValue(''),
+      ),
+      (
+        subkey: '$protocolRoot\\DefaultIcon',
+        name: '',
+        value: StringValue(exePath),
+      ),
+      (subkey: '$protocolRoot\\shell\\open\\command', name: '', value: command),
 
       // ===== .otzplugin file association =====
-      ['add', progIdRoot, '/ve', '/d', 'תוסף אוצריא', '/f'],
+      (subkey: progIdRoot, name: '', value: const StringValue('תוסף אוצריא')),
       // התקנת תוסף היא פעולה חד-פעמית; הדגל FTA_NoRecentDocs (0x00100000)
       // מונע מהמעטפת להוסיף את הקובץ ל"מסמכים אחרונים" / Jump List.
-      [
-        'add',
-        progIdRoot,
-        '/v',
-        'EditFlags',
-        '/t',
-        'REG_DWORD',
-        '/d',
-        '0x00100000',
-        '/f',
-      ],
+      (
+        subkey: progIdRoot,
+        name: 'EditFlags',
+        value: const DwordValue(0x00100000),
+      ),
       // האייקון הייעודי לתוסף משובץ ב-EXE כמשאב שני
       // (IDI_OTZPLUGIN_FILE_ICON ב-Runner.rc); index ‎1 מצביע עליו.
-      ['add', '$progIdRoot\\DefaultIcon', '/ve', '/d', '$exePath,1', '/f'],
-      [
-        'add',
-        '$progIdRoot\\shell\\open\\command',
-        '/ve',
-        '/d',
-        command,
-        '/f',
-      ],
-      ['add', extensionRoot, '/ve', '/d', pluginFileProgId, '/f'],
-      [
-        'add',
-        extensionRoot,
-        '/v',
-        'Content Type',
-        '/d',
-        pluginMimeType,
-        '/f',
-      ],
+      (
+        subkey: '$progIdRoot\\DefaultIcon',
+        name: '',
+        value: StringValue('$exePath,1'),
+      ),
+      (subkey: '$progIdRoot\\shell\\open\\command', name: '', value: command),
+      (
+        subkey: extensionRoot,
+        name: '',
+        value: const StringValue(pluginFileProgId),
+      ),
+      (
+        subkey: extensionRoot,
+        name: 'Content Type',
+        value: const StringValue(pluginMimeType),
+      ),
     ];
   }
 }

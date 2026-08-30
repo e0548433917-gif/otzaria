@@ -10,6 +10,7 @@ import 'package:otzaria/utils/file/docx_to_otzaria.dart';
 import 'package:otzaria/utils/text/html_escape.dart';
 import 'package:otzaria/utils/file/document_format.dart';
 import 'package:otzaria/utils/file/epub_to_otzaria.dart';
+import 'package:otzaria/utils/file/html_to_otzaria.dart';
 import 'package:otzaria/utils/file/legacy_word_to_otzaria.dart';
 import 'package:otzaria/utils/file/markdown_to_otzaria.dart';
 import 'package:otzaria/utils/file/odt_to_otzaria.dart';
@@ -100,6 +101,34 @@ Future<String> convertRtfWithCache(
       : (bytes, t) => rtfToText(bytes, t, embedImages: false),
   cacheVariant: embedImages ? 'rtf' : 'rtf-without-images',
 );
+
+/// ממיר מסמך HTML עצמאי דרך אותו מטמון.
+///
+/// תיקיית הקובץ נלכדת כמחרוזת ולא דרך ה-`File`: ה-closure נשלח ל-isolate,
+/// ובלעדיה הממיר אינו יודע היכן לחפש תמונות שיושבות לצד המסמך.
+Future<String> convertHtmlWithCache(
+  File file,
+  String title,
+  DocumentFormat format, {
+  bool embedImages = true,
+}) {
+  final baseDirectory = file.parent.path;
+  return _convertWithCache(
+    file,
+    title,
+    kHtmlConverterVersion,
+    // הפורמט המדויק עובר לממיר: הוא זה שנרשם בחריגה, ובלעדיו כל כשל של
+    // קובץ ‎.htm‎ מדווח כ-‎.html‎.
+    (bytes, t) => htmlToText(
+      bytes,
+      t,
+      format: format,
+      embedImages: embedImages,
+      baseDirectory: baseDirectory,
+    ),
+    cacheVariant: embedImages ? 'html' : 'html-without-images',
+  );
+}
 
 /// ממיר מסמך Word שנשמר כ-XML (Flat OPC / WordML 2003) דרך אותו מטמון.
 Future<String> convertWordXmlWithCache(

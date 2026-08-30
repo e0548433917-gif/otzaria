@@ -573,6 +573,26 @@ class CalendarCubit extends Cubit<CalendarState> {
     return '$m דקות';
   }
 
+  /// שולח התראת בדיקה למערכת ההפעלה. מחזיר האם השליחה הצליחה.
+  Future<bool> sendTestNotification() async {
+    final notificationService = _notificationService;
+    if (!notificationService.isInitialized) {
+      await notificationService.init();
+    }
+
+    bool hasPermission = await notificationService.checkPermissions();
+    if (!hasPermission) {
+      if (Platform.isMacOS) {
+        hasPermission = await notificationService.forceRequestPermissions();
+      } else {
+        hasPermission = await notificationService.requestPermissions();
+      }
+    }
+    if (!hasPermission) return false;
+
+    return notificationService.sendTestNotification();
+  }
+
   Future<void> setZmanAlertPreference({
     required String timeId,
     required String displayName,

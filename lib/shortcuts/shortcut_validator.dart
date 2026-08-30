@@ -1,4 +1,17 @@
 import 'package:flutter_settings_screens/flutter_settings_screens.dart';
+import 'package:otzaria/shortcuts/shortcut_helper.dart';
+
+/// יעד הפעולה של קיצור מקלדת שתוסף הצהיר עליו: התוסף, מזהה הקיצור, תווית
+/// התצוגה, קיצור ברירת המחדל שהתוסף מציע, ומה הקיצור מפעיל (פקודה חופשית
+/// או פעולת תפריט הקשר).
+typedef PluginShortcutTarget = ({
+  String pluginId,
+  String shortcutId,
+  String label,
+  String defaultKey,
+  String? command,
+  String? contextMenuItemId,
+});
 
 /// Validator for keyboard shortcuts to detect conflicts
 class ShortcutValidator {
@@ -9,10 +22,7 @@ class ShortcutValidator {
       'key-shortcut-open-advanced-search';
 
   static const Set<Set<String>> _compatibleShortcutGroups = {
-    {
-      'key-shortcut-add-note',
-      'key-shortcut-calendar-toggle-events',
-    },
+    {'key-shortcut-add-note', 'key-shortcut-calendar-toggle-events'},
     {
       'key-shortcut-calendar-toggle-times',
       'key-shortcut-shamor-zachor-cycle-filter',
@@ -73,10 +83,66 @@ class ShortcutValidator {
   static String pluginIdFromShortcutKey(String key) =>
       key.substring(_openPluginKeyPrefix.length);
 
+  static const String _pluginShortcutKeyPrefix = 'key-shortcut-plugin-';
+
+  /// מפתח הגדרת הקיצור שתוסף הצהיר עליו לפי [pluginId] ו-[shortcutId].
+  /// אופציונלי, בלי ברירת מחדל — ברירת המחדל מגיעה מהתוסף עצמו.
+  static String pluginShortcutKey(String pluginId, String shortcutId) =>
+      '$_pluginShortcutKeyPrefix$pluginId::$shortcutId';
+
+  /// קיצורי מקלדת שתוספים הצהירו עליהם (מניפסט / app.registerShortcut) —
+  /// מפתח → יעד. נדחף מ-PluginSystemBloc לפי PluginShortcutRegistry.
+  static Map<String, PluginShortcutTarget> _pluginShortcuts = const {};
+
+  static void registerPluginShortcuts(
+    Map<String, PluginShortcutTarget> shortcuts,
+  ) {
+    // פתרון התנגשויות בין קיצורי תוספים: אם שני תוספים מצהירים על אותו
+    // קיצור ברירת מחדל, הראשון (בסדר ממוין) זוכה והשני נשאר לא-מוגדר.
+    final takenDefaults = <String>{};
+    final resolved = <String, PluginShortcutTarget>{};
+    final entries = shortcuts.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    for (final entry in entries) {
+      final target = entry.value;
+      final defaultKey =
+          ShortcutHelper.normalizeShortcut(target.defaultKey) ?? '';
+      if (defaultKey.isEmpty || !takenDefaults.contains(defaultKey)) {
+        if (defaultKey.isNotEmpty) takenDefaults.add(defaultKey);
+        resolved[entry.key] = (
+          pluginId: target.pluginId,
+          shortcutId: target.shortcutId,
+          label: target.label,
+          defaultKey: defaultKey,
+          command: target.command,
+          contextMenuItemId: target.contextMenuItemId,
+        );
+      } else {
+        resolved[entry.key] = (
+          pluginId: target.pluginId,
+          shortcutId: target.shortcutId,
+          label: target.label,
+          defaultKey: '',
+          command: target.command,
+          contextMenuItemId: target.contextMenuItemId,
+        );
+      }
+    }
+    _pluginShortcuts = Map.unmodifiable(resolved);
+  }
+
+  static Map<String, PluginShortcutTarget> get pluginShortcuts =>
+      _pluginShortcuts;
+
+  /// המפתחות של קיצורי המקלדת שהתוספים הצהירו עליהם כעת.
+  static Iterable<String> get declaredPluginShortcutKeys =>
+      _pluginShortcuts.keys;
+
   /// List of all shortcut setting keys (סטטיים + מפתחות תוספים רשומים)
   static List<String> get shortcutKeys => [
     ..._baseShortcutKeys,
     ..._pluginShortcutNames.keys,
+    ..._pluginShortcuts.keys,
   ];
 
   static const List<String> _baseShortcutKeys = [
@@ -95,6 +161,8 @@ class ShortcutValidator {
     'key-shortcut-open-bookmarks',
     'key-shortcut-open-history',
     'key-shortcut-add-bookmark',
+    // שמירת סימניה מרוכזת — אופציונלי, ללא ברירת מחדל.
+    'key-shortcut-save-group-bookmark',
     'key-shortcut-add-note',
     'key-shortcut-switch-workspace',
     'key-shortcut-print',
@@ -144,6 +212,7 @@ class ShortcutValidator {
     'key-shortcut-open-bookmarks': 'ctrl+shift+b',
     'key-shortcut-open-history': 'ctrl+h',
     'key-shortcut-add-bookmark': 'ctrl+b',
+    'key-shortcut-save-group-bookmark': '',
     'key-shortcut-add-note': 'ctrl+n',
     'key-shortcut-switch-workspace': 'ctrl+k',
     'key-shortcut-print': 'ctrl+p',
@@ -178,6 +247,7 @@ class ShortcutValidator {
   static Map<String, String> get shortcutNames => {
     ..._baseShortcutNames,
     ..._pluginShortcutNames,
+    for (final entry in _pluginShortcuts.entries) entry.key: entry.value.label,
   };
 
   static const Map<String, String> _baseShortcutNames = {
@@ -196,6 +266,7 @@ class ShortcutValidator {
     'key-shortcut-open-bookmarks': 'סימניות',
     'key-shortcut-open-history': 'היסטוריה',
     'key-shortcut-add-bookmark': 'הוסף סימניה',
+    'key-shortcut-save-group-bookmark': 'שמור סימניה לכל הספרים הפתוחים',
     'key-shortcut-add-note': 'הוספת הערה',
     'key-shortcut-switch-workspace': 'החלף שולחן עבודה',
     'key-shortcut-print': 'הדפסה',
@@ -233,7 +304,7 @@ class ShortcutValidator {
     final Map<String, List<String>> shortcutToKeys = {};
 
     for (final key in shortcutKeys) {
-      final value = getShortcutValue(key) ?? '';
+      final value = _normalizedShortcutValue(getShortcutValue(key));
       if (value.isNotEmpty) {
         shortcutToKeys.putIfAbsent(value, () => []).add(key);
       }
@@ -277,12 +348,12 @@ class ShortcutValidator {
 
   /// Check if a specific shortcut has conflicts
   static bool hasConflict(String settingKey) {
-    final value = getShortcutValue(settingKey);
-    if (value == null || value.isEmpty) return false;
+    final value = _normalizedShortcutValue(getShortcutValue(settingKey));
+    if (value.isEmpty) return false;
 
     final matchingKeys = <String>{};
     for (final key in shortcutKeys) {
-      final keyValue = getShortcutValue(key) ?? '';
+      final keyValue = _normalizedShortcutValue(getShortcutValue(key));
       if (keyValue == value) {
         matchingKeys.add(key);
       }
@@ -292,22 +363,70 @@ class ShortcutValidator {
   }
 
   /// מחזיר את ערך הקיצור הנוכחי עבור [settingKey] או את ברירת המחדל שלו.
+  /// עבור קיצורי תוספים ברירת המחדל היא הקיצור שהתוסף הצהיר עליו — אלא אם
+  /// המשתמש ביטל אותו במפורש, או שהוא מתנגש עם קיצור קיים (ואז התוסף מפנה
+  /// את מקומו ונהיה לא-מוגדר).
   static String? getShortcutValue(String settingKey) {
     final normalizedKey = canonicalSettingKey(settingKey);
     final directValue = Settings.getValue<String>(normalizedKey);
+    final declared = _pluginShortcuts[normalizedKey];
     if (directValue != null && directValue.isNotEmpty) {
-      return directValue;
+      return _normalizedShortcutValue(directValue);
+    }
+
+    // קיצור תוסף שהוגדר לו במפורש ערך ריק (ביטול) — נשאר לא-מוגדר כדי
+    // לחזור לרשימת "פעולות זמינות לקיצור", במקום ליפול לברירת המחדל.
+    if (declared != null && directValue != null) {
+      return null;
     }
 
     for (final legacyKey in legacyShortcutAliases[normalizedKey] ?? const []) {
       final legacyValue = Settings.getValue<String>(legacyKey);
       if (legacyValue != null && legacyValue.isNotEmpty) {
-        return legacyValue;
+        return _normalizedShortcutValue(legacyValue);
       }
     }
 
-    return defaultShortcuts[normalizedKey];
+    if (declared != null) {
+      if (declared.defaultKey.isEmpty) return null;
+      if (_pluginDefaultKeyTaken(normalizedKey, declared.defaultKey)) {
+        return null;
+      }
+      return _normalizedShortcutValue(declared.defaultKey);
+    }
+
+    return _normalizedShortcutValue(defaultShortcuts[normalizedKey]);
   }
+
+  /// האם קיצור ברירת המחדל של תוסף תפוס כבר על ידי קיצור קיים (בנוי, פתיחת
+  /// תוסף או העתקת קישור). קיצורי תוספים אחרים נפתרים ברישום, ולכן מדלגים
+  /// עליהם כאן כדי להימנע מרקורסיה.
+  static bool _pluginDefaultKeyTaken(String settingKey, String defaultKey) {
+    final normalizedDefaultKey = _normalizedShortcutValue(defaultKey);
+    if (normalizedDefaultKey.isEmpty) return false;
+    for (final key in shortcutKeys) {
+      if (key == settingKey) continue;
+      if (_pluginShortcuts.containsKey(key)) {
+        final userValue = Settings.getValue<String>(key);
+        if (userValue != null &&
+            userValue.isNotEmpty &&
+            _normalizedShortcutValue(userValue) == normalizedDefaultKey) {
+          return true;
+        }
+        continue;
+      }
+      final value = getShortcutValue(key) ?? '';
+      if (value.isNotEmpty &&
+          _normalizedShortcutValue(value) == normalizedDefaultKey) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// האם [settingKey] הוא קיצור שתוסף הצהיר עליו (ולא פעולה מובנית).
+  static bool isPluginShortcutKey(String settingKey) =>
+      _pluginShortcuts.containsKey(canonicalSettingKey(settingKey));
 
   static bool canShareShortcut(String firstKey, String secondKey) {
     final normalizedFirst = canonicalSettingKey(firstKey);
@@ -329,6 +448,9 @@ class ShortcutValidator {
     }
     return settingKey;
   }
+
+  static String _normalizedShortcutValue(String? value) =>
+      ShortcutHelper.normalizeShortcut(value ?? '') ?? '';
 
   static Set<String> legacyKeysFor(String settingKey) {
     final normalizedKey = canonicalSettingKey(settingKey);

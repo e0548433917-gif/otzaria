@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 /// תוכן ממורכז שאינו נחתך בחלון נמוך.
@@ -26,9 +28,10 @@ class CenteredScrollableState extends StatelessWidget {
         padding: padding,
         child: ConstrainedBox(
           // minHeight שומר על המרכוז האנכי כשהתוכן נמוך מהאזור הפנוי.
+          // clamp: אזור נמוך מהריפוד עצמו היה מייצר minHeight שלילי וזורק.
           constraints: BoxConstraints(
             minHeight: constraints.maxHeight.isFinite
-                ? constraints.maxHeight - padding.vertical
+                ? math.max(0.0, constraints.maxHeight - padding.vertical)
                 : 0,
           ),
           child: Center(child: child),

@@ -96,6 +96,31 @@ void main() {
       }
     });
 
+    test('סיומת text משתמשת באותו מסלול פענוח כמו txt', () async {
+      final file = write('legacy.text', encodedVariants()['windows1255.txt']!);
+      final text = await convertDocumentWithCache(
+        file,
+        'מסכת ברכות',
+        DocumentFormat.text,
+      );
+      expect(text, book);
+      expect(documentFormatFromExtension(file.path), DocumentFormat.text);
+      expect(DocumentFormat.text.isPlainText, isTrue);
+    });
+
+    test('readFileBackedBookText מפענח Windows-1255 גם עבור text', () async {
+      final file = write(
+        'legacy-read.text',
+        encodedVariants()['windows1255.txt']!,
+      );
+      final text = await readFileBackedBookText(
+        file,
+        'text',
+        'מסכת ברכות',
+      );
+      expect(text, book);
+    });
+
     test('readFileBackedBookText על ספר ANSI עברית', () async {
       final file = write(
         'ansi_book.txt',
@@ -195,6 +220,15 @@ void main() {
       expect(await DatabaseGenerator.readBookLines(file.path), ['']);
       expect(
         await convertDocumentWithCache(file, 'x', DocumentFormat.txt),
+        '',
+      );
+    });
+
+    test('קובץ text ריק אינו כשל', () async {
+      final file = write('empty.text', Uint8List(0));
+      expect(await readFileBackedBookText(file, 'text', 'ריק'), isEmpty);
+      expect(
+        await convertDocumentWithCache(file, 'ריק', DocumentFormat.text),
         '',
       );
     });

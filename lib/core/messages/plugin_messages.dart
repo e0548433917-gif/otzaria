@@ -103,4 +103,12 @@ abstract class PluginMessages {
   // ===== WebView2 =====
   static const String downloadLinkOpenFailed = 'לא ניתן לפתוח את קישור ההורדה';
   static const String fileDownloadStarted = 'הורדת הקובץ החלה';
+
+  // ===== פעולות תפריט הקשר =====
+  static const String selectTextForContextMenuAction =
+      'סמנו טקסט בספר כדי להפעיל פעולה זו';
+  static const String contextMenuActionUnavailableHere =
+      'הפעולה אינה זמינה במסך הנוכחי';
+  static const String contextMenuActionUnavailableForSelection =
+      'הפעולה אינה זמינה עבור הטקסט המסומן';
 }

@@ -32,8 +32,10 @@ import 'package:otzaria/utils/file/document_converter.dart';
 import 'package:otzaria/utils/file/document_format.dart';
 import 'package:otzaria/utils/file/file_book_path_resolver.dart';
 import 'package:otzaria/settings/engine/settings_repository.dart';
+import 'link_visibility_sql.dart';
 import 'package:flutter_settings_screens/flutter_settings_screens.dart';
 import 'package:pdfrx/pdfrx.dart';
+import 'package:path/path.dart' as p;
 
 // ──────────────────────────────────────────────────────────────────────────
 // Isolate helpers for scanning external-book folders.
@@ -289,10 +291,18 @@ List<Map<String, dynamic>> _loadInverseSourceRows(
   int? startLineIndex,
   int? endLineIndex,
 }) {
-  final types = LinkTypes.dependentTextTypes.toList();
+  final hasSuppressedSide = _hasLinkSuppressedSideTable(db);
+  final dependentTypes = LinkTypes.dependentTextTypes.toList();
+  // קישורי הפניה דו-כיווניים רק בסכמה שמספקת verdict נפרד לכל צד.
+  final types = LinkTypes.inverseQueryTypes(bidirectional: hasSuppressedSide);
   final typePlaceholders = List.filled(types.length, '?').join(', ');
+  final connectionTypeExpr = inverseConnectionTypeExpr(dependentTypes);
   final hasRange = startLineIndex != null && endLineIndex != null;
   // בשאילתה ההפוכה השורה המוצגת היא צד היעד של הקישור השמור.
+  final suppressedFilter = suppressedSideFilter(
+    hasSuppressedSide,
+    displayedSide: 1,
+  );
   final hasLinkAnchor = _hasLinkAnchorTable(db);
   final hasLinkRanges = _hasLinkRangeTables(db);
   final anchorSelect = _anchorSelectColumns(hasLinkAnchor);
@@ -344,7 +354,7 @@ List<Map<String, dynamic>> _loadInverseSourceRows(
           $rangeEndSelect
           $anchorSelect
           $provenanceSelect
-          'SOURCE' as connectionTypeName
+          $connectionTypeExpr as connectionTypeName
         FROM anchors a
         JOIN link l ON l.id = a.linkId
         JOIN line tl ON tl.id = a.anchorLineId
@@ -355,6 +365,7 @@ List<Map<String, dynamic>> _loadInverseSourceRows(
         $anchorJoin
         WHERE ct.name IN ($typePlaceholders)
           AND l.sourceBookId != l.targetBookId
+          $suppressedFilter
         ORDER BY tl.lineIndex
       ''', params).toMapList();
   }
@@ -386,7 +397,7 @@ List<Map<String, dynamic>> _loadInverseSourceRows(
         $rangeEndSelect
         $anchorSelect
         $provenanceSelect
-        'SOURCE' as connectionTypeName
+        $connectionTypeExpr as connectionTypeName
       FROM anchors a
       JOIN link l ON l.id = a.linkId
       JOIN line tl ON tl.id = a.anchorLineId
@@ -397,8 +408,20 @@ List<Map<String, dynamic>> _loadInverseSourceRows(
       $anchorJoin
       WHERE ct.name IN ($typePlaceholders)
         AND l.sourceBookId != l.targetBookId
+        $suppressedFilter
       ORDER BY tl.lineIndex
     ''', params).toMapList();
+}
+
+/// דיכוי פר-צד (link_suppressed_side, סכמה 3) — קיים רק במסדים חדשים. במסד ישן
+/// אין מידע נראות, ולכן גם אין דו-כיווניות: אחרת קישורי הפניה היו עולים משני
+/// הצדדים בלי סינון, רגרסיה גרועה מהמצב הקיים.
+bool _hasLinkSuppressedSideTable(sqlite3.Database db) {
+  return db
+      .select(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='link_suppressed_side' LIMIT 1",
+      )
+      .isNotEmpty;
 }
 
 /// עוגני-מילה (link_anchor) — קיים רק במסדים חדשים; במסד ישן השאילתות חוזרות
@@ -540,6 +563,11 @@ List<Map<String, dynamic>> _loadBookLinksRowsInIsolate({
     final bookId = bookResults.first['id'] as int;
     final hasLinkAnchor = _hasLinkAnchorTable(db);
     final hasLinkRanges = _hasLinkRangeTables(db);
+    // בשאילתה הקדמית השורה המוצגת היא צד המקור השמור.
+    final suppressedFilter = suppressedSideFilter(
+      _hasLinkSuppressedSideTable(db),
+      displayedSide: 0,
+    );
 
     // שורות ה-anchors כוללות גם שורות מכוסות של קישורי-טווח (side=0), כך
     // שקישור שהמקור שלו משתרע על כמה שורות מופיע בכל שורה שהוא מכסה.
@@ -577,6 +605,8 @@ List<Map<String, dynamic>> _loadBookLinksRowsInIsolate({
         LEFT JOIN connection_type ct ON l.connectionTypeId = ct.id
         ${_rangeEndJoinClause(hasLinkRanges, panelSide: 1)}
         ${_anchorJoinClause(hasLinkAnchor, displayedSide: 0)}
+        WHERE 1=1
+          $suppressedFilter
         ORDER BY sl.lineIndex
       ''',
           [bookId, if (hasLinkRanges) bookId],
@@ -610,6 +640,11 @@ _loadBookLinkTargetsSummaryRowsInIsolate({
 
     final bookId = bookResults.first['id'] as int;
     final hasLinkRanges = _hasLinkRangeTables(db);
+    final hasSuppressedSide = _hasLinkSuppressedSideTable(db);
+    final forwardSuppressed = suppressedSideFilter(
+      hasSuppressedSide,
+      displayedSide: 0,
+    );
 
     // קישור-טווח נספר פעם לכל שורה מכוסה — כמו בטעינת הקישורים המלאה, כדי
     // שסיווג "מפרש נדיר" לפי הספירה יישאר שקול.
@@ -634,21 +669,33 @@ _loadBookLinkTargetsSummaryRowsInIsolate({
         JOIN link l ON l.id = a.linkId
         JOIN book tb ON l.targetBookId = tb.id
         LEFT JOIN connection_type ct ON l.connectionTypeId = ct.id
+        WHERE 1=1
+          $forwardSuppressed
         GROUP BY tb.title, ct.name
       ''',
           [bookId, if (hasLinkRanges) bookId],
         )
         .toMapList();
 
-    // הזרוע ההפוכה — מפרשים ששמורים כקישור מהם אל הספר הזה (מוצגים כ-SOURCE),
-    // כמו ב-_loadInverseSourceRows.
+    // הזרוע ההפוכה — סופרת שורות link בלבד, בלי זרוע ה-coverage שיש
+    // ל-_loadInverseSourceRows, ולכן היא נמוכה ממנה. הצרכן היחיד
+    // (aggregateLinkTargetsFromSummary) סופר רק תלויי-טקסט, ושורות הפוכות
+    // אינן כאלה — הן נכנסות ל-nonCommentaryTitles שבו הספירה נזרקת.
     final depTypes = LinkTypes.dependentTextTypes.toList();
-    final typePlaceholders = List.filled(depTypes.length, '?').join(', ');
+    final inverseTypes = LinkTypes.inverseQueryTypes(
+      bidirectional: hasSuppressedSide,
+    );
+    final typePlaceholders = List.filled(inverseTypes.length, '?').join(', ');
+    final inverseTypeExpr = inverseConnectionTypeExpr(depTypes);
+    final inverseSuppressed = suppressedSideFilter(
+      hasSuppressedSide,
+      displayedSide: 1,
+    );
     final inverseRows = db
         .select(
           '''
         SELECT sb.title as targetBookTitle,
-               'SOURCE' as connectionTypeName,
+               $inverseTypeExpr as connectionTypeName,
                COUNT(*) as linkCount
         FROM link l
         JOIN book sb ON l.sourceBookId = sb.id
@@ -656,9 +703,10 @@ _loadBookLinkTargetsSummaryRowsInIsolate({
         WHERE l.targetBookId = ?
           AND ct.name IN ($typePlaceholders)
           AND l.sourceBookId != l.targetBookId
-        GROUP BY sb.title
+          $inverseSuppressed
+        GROUP BY sb.title, connectionTypeName
       ''',
-          [bookId, ...depTypes],
+          [bookId, ...inverseTypes],
         )
         .toMapList();
 
@@ -722,6 +770,10 @@ List<Map<String, dynamic>> _loadBookLinksRowsInRangeInIsolate({
     final bookId = bookResults.first['id'] as int;
     final hasLinkAnchor = _hasLinkAnchorTable(db);
     final hasLinkRanges = _hasLinkRangeTables(db);
+    final suppressedFilter = suppressedSideFilter(
+      _hasLinkSuppressedSideTable(db),
+      displayedSide: 0,
+    );
 
     final parameters = <Object?>[
       bookId,
@@ -791,6 +843,7 @@ List<Map<String, dynamic>> _loadBookLinksRowsInRangeInIsolate({
         ${_anchorJoinClause(hasLinkAnchor, displayedSide: 0)}
         WHERE sl.lineIndex BETWEEN ? AND ?
           $commentaryFilterClause
+          $suppressedFilter
         ORDER BY sl.lineIndex, tb.orderIndex
       ''', parameters).toMapList();
     return [
@@ -3273,7 +3326,7 @@ class DatabaseLibraryProvider implements LibraryProvider {
     if (link.index2 <= 0) return 'שגיאה: אינדקס לא תקין';
 
     final targetTitle = link.path2.contains('/')
-        ? link.path2.split('/').last.replaceAll('.txt', '')
+        ? _bookTitleFromLinkPath(link.path2)
         : link.path2;
 
     final repository = _sqliteProvider.repository;
@@ -3341,6 +3394,15 @@ class DatabaseLibraryProvider implements LibraryProvider {
       debugPrint('⚠️ Error in getLinkContent: $e');
       return 'שגיאה בטעינת תוכן המפרש';
     }
+  }
+
+  static String _bookTitleFromLinkPath(String value) {
+    final name = value.split('/').last;
+    final extension = p.extension(name).toLowerCase();
+    if (extension == '.txt' || extension == '.text') {
+      return name.substring(0, name.length - extension.length);
+    }
+    return name;
   }
 
   /// Get all alternative TOC structures available in the database for a specific book

@@ -59,6 +59,9 @@ const Set<String> _knownApiMethods = {
   'app.getGrantedPermissions',
   'app.getConnectivity',
   'app.openUrl',
+  'app.registerShortcut',
+  'app.unregisterShortcut',
+  'app.updateShortcut',
   'library.findBooks',
   'library.getBookMetadata',
   'library.resolveBooks',
@@ -71,6 +74,7 @@ const Set<String> _knownApiMethods = {
   'library.getTree',
   'library.getCommentators',
   'library.getLinks',
+  'library.getRawLinks',
   'library.getLinkTargetsSummary',
   'library.getLinkContent',
   'search.fullText',
@@ -108,6 +112,7 @@ const Set<String> _knownApiMethods = {
   'plugin.openSelf',
   'plugin.openOther',
   'plugin.backgroundDone',
+  'plugin.listInstalled',
   'notes.list',
   'notes.getBookNotesSummary',
   'notes.add',
@@ -119,6 +124,8 @@ const Set<String> _knownApiMethods = {
   'ui.showConfirm',
   'ui.showWarning',
   'ui.pickFolder',
+  'ui.print',
+  'ui.exportPdf',
   'fs.extractZip',
   'fs.deleteFile',
   'fs.pickUserFile',
@@ -178,12 +185,9 @@ const Set<String> _knownApiMethods = {
   'shortcut.create',
 };
 
-/// APIs קיימות בתוספים אך אינן מתועדות פומבית — לא נאזהיר עליהן.
-/// שתיהן מיועדות לתוסף חנות התוספים בלבד; ב-d.ts הן מסומנות `@internal`.
-const Set<String> _knownUndocumentedMethods = {
-  'plugin.listInstalled',
-  'plugin.requestInstall',
-};
+/// API פנימי שקיים בתוספים אך אינו מתועד פומבית, ולכן לא נאזהיר עליו.
+/// השיטה מיועדת לחנות התוספים וב-d.ts מסומנת `@internal`.
+const Set<String> _knownUndocumentedMethods = {'plugin.requestInstall'};
 
 /// אירועי lifecycle ו-events נתמכים.
 const Set<String> _knownEvents = {
@@ -209,6 +213,7 @@ const Set<String> _knownEvents = {
   'workspace.changed',
   'settings.changed',
   'plugin.permissions_changed',
+  'app.command',
   'search.requested',
   // אירוע ממוקד מ-PluginExternalSearchService: בקשת חיפוש חיצוני ממסך
   // החיפוש המובנה. תוסף-ספק מצהיר עליו ב-activationEvents כדי שהבקשה
@@ -225,6 +230,9 @@ const Map<String, String> _methodRequiredPermission = {
   'app.getConnectivity': 'app.info.read',
   'app.getUserEmail': 'app.user_email.read',
   'app.openUrl': 'app.open_url',
+  'app.registerShortcut': 'app.shortcuts',
+  'app.unregisterShortcut': 'app.shortcuts',
+  'app.updateShortcut': 'app.shortcuts',
   'library.findBooks': 'library.books.read',
   'library.getBookMetadata': 'library.books.read',
   'library.resolveBooks': 'library.books.read',
@@ -238,6 +246,7 @@ const Map<String, String> _methodRequiredPermission = {
   'library.getLinkContent': 'library.content.read',
   'library.getCommentators': pluginLinksReadPermission,
   'library.getLinks': pluginLinksReadPermission,
+  'library.getRawLinks': pluginLinksReadPermission,
   'library.getLinkTargetsSummary': pluginLinksReadPermission,
   'search.fullText': 'search.fulltext.read',
   'search.query': 'search.fulltext.read',
@@ -273,6 +282,7 @@ const Map<String, String> _methodRequiredPermission = {
   'navigation.goTo': 'navigation.write',
   'plugin.openSelf': 'navigation.write',
   'plugin.openOther': pluginOpenOtherPermission,
+  'plugin.listInstalled': 'app.info.read',
   'notes.list': 'notes.read',
   'notes.getBookNotesSummary': 'notes.read',
   'notes.add': 'notes.write',
@@ -362,6 +372,7 @@ const Map<String, String> _methodMinVersion = {
   'library.getBookToc': '0.9.89',
   'library.getCommentators': '0.9.97',
   'library.getLinks': '0.9.97',
+  'library.getRawLinks': '0.9.97',
   'library.getLinkTargetsSummary': '0.9.97',
   'library.getLinkContent': '0.9.97',
   'search.fullText': '0.9.89',
@@ -403,6 +414,8 @@ const Map<String, String> _methodMinVersion = {
   'ui.showError': '0.9.89',
   'ui.showConfirm': '0.9.89',
   'ui.showWarning': '0.9.89',
+  'ui.print': '0.9.97',
+  'ui.exportPdf': '0.9.97',
   'feedback.sendEmail': '0.9.89',
   'feedback.report': '0.9.97',
   'feedback.hasReporterEmail': '0.9.97',
@@ -462,6 +475,7 @@ const Map<String, String> _methodMinVersion = {
   'library.getBookAltToc': '0.9.96',
   // 0.9.97
   'plugin.backgroundDone': '0.9.97',
+  'plugin.listInstalled': '0.9.97',
   'app.getConnectivity': '0.9.96',
   'fs.writeFile': '0.9.97',
   'fs.readFile': '0.9.97',
@@ -477,6 +491,9 @@ const Map<String, String> _methodMinVersion = {
   'bookmarks.remove': '0.9.97',
   'tools.gematria': '0.9.97',
   'tools.dictionary': '0.9.97',
+  'app.registerShortcut': '0.9.97',
+  'app.unregisterShortcut': '0.9.97',
+  'app.updateShortcut': '0.9.97',
 };
 
 /// שדות שמורים שאינם API methods (כדי שלא ייתפסו ב-shorthand scanner).

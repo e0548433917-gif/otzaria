@@ -23,7 +23,7 @@ import 'package:otzaria/utils/text/otzaria_markup.dart';
 /// v7: יישור נגזר גם מ-`sprmPFBiDi`; בפסקה RTL נשמר מרכוז בלבד.
 /// v8: גוף ריק ותקרת תווים זורקים חריגה במקום להחזיר כותרת בלבד, וטבלת
 /// סגנונות פגומה אינה מפילה עוד את שכבת ה-PAPX/CHPX כולה.
-const int kLegacyWordConverterVersion = 8;
+const int kLegacyWordConverterVersion = 9;
 
 /// ממיר מסמך Word בינארי ישן (‎.doc‎ / ‎.dot‎, פורמט Word 97-2003) לטקסט
 /// של אוצריא.
@@ -119,7 +119,10 @@ String legacyWordToText(
     embedImages: embedImages,
   );
 
-  final output = <String>['<h1>${escapeHtmlText(title)}</h1>', ...paragraphs];
+  final output = <String>[
+    otzariaInlineText('<h1>${escapeHtmlText(title)}</h1>'),
+    ...paragraphs,
+  ];
   return output.join('\n');
 }
 

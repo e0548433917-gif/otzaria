@@ -97,12 +97,20 @@ void main() {
     ).writeAsStringSync('{\\rtf1\\ansi $paragraph\\par}');
   }
 
+  void writeHtml(String name, String body) {
+    File(
+      path.join(booksDir.path, name),
+    ).writeAsStringSync('<html><body>$body</body></html>');
+  }
+
   test('כל הפורמטים נסרקים ונשמרים עם fileType נכון', () async {
     writeDocx('מסמך.docx', 'תוכן DOCX');
     writeDocx('מאקרו.docm', 'תוכן DOCM');
     writeDocx('תבנית.dotx', 'תוכן DOTX');
     writeOdt('פתוח.odt', 'תוכן ODT');
     writeRtf('עשיר.rtf', 'תוכן RTF');
+    writeHtml('דף.html', '<p>תוכן HTML</p>');
+    writeHtml('ישן.htm', '<p>תוכן HTM</p>');
     File(
       path.join(booksDir.path, 'טקסט.txt'),
     ).writeAsStringSync('<h1>כותרת</h1>\nתוכן');
@@ -115,13 +123,39 @@ void main() {
 
     expect(
       byTitle.keys,
-      containsAll(['מסמך', 'מאקרו', 'תבנית', 'פתוח', 'עשיר']),
+      containsAll(['מסמך', 'מאקרו', 'תבנית', 'פתוח', 'עשיר', 'דף', 'ישן']),
     );
     expect(byTitle['מסמך']!.fileType, 'docx');
     expect(byTitle['מאקרו']!.fileType, 'docm');
     expect(byTitle['תבנית']!.fileType, 'dotx');
     expect(byTitle['פתוח']!.fileType, 'odt');
     expect(byTitle['עשיר']!.fileType, 'rtf');
+    // ‏‎.htm‎ אינו ממופה ל-‎.html‎: ‏`fileType` הוא חלק מזהות הספר (§15).
+    expect(byTitle['דף']!.fileType, 'html');
+    expect(byTitle['ישן']!.fileType, 'htm');
+  });
+
+  test('ספר HTML נקרא מומר — ובלי הסקריפט שהיה בקובץ', () async {
+    writeHtml(
+      'שיעור.html',
+      '<script>alert(1)</script><h1>פרק א</h1><p>גוף השיעור</p>',
+    );
+
+    expect((await sync()).errors, isEmpty);
+
+    final book = (await repository.getAllBooksLean()).firstWhere(
+      (b) => b.title == 'שיעור',
+    );
+    final text = await readFileBackedBookText(
+      File(book.filePath!),
+      book.fileType,
+      book.title,
+    );
+
+    expect(text, startsWith('<h1>שיעור</h1>'));
+    expect(text, contains('<h2>פרק א</h2>'));
+    expect(text, contains('גוף השיעור'));
+    expect(text, isNot(contains('alert')));
   });
 
   test('‎.xml‎ נאסף רק כשתוכנו מסמך Word', () async {

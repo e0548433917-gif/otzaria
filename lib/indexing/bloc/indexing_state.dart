@@ -23,7 +23,18 @@ class IndexingInProgress extends IndexingState {
     super.booksProcessed,
     super.totalBooks,
     super.isCreatingIndex,
+    this.isPaused = false,
+    this.isEconomy = false,
   });
+
+  /// האינדוקס מושהה — הלולאה ממתינה לפני הספר הבא.
+  final bool isPaused;
+
+  /// מצב חסכוני פעיל — המנוע רץ עם תקציב writer מוקטן.
+  final bool isEconomy;
+
+  @override
+  List<Object?> get props => [...super.props, isPaused, isEconomy];
 }
 
 class IndexingComplete extends IndexingState {

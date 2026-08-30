@@ -81,8 +81,8 @@ void main() {
         'apiMethods': (value: spec['apiMethods'], floor: 110, actual: 121),
         'undocumentedApiMethods': (
           value: spec['undocumentedApiMethods'],
-          floor: 2,
-          actual: 2,
+          floor: 1,
+          actual: 1,
         ),
         'methodPermissions': (
           value: spec['methodPermissions'],

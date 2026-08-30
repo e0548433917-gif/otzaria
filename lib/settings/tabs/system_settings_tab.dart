@@ -10,8 +10,8 @@ import 'package:flutter_settings_screens/flutter_settings_screens.dart'
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-// import 'package:path/path.dart' as p;
-// import 'package:otzaria/data/constants/database_constants.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:otzaria/core/app_paths.dart';
 import 'package:otzaria/core/messages/report_messages.dart';
@@ -587,11 +587,15 @@ class _SystemSettingsTabState extends State<SystemSettingsTab> {
 
     if (!mounted) return;
     if (result.isSent) {
-      await ErrorReportHelper.showDirectReportDetailsDialog(
-        context,
-        title: ReportMessages.sentSuccessTitle,
-        report: report,
-      );
+      if (result.isDuplicate) {
+        UiSnack.show(result.message);
+      } else {
+        await ErrorReportHelper.showDirectReportDetailsDialog(
+          context,
+          title: ReportMessages.sentSuccessTitle,
+          report: report,
+        );
+      }
       if (!mounted) return;
       setState(() {});
     } else if (result.isQueued) {
@@ -2016,10 +2020,19 @@ class _SystemSettingsTabState extends State<SystemSettingsTab> {
                 result.skippedSections.join(", "),
               )
             : SettingsMessages.backupSaved(sizeStr);
+        // במובייל תיקיית הגיבוי פנימית ונמחקת עם האפליקציה — הפעולה
+        // מייצאת עותק למיקום שהמשתמש בוחר (SAF) במקום לפתוח סייר קבצים.
+        final isMobile = Platform.isAndroid || Platform.isIOS;
         UiSnack.showWithAction(
           message: message,
-          actionLabel: context.settingsText('פתח מיקום קובץ'),
+          actionLabel: isMobile
+              ? context.settingsText('ייצא קובץ')
+              : context.settingsText('פתח מיקום קובץ'),
           onAction: () async {
+            if (isMobile) {
+              await _exportBackupFile(file);
+              return;
+            }
             final dir = file.parent;
             if (Platform.isWindows) {
               await Process.run('explorer', [dir.path]);
@@ -2036,6 +2049,48 @@ class _SystemSettingsTabState extends State<SystemSettingsTab> {
       if (!mounted) return;
       UiSnack.showError(SettingsMessages.backupCreateError(e));
     }
+  }
+
+  /// מייצא עותק של קובץ הגיבוי למיקום שהמשתמש בוחר (דיאלוג שמירה של המערכת).
+  Future<void> _exportBackupFile(File file) async {
+    try {
+      final bytes = await file.readAsBytes();
+      final path = await saveFileWithExtension(
+        fileName: p.basename(file.path),
+        extension: 'json',
+        bytes: bytes,
+      );
+      if (path == null || !mounted) return;
+      UiSnack.showSuccess(SettingsMessages.backupExported);
+    } catch (e) {
+      if (!mounted) return;
+      UiSnack.showError(SettingsMessages.backupExportError(e));
+    }
+  }
+
+  /// שחזור מקובץ גיבוי שהמשתמש בוחר — הדרך היחידה לשחזר אחרי התקנה מחדש
+  /// במובייל, שבו תיקיית הגיבוי הפנימית נמחקת עם האפליקציה.
+  Future<void> _restoreFromPickedFile() async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+    );
+    final filePath = result?.files.single.path;
+    if (filePath == null || !mounted) return;
+
+    final confirmed = await showWarningDialog(
+      context: context,
+      title: context.settingsText('שחזור מגיבוי?'),
+      content: context.settingsText(
+        'פעולה זו תחליף את הנתונים הקיימים בנתונים מקובץ הגיבוי שנבחר.',
+      ),
+      subtitle: context.settingsText('פעולה זו אינה הפיכה!'),
+      cancelText: context.settingsText('ביטול'),
+      confirmText: context.settingsText('שחזר'),
+    );
+    if (confirmed != true) return;
+
+    await _performRestore(filePath);
   }
 
   Future<void> _restoreBackup() async {
@@ -2317,12 +2372,19 @@ class _SystemSettingsTabState extends State<SystemSettingsTab> {
                   label: context.settingsText('מהארכיון (כולל שנמחקו)'),
                   icon: FluentIcons.archive_24_regular,
                 ),
+                AppMenuEntry(
+                  value: 'file',
+                  label: context.settingsText('מקובץ גיבוי...'),
+                  icon: FluentIcons.folder_open_24_regular,
+                ),
               ],
               onSelected: (value) {
                 if (value == 'latest') {
                   _restoreBackup();
                 } else if (value == 'archive') {
                   _restoreFromArchive();
+                } else if (value == 'file') {
+                  _restoreFromPickedFile();
                 }
               },
             ),
@@ -2368,64 +2430,70 @@ class _SystemSettingsTabState extends State<SystemSettingsTab> {
           onTap: () => setState(() => _isBackupExpanded = !_isBackupExpanded),
           isExpanded: _isBackupExpanded,
           children: [
-            SettingsActionTile.pathTile(
-              icon: FluentIcons.folder_24_regular,
-              title: context.settingsText('תיקיית גיבוי'),
-              currentPath: _resolvedBackupPath,
-              placeholder: context.settingsText('שימוש בתיקיית ברירת המחדל'),
-              simpleButtonWhenEmpty: false,
-              clearPathEnabled:
-                  (Settings.getValue<String>(
-                            SettingsRepository.keyBackupPath,
-                          ) ??
-                          '')
-                      .isNotEmpty,
-              onFolderChanged: (path) async {
-                Settings.setValue<String>(
-                  SettingsRepository.keyBackupPath,
-                  path,
-                );
-                _loadResolvedBackupPath();
-              },
-              requestChangeLocation: makeChangeLocationCallback(
+            // במובייל dart:io לא יכול לכתוב לתיקייה שנבחרת דרך SAF —
+            // הגיבוי נשאר בתיקייה הפנימית והייצוא נעשה דרך "ייצא קובץ".
+            if (!Platform.isAndroid && !Platform.isIOS)
+              SettingsActionTile.pathTile(
+                icon: FluentIcons.folder_24_regular,
+                title: context.settingsText('תיקיית גיבוי'),
                 currentPath: _resolvedBackupPath,
-                folderName: _backupFolderName,
-                onPathChanged: (newPath) async {
+                placeholder: context.settingsText('שימוש בתיקיית ברירת המחדל'),
+                simpleButtonWhenEmpty: false,
+                clearPathEnabled:
+                    (Settings.getValue<String>(
+                              SettingsRepository.keyBackupPath,
+                            ) ??
+                            '')
+                        .isNotEmpty,
+                onFolderChanged: (path) async {
                   Settings.setValue<String>(
                     SettingsRepository.keyBackupPath,
-                    newPath,
+                    path,
                   );
                   _loadResolvedBackupPath();
                 },
-                onAfterMove: _resolvedBackupPath.isNotEmpty
-                    ? (newPath) async {
-                        Settings.setValue<String>(
-                          SettingsRepository.keyBackupPath,
-                          newPath,
-                        );
-                        _loadResolvedBackupPath();
-                      }
-                    : null,
-                defaultPath: _defaultBackupPath.isNotEmpty
-                    ? _defaultBackupPath
-                    : null,
+                requestChangeLocation: makeChangeLocationCallback(
+                  currentPath: _resolvedBackupPath,
+                  folderName: _backupFolderName,
+                  onPathChanged: (newPath) async {
+                    Settings.setValue<String>(
+                      SettingsRepository.keyBackupPath,
+                      newPath,
+                    );
+                    _loadResolvedBackupPath();
+                  },
+                  onAfterMove: _resolvedBackupPath.isNotEmpty
+                      ? (newPath) async {
+                          Settings.setValue<String>(
+                            SettingsRepository.keyBackupPath,
+                            newPath,
+                          );
+                          _loadResolvedBackupPath();
+                        }
+                      : null,
+                  defaultPath: _defaultBackupPath.isNotEmpty
+                      ? _defaultBackupPath
+                      : null,
+                ),
+                onOpenFolder: () {
+                  final path = _resolvedBackupPath;
+                  if (path.isEmpty) return;
+                  if (Platform.isWindows) {
+                    unawaited(Process.run('explorer', [path]));
+                  } else if (Platform.isMacOS) {
+                    unawaited(Process.run('open', [path]));
+                  } else if (Platform.isLinux) {
+                    unawaited(Process.run('xdg-open', [path]));
+                  }
+                },
+                onClearPath: () {
+                  Settings.setValue<String>(
+                    SettingsRepository.keyBackupPath,
+                    '',
+                  );
+                  _loadResolvedBackupPath();
+                },
               ),
-              onOpenFolder: () {
-                final path = _resolvedBackupPath;
-                if (path.isEmpty) return;
-                if (Platform.isWindows) {
-                  unawaited(Process.run('explorer', [path]));
-                } else if (Platform.isMacOS) {
-                  unawaited(Process.run('open', [path]));
-                } else if (Platform.isLinux) {
-                  unawaited(Process.run('xdg-open', [path]));
-                }
-              },
-              onClearPath: () {
-                Settings.setValue<String>(SettingsRepository.keyBackupPath, '');
-                _loadResolvedBackupPath();
-              },
-            ),
             SettingsActionTile.segmentedTile<_BackupMode>(
               icon: FluentIcons.options_24_regular,
               title: context.settingsText('מצב גיבוי'),

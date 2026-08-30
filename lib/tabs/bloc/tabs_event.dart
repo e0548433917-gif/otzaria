@@ -299,3 +299,20 @@ class ClosePane extends TabsEvent {
   @override
   List<Object?> get props => [pane];
 }
+
+/// הוצאת חלונית מטאב מפוצל חזרה לשורת הכרטיסיות, במיקום ההכנסה שנבחר.
+///
+/// אחות החלונית תופסת את מקום הטאב המפוצל, והחלונית עצמה — בזהותה, כדי
+/// לשמר את מצב הקריאה — נכנסת ככרטיסייה עצמאית ב-[insertIndex].
+class DetachPane extends TabsEvent {
+  /// החלונית עצמה ולא מיקומה: מיקום מתיישן בכל שינוי בשורת הכרטיסיות.
+  final OpenedTab pane;
+
+  /// מיקום ההכנסה בשורת הכרטיסיות (0 עד אורך הרשימה).
+  final int insertIndex;
+
+  const DetachPane(this.pane, {required this.insertIndex});
+
+  @override
+  List<Object?> get props => [pane, insertIndex];
+}

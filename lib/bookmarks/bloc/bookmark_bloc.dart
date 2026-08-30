@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:otzaria/bookmarks/bloc/bookmark_state.dart';
 import 'package:otzaria/bookmarks/models/bookmark.dart';
+import 'package:otzaria/bookmarks/models/bookmark_group.dart';
 import 'package:otzaria/bookmarks/repository/bookmark_repository.dart';
 import 'package:otzaria/core/ui_snack.dart';
 import 'package:otzaria/core/messages/notes_messages.dart';
@@ -24,6 +25,14 @@ class BookmarkBloc extends Cubit<BookmarkState> {
       }
     } catch (e, stackTrace) {
       debugPrint('שגיאה בטעינת סימניות: $e\n$stackTrace');
+    }
+    try {
+      final groups = await _repository.loadGroups();
+      if (!isClosed) {
+        emit(state.copyWith(groups: groups));
+      }
+    } catch (e, stackTrace) {
+      debugPrint('שגיאה בטעינת סימניות מרוכזות: $e\n$stackTrace');
     }
   }
 
@@ -166,6 +175,74 @@ class BookmarkBloc extends Cubit<BookmarkState> {
       UiSnack.showError(NotesMessages.bookmarkClearError);
     });
     emit(state.copyWith(bookmarks: []));
+  }
+
+  /// סף החפיפה לזיהוי "אותה קבוצה" בשמירה חוזרת — רוב הספרים משותפים
+  /// (החיתוך ביחס לקבוצה הגדולה מבין השתיים).
+  static const double _groupOverlapThreshold = 0.6;
+
+  /// מחזיר את הקבוצה הקיימת הדומה ביותר לקבוצת ספרים בעלת הזהויות
+  /// [identities], או null אם אף קבוצה אינה חופפת ברוב ספריה.
+  BookmarkGroup? findSimilarGroup(Set<String> identities) {
+    BookmarkGroup? best;
+    var bestOverlap = 0.0;
+    for (final group in state.groups) {
+      final overlap = group.overlapWith(identities);
+      if (overlap >= _groupOverlapThreshold && overlap > bestOverlap) {
+        best = group;
+        bestOverlap = overlap;
+      }
+    }
+    return best;
+  }
+
+  void _persistGroups(List<BookmarkGroup> groups) {
+    unawaited(
+      _repository.saveGroups(groups).catchError((Object e) {
+        debugPrint('שגיאה בשמירת סימניות מרוכזות: $e');
+        UiSnack.showError(NotesMessages.bookmarkSaveError);
+      }),
+    );
+  }
+
+  void addGroup(BookmarkGroup group) {
+    final newGroups = [...state.groups, group];
+    _persistGroups(newGroups);
+    emit(state.copyWith(groups: newGroups));
+  }
+
+  /// מחליף קבוצה קיימת בתוכן חדש תוך שמירת המזהה שלה.
+  /// מחזיר false אם [id] לא נמצא.
+  bool replaceGroup(String id, BookmarkGroup replacement) {
+    final index = state.groups.indexWhere((g) => g.id == id);
+    if (index < 0) return false;
+    final newGroups = [...state.groups];
+    newGroups[index] = newGroups[index].copyWith(
+      name: replacement.name,
+      items: replacement.items,
+    );
+    _persistGroups(newGroups);
+    emit(state.copyWith(groups: newGroups));
+    return true;
+  }
+
+  bool removeGroup(String id) {
+    final newGroups = state.groups.where((g) => g.id != id).toList();
+    if (newGroups.length == state.groups.length) return false;
+    _persistGroups(newGroups);
+    emit(state.copyWith(groups: newGroups));
+    return true;
+  }
+
+  void renameGroup(String id, String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+    final index = state.groups.indexWhere((g) => g.id == id);
+    if (index < 0) return;
+    final newGroups = [...state.groups];
+    newGroups[index] = newGroups[index].copyWith(name: trimmed);
+    _persistGroups(newGroups);
+    emit(state.copyWith(groups: newGroups));
   }
 
   /// מוחק את כל הסימניות של ספר ספציפי (לפי זהות חזקה - id/path/category),

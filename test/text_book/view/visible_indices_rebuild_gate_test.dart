@@ -5,6 +5,7 @@ import 'package:otzaria/models/books.dart';
 import 'package:otzaria/models/links.dart';
 import 'package:otzaria/search/models/search_configuration.dart';
 import 'package:otzaria/text_book/bloc/text_book_state.dart';
+import 'package:otzaria/text_book/utils/reader_build_policy.dart';
 import 'package:otzaria/text_book/utils/reading_segments.dart';
 import 'package:otzaria_search_engine/otzaria_search_engine.dart'
     show SearchScope;
@@ -15,19 +16,19 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 /// המלכוד המרכזי: `buildWhen` על ווידג'ט פנימי אינו מונע בנייה כשההורה
 /// נבנה — הוא רק מקפיא את המצב שנמסר. לכן השער חייב לשבת גם בשורש העץ.
 void main() {
-  group('textBookStateDiffersBeyondVisibleIndices', () {
+  group('shouldRebuildReader', () {
     test('תזוזת גלילה בלבד אינה מצדיקה בנייה מחדש', () {
       final before = _loaded();
       final after = before.copyWith(visibleIndices: const [7, 8, 9]);
 
-      expect(textBookStateDiffersBeyondVisibleIndices(before, after), isFalse);
+      expect(shouldRebuildReader(before, after), isFalse);
     });
 
     test('רשימת שורות גלויות זהה בערכה אינה מצדיקה בנייה', () {
       final before = _loaded();
       final after = before.copyWith(visibleIndices: [...before.visibleIndices]);
 
-      expect(textBookStateDiffersBeyondVisibleIndices(before, after), isFalse);
+      expect(shouldRebuildReader(before, after), isFalse);
     });
 
     test('כותרת שהשתנתה עם הגלילה כן מצדיקה בנייה מחדש', () {
@@ -39,14 +40,35 @@ void main() {
         currentTitle: 'סימן אחר',
       );
 
-      expect(textBookStateDiffersBeyondVisibleIndices(before, after), isTrue);
+      expect(shouldRebuildReader(before, after), isTrue);
+    });
+
+    test('עדכון הטקסט המסומן אינו מצדיק בנייה מחדש', () {
+      // הסימון מתעדכן בכל תזוזת עכבר בזמן גרירה, ואף חלק מהתצוגה אינו נגזר
+      // ממנו — בנייה בגללו מרעידה את כל המפרשים בצורת הדף (issue #976).
+      final before = _loaded();
+      final after = before.copyWith(
+        selectedTextForNote: 'טקסט אחר',
+        selectedTextSectionIndex: 2,
+        selectedTextStart: 7,
+        selectedTextEnd: 11,
+      );
+
+      expect(shouldRebuildReader(before, after), isFalse);
+    });
+
+    test('ניקוי הטקסט המסומן אינו מצדיק בנייה מחדש', () {
+      final before = _loaded();
+      final after = before.copyWith(clearSelectedText: true);
+
+      expect(shouldRebuildReader(before, after), isFalse);
     });
 
     test('בחירת שורה מצדיקה בנייה מחדש', () {
       final before = _loaded();
 
       expect(
-        textBookStateDiffersBeyondVisibleIndices(
+        shouldRebuildReader(
           before,
           before.copyWith(selectedIndex: before.selectedIndex! + 1),
         ),
@@ -61,7 +83,7 @@ void main() {
         visibleIndices: const [3],
       );
 
-      expect(textBookStateDiffersBeyondVisibleIndices(before, after), isTrue);
+      expect(shouldRebuildReader(before, after), isTrue);
     });
 
     test('גרסת תוכן חדשה מצדיקה בנייה גם כשאורך התוכן זהה', () {
@@ -74,7 +96,7 @@ void main() {
         visibleIndices: const [5],
       );
 
-      expect(textBookStateDiffersBeyondVisibleIndices(before, after), isTrue);
+      expect(shouldRebuildReader(before, after), isTrue);
     });
 
     test('סיום טעינת הקישורים מצדיק בנייה מחדש', () {
@@ -84,7 +106,7 @@ void main() {
         visibleIndices: const [9],
       );
 
-      expect(textBookStateDiffersBeyondVisibleIndices(before, after), isTrue);
+      expect(shouldRebuildReader(before, after), isTrue);
     });
 
     test('מצב שאינו טעון תמיד נבנה', () {
@@ -96,10 +118,10 @@ void main() {
         const [],
       );
 
-      expect(textBookStateDiffersBeyondVisibleIndices(initial, loaded), isTrue);
-      expect(textBookStateDiffersBeyondVisibleIndices(loaded, initial), isTrue);
+      expect(shouldRebuildReader(initial, loaded), isTrue);
+      expect(shouldRebuildReader(loaded, initial), isTrue);
       expect(
-        textBookStateDiffersBeyondVisibleIndices(initial, initial),
+        shouldRebuildReader(initial, initial),
         isTrue,
       );
     });
@@ -236,6 +258,39 @@ void main() {
       await cubit.close();
     });
 
+    testWidgets('סימון טקסט אינו בונה מחדש פאנל מפרשים שמאזין ל-bloc בעצמו', (
+      tester,
+    ) async {
+      // מבנה צורת הדף: שער בשורש, וכל פאנל מפרשים הוא BlocBuilder נפרד. שער
+      // ההורה אינו מגן עליו, ולכן השער שלו חייב לחסום גם את עדכוני הסימון.
+      final cubit = _StateCubit(_loaded());
+      var leafBuilds = 0;
+
+      await tester.pumpWidget(
+        _tree(
+          cubit,
+          guardRoot: true,
+          onLeaf: (_) {
+            leafBuilds++;
+          },
+        ),
+      );
+
+      final baseline = leafBuilds;
+      for (var i = 0; i < 5; i++) {
+        cubit.selectText('טקסט $i', i);
+        await tester.pump();
+      }
+
+      expect(
+        leafBuilds,
+        baseline,
+        reason: 'גרירת סימון אינה בונה מחדש את פאנל המפרשים',
+      );
+
+      await cubit.close();
+    });
+
     testWidgets('רצף חסימות אינו צובר פער — המצב מתעדכן בשינוי הבא', (
       tester,
     ) async {
@@ -279,11 +334,11 @@ Widget _tree(
     home: BlocProvider.value(
       value: cubit,
       child: BlocBuilder<_StateCubit, TextBookState>(
-        buildWhen: guardRoot ? textBookStateDiffersBeyondVisibleIndices : null,
+        buildWhen: guardRoot ? shouldRebuildReader : null,
         builder: (context, _) {
           onRoot?.call();
           return BlocBuilder<_StateCubit, TextBookState>(
-            buildWhen: textBookStateDiffersBeyondVisibleIndices,
+            buildWhen: shouldRebuildReader,
             builder: (context, state) {
               onLeaf(state as TextBookLoaded);
               return const SizedBox();
@@ -304,6 +359,16 @@ class _StateCubit extends Cubit<TextBookState> {
 
   void retitle(String title) {
     emit((state as TextBookLoaded).copyWith(currentTitle: title));
+  }
+
+  void selectText(String text, int start) {
+    emit(
+      (state as TextBookLoaded).copyWith(
+        selectedTextForNote: text,
+        selectedTextStart: start,
+        selectedTextEnd: start + text.length,
+      ),
+    );
   }
 }
 

@@ -1,6 +1,7 @@
 import 'package:flutter_settings_screens/flutter_settings_screens.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:otzaria/core/external_uri_router.dart';
+import 'package:otzaria/shortcuts/shortcut_helper.dart';
 import 'package:otzaria/shortcuts/shortcut_validator.dart';
 import 'package:otzaria/tools/built_in_tools_catalog.dart';
 
@@ -12,6 +13,7 @@ void main() {
   tearDown(() {
     // מנקה רישום קיצורי תוספים כדי שלא יזלוג בין טסטים.
     ShortcutValidator.registerPluginShortcutKeys(const {});
+    ShortcutValidator.registerPluginShortcuts(const {});
   });
 
   group('getShortcutValue', () {
@@ -244,6 +246,208 @@ void main() {
       expect(action, isA<OpenPluginAction>());
       expect((action as OpenPluginAction).pluginId, pluginId);
     });
+  });
+
+  group('קיצורי תוספים (registerPluginShortcuts)', () {
+    const pluginId = 'com.example.marker';
+    const shortcutId = 'highlight';
+    final key = ShortcutValidator.pluginShortcutKey(pluginId, shortcutId);
+    const target = (
+      pluginId: pluginId,
+      shortcutId: shortcutId,
+      label: 'הדגשה',
+      defaultKey: 'ctrl+alt+h',
+      command: null,
+      contextMenuItemId: 'highlight-item',
+    );
+
+    test('pluginShortcutKey בונה מפתח עם הקידומת והיעד', () {
+      expect(key, 'key-shortcut-plugin-$pluginId::$shortcutId');
+    });
+
+    test('רישום מוסיף את המפתח ל-shortcutKeys ול-shortcutNames', () {
+      expect(ShortcutValidator.shortcutKeys, isNot(contains(key)));
+      ShortcutValidator.registerPluginShortcuts({key: target});
+      expect(ShortcutValidator.shortcutKeys, contains(key));
+      expect(ShortcutValidator.shortcutNames[key], 'הדגשה');
+      expect(ShortcutValidator.pluginShortcuts[key], target);
+    });
+
+    test('רישום ריק מסיר מפתחות קודמים', () {
+      ShortcutValidator.registerPluginShortcuts({key: target});
+      ShortcutValidator.registerPluginShortcuts(const {});
+      expect(ShortcutValidator.shortcutKeys, isNot(contains(key)));
+      expect(ShortcutValidator.shortcutNames[key], isNull);
+    });
+
+    test('getShortcutValue נופל לקיצור ברירת המחדל שהתוסף הצהיר', () {
+      ShortcutValidator.registerPluginShortcuts({key: target});
+      expect(ShortcutValidator.getShortcutValue(key), 'ctrl+alt+h');
+    });
+
+    test(
+      'קיצור תוסף בלי ברירת מחדל נחשב לא-מוגדר — יוצג ב"הוסף קיצור לפעולה זמינה"',
+      () {
+        const emptyTarget = (
+          pluginId: pluginId,
+          shortcutId: 'no-default',
+          label: 'פעולה ללא קיצור',
+          defaultKey: '',
+          command: 'doThing',
+          contextMenuItemId: null,
+        );
+        final emptyKey = ShortcutValidator.pluginShortcutKey(
+          pluginId,
+          'no-default',
+        );
+        ShortcutValidator.registerPluginShortcuts({emptyKey: emptyTarget});
+
+        // בלי ברירת מחדל אין ערך — ולכן הקיצור נכלל ב-unconfiguredKeys
+        // של מסך ההגדרות ומוצג ב"הוסף קיצור לפעולה זמינה".
+        expect(ShortcutValidator.getShortcutValue(emptyKey) ?? '', isEmpty);
+        expect(ShortcutValidator.shortcutKeys, contains(emptyKey));
+        expect(ShortcutValidator.shortcutNames[emptyKey], 'פעולה ללא קיצור');
+      },
+    );
+
+    test('ערך שהמשתמש הגדיר גובר על קיצור ברירת המחדל של התוסף', () async {
+      ShortcutValidator.registerPluginShortcuts({key: target});
+      await Settings.setValue<String>(key, 'ctrl+shift+m');
+      expect(ShortcutValidator.getShortcutValue(key), 'ctrl+shift+m');
+    });
+
+    test('קיצור תוסף נכלל בזיהוי קונפליקטים מול פעולה מובנית', () async {
+      ShortcutValidator.registerPluginShortcuts({key: target});
+      await Settings.setValue<String>(key, 'ctrl+l');
+      expect(ShortcutValidator.hasConflict(key), isTrue);
+    });
+
+    test('זיהוי התנגשות מנרמל אותיות גדולות של קיצור תוסף', () async {
+      ShortcutValidator.registerPluginShortcuts({key: target});
+      await Settings.setValue<String>(key, 'CTRL+L');
+
+      expect(ShortcutValidator.getShortcutValue(key), 'ctrl+l');
+      expect(ShortcutValidator.hasConflict(key), isTrue);
+    });
+
+    test(
+      'ברירת מחדל שמתנגשת עם קיצור מובנה משאירה את קיצור התוסף לא-מוגדר',
+      () {
+        const conflicting = (
+          pluginId: pluginId,
+          shortcutId: 'conflict',
+          label: 'מתנגש',
+          defaultKey: 'ctrl+l', // תפוס ע"י פתיחת הספרייה
+          command: 'x',
+          contextMenuItemId: null,
+        );
+        final conflictingKey = ShortcutValidator.pluginShortcutKey(
+          pluginId,
+          'conflict',
+        );
+        ShortcutValidator.registerPluginShortcuts({
+          conflictingKey: conflicting,
+        });
+
+        expect(ShortcutValidator.getShortcutValue(conflictingKey), isNull);
+        // מופיע ברשימה הכללית כדי שיוצג ב"הוסף קיצור לפעולה זמינה".
+        expect(ShortcutValidator.shortcutKeys, contains(conflictingKey));
+      },
+    );
+
+    test('ברירת מחדל באותיות גדולות מתנגשת עם קיצור מובנה', () {
+      const conflicting = (
+        pluginId: pluginId,
+        shortcutId: 'uppercase-conflict',
+        label: 'מתנגש',
+        defaultKey: 'CTRL+L',
+        command: 'x',
+        contextMenuItemId: null,
+      );
+      final conflictingKey = ShortcutValidator.pluginShortcutKey(
+        pluginId,
+        'uppercase-conflict',
+      );
+      ShortcutValidator.registerPluginShortcuts({conflictingKey: conflicting});
+
+      expect(ShortcutValidator.getShortcutValue(conflictingKey), isNull);
+    });
+
+    test('ב-macOS meta מתנגש סמנטית עם קיצור ctrl קיים', () {
+      ShortcutHelper.isMacForTesting = true;
+      addTearDown(() => ShortcutHelper.isMacForTesting = null);
+      const conflicting = (
+        pluginId: pluginId,
+        shortcutId: 'mac-conflict',
+        label: 'מתנגש',
+        defaultKey: 'meta+l',
+        command: 'x',
+        contextMenuItemId: null,
+      );
+      final conflictingKey = ShortcutValidator.pluginShortcutKey(
+        pluginId,
+        'mac-conflict',
+      );
+      ShortcutValidator.registerPluginShortcuts({conflictingKey: conflicting});
+
+      expect(ShortcutValidator.getShortcutValue(conflictingKey), isNull);
+    });
+
+    test('ביטול מפורש (ערך ריק) משאיר קיצור תוסף לא-מוגדר', () async {
+      ShortcutValidator.registerPluginShortcuts({key: target});
+      await Settings.setValue<String>(key, '');
+      expect(ShortcutValidator.getShortcutValue(key), isNull);
+    });
+
+    test('שני קיצורי תוסף עם אותה ברירת מחדל — הראשון (ממוין) זוכה', () {
+      const first = (
+        pluginId: 'com.a',
+        shortcutId: 'first',
+        label: 'ראשון',
+        defaultKey: 'ctrl+alt+x',
+        command: 'a',
+        contextMenuItemId: null,
+      );
+      const second = (
+        pluginId: 'com.a',
+        shortcutId: 'second',
+        label: 'שני',
+        defaultKey: 'ctrl+alt+x',
+        command: 'b',
+        contextMenuItemId: null,
+      );
+      final firstKey = ShortcutValidator.pluginShortcutKey('com.a', 'first');
+      final secondKey = ShortcutValidator.pluginShortcutKey('com.a', 'second');
+      ShortcutValidator.registerPluginShortcuts({
+        secondKey: second,
+        firstKey: first,
+      });
+
+      expect(ShortcutValidator.getShortcutValue(firstKey), 'ctrl+alt+x');
+      expect(ShortcutValidator.getShortcutValue(secondKey), isNull);
+      expect(ShortcutValidator.pluginShortcuts[secondKey]?.defaultKey, isEmpty);
+    });
+
+    test(
+      'ברירת מחדל של תוסף לא מתנגשת עם קיצור שהמשתמש הקצה לתוסף אחר',
+      () async {
+        const other = (
+          pluginId: 'com.b',
+          shortcutId: 'other',
+          label: 'אחר',
+          defaultKey: '',
+          command: 'other',
+          contextMenuItemId: null,
+        );
+        final otherKey = ShortcutValidator.pluginShortcutKey('com.b', 'other');
+        await Settings.setValue<String>(otherKey, 'ctrl+alt+h');
+        ShortcutValidator.registerPluginShortcuts({
+          key: target,
+          otherKey: other,
+        });
+        expect(ShortcutValidator.getShortcutValue(key), isNull);
+      },
+    );
   });
 
   group('canShareShortcut', () {

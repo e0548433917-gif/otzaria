@@ -54,6 +54,13 @@ class _AltTocSidebarViewState extends State<AltTocSidebarView>
   final Map<int, GlobalKey> _itemKeys = {};
   bool _isManuallyScrolling = false;
 
+  // דפדוף בחיצים בין תוצאות החיפוש בלי לעזוב את שדה הטקסט (כמו ב"איתור").
+  // הערך הוא מיקום ברשימת התוצאות; מתאפס בכל שינוי שאילתה.
+  int? _highlightedMatchPos;
+  final ItemScrollController _searchScrollController = ItemScrollController();
+  final ItemPositionsListener _searchPositionsListener =
+      ItemPositionsListener.create();
+
   // Available structures (e.g., Parasha, Daf)
   List<AltTocStructure> _structures = [];
 
@@ -102,7 +109,7 @@ class _AltTocSidebarViewState extends State<AltTocSidebarView>
 
   Future<void> _onSearchChanged(String query) async {
     // Update UI immediately so the clear button and search mode appear without delay
-    setState(() {});
+    setState(() => _highlightedMatchPos = null);
 
     if (query.isNotEmpty) {
       // Load all structures so search works across all of them
@@ -117,7 +124,51 @@ class _AltTocSidebarViewState extends State<AltTocSidebarView>
 
   void _clearSearch() {
     _searchController.clear();
-    setState(() {});
+    setState(() => _highlightedMatchPos = null);
+  }
+
+  /// מזיז את סימון הדפדוף בין תוצאות החיפוש; הפוקוס נשאר בשדה.
+  void _moveHighlightedMatch(int delta) {
+    final matches = _getMatchingEntries(_searchController.text);
+    if (matches.isEmpty) return;
+    final current = _highlightedMatchPos ?? (delta >= 0 ? -1 : matches.length);
+    final next = (current + delta).clamp(0, matches.length - 1);
+    if (next == current) return;
+    setState(() => _highlightedMatchPos = next);
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _scrollSearchResultIntoView(next);
+    });
+  }
+
+  /// גולל את רשימת התוצאות אל התוצאה המסומנת, רק אם אינה גלויה במלואה.
+  void _scrollSearchResultIntoView(int matchPos) {
+    if (!_searchScrollController.isAttached) return;
+    // +1: פריט 0 ברשימה הוא הכותרת הראשית.
+    final index = matchPos + 1;
+    final positions = _searchPositionsListener.itemPositions.value;
+    for (final p in positions) {
+      if (p.index == index &&
+          p.itemLeadingEdge >= 0 &&
+          p.itemTrailingEdge <= 1) {
+        return;
+      }
+    }
+    _searchScrollController.scrollTo(
+      index: index,
+      alignment: 0.3,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  /// אנטר בשדה החיפוש: פתיחת התוצאה המסומנת, ובהיעדר סימון — הראשונה.
+  void _openHighlightedMatch() {
+    final matches = _getMatchingEntries(_searchController.text);
+    if (matches.isEmpty) return;
+    final pos = (_highlightedMatchPos ?? 0).clamp(0, matches.length - 1);
+    final (:structureId, :entry) = matches[pos];
+    _handleEntryTap(structureId, entry);
   }
 
   List<AltTocEntry> _flattenEntries(int structureId) {
@@ -504,7 +555,10 @@ class _AltTocSidebarViewState extends State<AltTocSidebarView>
       hintText: 'איתור כותרת...',
       focusNode: widget.focusNode,
       onChanged: _onSearchChanged,
+      onSubmitted: (_) => _openHighlightedMatch(),
       onClear: _clearSearch,
+      onArrowDown: isSearching ? () => _moveHighlightedMatch(1) : null,
+      onArrowUp: isSearching ? () => _moveHighlightedMatch(-1) : null,
     );
 
     return NavPanelSearchPublisher(
@@ -612,19 +666,27 @@ class _AltTocSidebarViewState extends State<AltTocSidebarView>
     }
 
     return NavTreeFocusGroup(
-      child: ListView.builder(
+      // רשימה וירטואלית לפי אינדקס, כדי שדפדוף בחיצים יוכל לגלול גם אל
+      // תוצאה שטרם הורכבה בעץ.
+      child: ScrollablePositionedList.builder(
+        itemScrollController: _searchScrollController,
+        itemPositionsListener: _searchPositionsListener,
         padding: kNavTreeListPadding,
         itemCount: matches.length + 1,
         itemBuilder: (context, index) {
           if (index == 0) return NavTreeHeader(title: widget.book.title);
           final (:structureId, :entry) = matches[index - 1];
+          // בזמן דפדוף בחיצים הסימון הוא של תוצאת הדפדוף, לא של המיקום הפעיל.
+          final isSelected = _highlightedMatchPos != null
+              ? _highlightedMatchPos == index - 1
+              : entry.id == _activeEntryId;
           return NavTreeGroupCard(
             isGroupStart: index == 1,
             isGroupEnd: index == matches.length,
             child: NavTreeTile.book(
               title: entry.text ?? '',
               level: 0,
-              isSelected: entry.id == _activeEntryId,
+              isSelected: isSelected,
               icon: OtzariaIcons.text_bullet_list_24_regular,
               onTap: () => _handleEntryTap(structureId, entry),
             ),

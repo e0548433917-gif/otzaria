@@ -428,5 +428,59 @@ void main() {
         );
       }
     });
+
+    test('קריאת API ללא הרשאה מקבלת הודעה שמכוונת להסרה', () async {
+      final errors = await PluginManifestValidator.collectManifestErrors(
+        manifest: _manifest(const ['feedback.report']),
+        directoryPath: '/',
+        skipAppVersionValidation: true,
+        skipFileValidation: true,
+      );
+      expect(errors, hasLength(1));
+      expect(errors.single, contains('אינה דורשת הרשאה'));
+      expect(errors.single, contains('הסירו אותה מ-permissions'));
+    });
+
+    test('קריאת API עם הרשאה ידועה מקבלת רמז לשם ההרשאה', () async {
+      final errors = await PluginManifestValidator.collectManifestErrors(
+        manifest: _manifest(const ['network.fetch']),
+        directoryPath: '/',
+        skipAppVersionValidation: true,
+        skipFileValidation: true,
+      );
+      expect(errors, hasLength(1));
+      expect(errors.single, contains('האם התכוונת ל-"network.access"?'));
+    });
+
+    test('הרשאה שאינה קיימת כלל נשארת עם ההודעה הגנרית', () async {
+      final errors = await PluginManifestValidator.collectManifestErrors(
+        manifest: _manifest(const ['made.up.permission']),
+        directoryPath: '/',
+        skipAppVersionValidation: true,
+        skipFileValidation: true,
+      );
+      expect(errors, hasLength(1));
+      expect(errors.single, contains('הרשאה לא חוקית שנדרשת על ידי התוסף'));
+    });
   });
 }
+
+PluginManifest _manifest(List<String> permissions) => PluginManifest(
+  schemaVersion: 1,
+  id: 'test.validator.permissions',
+  name: 'Validator',
+  version: '1.0.0',
+  description: '',
+  author: '',
+  homepage: '',
+  entrypoint: 'index.html',
+  minAppVersion: '1.0.0',
+  sdkVersion: '1.x',
+  permissions: permissions,
+  networkEnabled: false,
+  networkAllowlist: const [],
+  toolTabTitle: 'Validator',
+  toolTabOrder: 900,
+  defaultPinned: false,
+  publishedDataTypes: const [],
+);

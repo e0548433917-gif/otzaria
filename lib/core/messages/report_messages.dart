@@ -8,6 +8,10 @@ abstract class ReportMessages {
   static const String sentToOtzaria = 'הדיווח נשלח בהצלחה לצוות אוצריא.';
   static const String sentToSefaria = 'הדיווח נשלח בהצלחה לספריא.';
   static const String sentSuccessTitle = 'הדיווח נשלח בהצלחה';
+
+  static String duplicateReport(String targetLabel) =>
+      'דיווח זהה לזה כבר נשלח ל$targetLabel בעבר, ולכן לא נשלחה הודעה נוספת. '
+      'הדיווח נקלט במערכת.';
   static const String offlineQueueDisabled =
       'מצב אופליין פעיל, והגדרת התור האוטומטי כבויה.';
   static const String noInternet = 'אין כרגע חיבור לאינטרנט.';

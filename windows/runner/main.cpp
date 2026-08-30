@@ -83,6 +83,10 @@ static bool EqualsIgnoreCase(const std::string& a, const std::string& b) {
 // (e.g. `otzaria.exe pack-plugin <path>`). Strips a leading `--` / `/` and
 // underscores so `--pack-plugin` and `pack_plugin` are also accepted.
 //
+// `info` prints a JSON report to stdout: it must skip the single-instance
+// guard so it works while the GUI is running, and must never raise or show a
+// window — the caller is another program reading our stdout.
+//
 // Note: |args| is the list returned by GetCommandLineArguments(), which
 // already strips argv[0]. The first user-supplied argument is therefore at
 // index 0.
@@ -95,7 +99,7 @@ static bool IsCliInvocation(const std::vector<std::string>& args) {
   for (auto& c : cmd) {
     if (c == '_') c = '-';
   }
-  return EqualsIgnoreCase(cmd, "pack-plugin");
+  return EqualsIgnoreCase(cmd, "pack-plugin") || EqualsIgnoreCase(cmd, "info");
 }
 
 // Case-insensitive check whether `s` ends with `suffix` (ASCII only).

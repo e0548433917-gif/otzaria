@@ -130,6 +130,9 @@ if (response.success) {
 | `app.getGrantedPermissions` | 0.9.89 |
 | `app.openUrl` | 0.9.95 |
 | `app.getConnectivity` | 0.9.96 |
+| `app.registerShortcut` | 0.9.97 |
+| `app.unregisterShortcut` | 0.9.97 |
+| `app.updateShortcut` | 0.9.97 |
 | `library.findBooks` | 0.9.89 |
 | `library.getBookMetadata` | 0.9.89 |
 | `library.resolveBooks` | 0.9.97 |
@@ -142,6 +145,7 @@ if (response.success) {
 | `library.getTree` | 0.9.93 |
 | `library.getCommentators` | 0.9.97 |
 | `library.getLinks` | 0.9.97 |
+| `library.getRawLinks` | 0.9.97 |
 | `library.getLinkTargetsSummary` | 0.9.97 |
 | `library.getLinkContent` | 0.9.97 |
 | `network.fetch` | 0.9.93 |
@@ -182,6 +186,7 @@ if (response.success) {
 | `plugin.openSelf` | 0.9.96 |
 | `plugin.openOther` | 0.9.97 |
 | `plugin.backgroundDone` | 0.9.97 |
+| `plugin.listInstalled` | 0.9.97 |
 | `notes.list` | 0.9.89 |
 | `notes.getBookNotesSummary` | 0.9.89 |
 | `notes.add` | 0.9.89 |
@@ -193,6 +198,8 @@ if (response.success) {
 | `ui.showConfirm` | 0.9.89 |
 | `ui.showWarning` | 0.9.89 |
 | `ui.pickFolder` | 0.9.93 |
+| `ui.print` | 0.9.97 |
+| `ui.exportPdf` | 0.9.97 |
 | `fs.extractZip` | 0.9.93 |
 | `fs.deleteFile` | 0.9.93 |
 | `fs.pickUserFile` | 0.9.94 |
@@ -292,11 +299,12 @@ const { data } = await Otzaria.call('app.getTheme');
 //     ... (תפקידי הצבע העיקריים — ראה otzaria_plugin.d.ts → ColorScheme)
 //   },
 //   typography: {
-//     fontFamily:             "Frank Ruhl Libre",
+//     fontFamily:             "FrankRuhlCLM",   // גופן הקריאה — לטקסט הספר בלבד
 //     fontSize:               25,    // לפי הגדרת המשתמש — אל תניח ערך קבוע!
 //     lineHeight:             1.5,
-//     commentatorsFontFamily: "Shofar",
+//     commentatorsFontFamily: "NotoRashiHebrew",
 //     commentatorsFontSize:   22,
+//     uiFontFamily:           "Rubik",           // גופן הממשק — כפתורים ותפריטים
 //   }
 // }
 ```
@@ -306,7 +314,7 @@ const { data } = await Otzaria.call('app.getTheme');
 
 > **`surfaceContainerHigh` — רקע פס הכותרת שלך.** התוסף נפתח כטאב קריאה ואוצריא אינה מציירת כותרת מעל ה-WebView; שם התוסף חייב להופיע בפס עליון קבוע בצבע הזה, כדי שיתיישר עם הסרגל העליון של מסכי הספרים. ראה [DESIGN\_GUIDE.md § סרגל כותרת התוסף](DESIGN_GUIDE.md#סרגל-כותרת-התוסף-top-bar).
 
-> **גופנים מוטמעים אוטומטית:** השמות שמגיעים ב-`typography.fontFamily` ו-`typography.commentatorsFontFamily` (כגון `FrankRuhlCLM`, `Shofar`, `NotoRashiHebrew`) נטענים אוטומטית ב-WebView של התוסף כ-`@font-face` עוד לפני ה-`plugin.boot`. אין צורך לארוז את קבצי הגופן בתוסף — מספיק להפנות לשם שהתקבל ב-CSS: `font-family: 'FrankRuhlCLM', serif;`. אם המשתמש בחר גופן מערכת (לא מובנה), ההזרקה האוטומטית מדלגת עליו וה-WebView ייפול חזרה ל-fallback של מערכת ההפעלה.
+> **גופנים מוטמעים אוטומטית:** כל הגופנים המובנים של אוצריא (`FrankRuhlCLM`, `TaameyDavidCLM`, `Shofar`, `NotoRashiHebrew`, `KeterYG`, `NotoSerifHebrew`, `Tinos`, `Rubik`, `TaameyAshkenaz`) נטענים ב-WebView של התוסף כ-`@font-face` עוד לפני ה-`plugin.boot`, ואיתם גם גופן מערכת שהמשתמש בחר בהגדרות. אין צורך לארוז קבצי גופן — מספיק `font-family: 'FrankRuhlCLM', serif;`. כל משפחה נשלחת עם ה-face הבולד האמיתי שלה (או עם טווח משקלים בגופן משתנה), כך ש-`font-weight: bold` מקבל ציור אות אמיתי ולא עיבוי מלאכותי. לממשק עצמו השתמש ב-`uiFontFamily` ולא בגופן הקריאה — גופן ספרים בכפתור בן 12px נראה מטושטש.
 
 ### `app.getLocale`
 מחזיר את שפת הממשק שבחר המשתמש (או שפת המערכת, בזיהוי אוטומטי) ואת כיוון
@@ -435,6 +443,65 @@ await Otzaria.call('app.openUrl', { url: 'https://example.com' });
 ```
 
 מותרות אך ורק כתובות `http`/`https`. סכמות אחרות (`file://`, `javascript:`, פרוטוקולים מותאמים) נדחות עם `error.forbidden`.
+
+### `app.registerShortcut` / `app.unregisterShortcut` / `app.updateShortcut`
+**הרשאה נדרשת:** `app.shortcuts`
+
+רישום קיצור מקלדת שהתוסף מציע. לחיצה על הקיצור במסך העיון מפעילה:
+
+- **פקודה חופשית** — נשלח לתוסף אירוע `app.command` עם `{ command, shortcutId }`;
+  התוסף מאזין עם `Otzaria.on('app.command', ...)` ומבצע.
+- **פעולת תפריט הקשר** — `contextMenuItemId` מפנה לפריט שהוסף עם
+  `reader.addContextMenuItem`; הקיצור מפעיל אותו בדיוק כמו לחיצה ימנית עליו
+  (דורש טקסט מסומן בספר).
+
+הקיצור מופיע במסך **הגדרות → קיצורי מקשים** תחת "קיצורי תוספים", והמשתמש
+יכול לשנות אותו או לבטלו. הקיצור פעיל כשמסך העיון פתוח.
+
+```javascript
+// פקודה חופשית — התוסף מאזין ל-app.command ומבצע
+await Otzaria.call('app.registerShortcut', {
+  id: 'toggle-night-mode',
+  label: 'מצב לילה',
+  key: 'ctrl+alt+n',
+  command: 'toggleNightMode',
+});
+
+Otzaria.on('app.command', (payload) => {
+  if (payload.command === 'toggleNightMode') { /* ... */ }
+});
+
+// קיצור לפעולה שכבר נוספה לתפריט הלחיצה הימנית
+await Otzaria.call('app.registerShortcut', {
+  id: 'highlight-selection',
+  label: 'הדגש את הסימון',
+  key: 'ctrl+alt+h',
+  contextMenuItemId: 'highlight-action',
+});
+
+// עדכון הקיצור (נכון לעכשיו רק key נתמך)
+await Otzaria.call('app.updateShortcut', {
+  id: 'toggle-night-mode',
+  patch: { key: 'ctrl+alt+m' },
+});
+
+// הסרה
+await Otzaria.call('app.unregisterShortcut', { id: 'toggle-night-mode' });
+```
+
+| שדה | טיפוס | חובה | תיאור |
+|-----|-------|------|-------|
+| `id` | string | כן | מזהה ייחודי לקיצור בתוך התוסף |
+| `label` | string | כן | תווית תצוגה במסך קיצורי המקשים |
+| `key` | string | לא | קיצור ברירת מחדל בפורמט קנוני (`ctrl+alt+x`); ריק = המשתמש מקצה |
+| `command` | string | לא* | שם פקודה שנשלחת באירוע `app.command` |
+| `contextMenuItemId` | string | לא* | מזהה פריט תפריט הקשר שהקיצור מפעיל |
+
+\* נדרש לפחות אחד מ-`command` או `contextMenuItemId` — קיצור בלי יעד נדחה
+עם `error.invalid_params`.
+
+ניתן להצהיר על קיצורים גם **במניפסט** בלי להריץ קוד — ראו §
+[contributes.startup.shortcuts](#contributesstartup---תרומות-עלייה-דקלרטיביות).
 
 ---
 
@@ -610,11 +677,13 @@ const { data } = await Otzaria.call('library.getBookAltToc', {
 
 ## מפרשים וקישורים
 
-ארבע הקריאות הבאות חושפות את מפת הקישורים של הספרייה: אילו מפרשים קיימים על
+חמש הקריאות הבאות חושפות את מפת הקישורים של הספרייה: אילו מפרשים קיימים על
 ספר, אילו קישורים יוצאים מטווח שורות נתון, ומה התוכן שבצד השני של הקישור.
 
 **כל מספרי השורות ב-API הזה 0-based** — כמו ה-`index` של `library.getBookToc`
-ושל `reader.getCurrentRef`. אין צורך בהיסט כלשהו בין הקריאות.
+ושל `reader.getCurrentRef`. אין צורך בהיסט כלשהו בין הקריאות. היוצא היחיד הוא
+ה**פלט** של `getRawLinks`, שנושא את מוסכמת ה-1-based של פורמט `links.json`;
+הפרמטרים שלו נשארים 0-based ככל השאר.
 
 > ⚠️ **גרשיים עבריים.** שמות הספרים במסד שמורים בגרשיים עבריים (`״` U+05F4,
 > `׳` U+05F3) ולא במרכאות ASCII (`"`, `'`). השוואה מול ליטרל כמו `'רש"י על
@@ -625,7 +694,13 @@ const { data } = await Otzaria.call('library.getBookAltToc', {
 
 > 💡 **התחילו מ-`getLinkTargetsSummary`.** הוא מחזיר את כל ספרי היעד של הספר
 > בקריאה אחת וזולה, כולל `maxSourceLine` — ומאפשר לבחור אילו יעדים לבקש
-> ב-`getLinks` (`targetTitles`) במקום לסרוק את כל הקישורים.
+> ב-`getLinks`/`getRawLinks` (`targetTitles`) במקום לסרוק את כל הקישורים.
+
+**`getLinks` או `getRawLinks`?** שתיהן בוחרות בדיוק את אותם קישורים ונבדלות
+רק בצורת הפלט. `getLinks` היא ברירת המחדל לכל שימוש תכנותי: 0-based כמו שאר
+ה-SDK, שמות שדות מפורשים, ומידע שקיים רק במסד (`isCommentary`, עוגני-מילה,
+קישורי-טווח, `targetCategoryId`, `targetIsUserBook`). `getRawLinks` מיועדת
+לכלי שכבר יודע לקרוא את פורמט `links.json` ומצפה בדיוק למפתחות שלו.
 
 ### `library.getCommentators`
 **הרשאה:** `library.links.read` · **מגרסה:** 0.9.97
@@ -696,6 +771,95 @@ const { data } = await Otzaria.call('library.getLinks', {
 //     anchor: { start: 4, end: 9, label: "א" }  // רק עם includeAnchors
 //   }]
 // }
+```
+
+### `library.getRawLinks`
+**הרשאה:** `library.links.read` · **מגרסה:** 0.9.97
+
+אותם קישורים בדיוק של `getLinks`, בחמשת המפתחות של פורמט `links.json`.
+מיועד לכלים שכבר יודעים לקרוא את הפורמט.
+
+> ⚠️ **זו צורת `links.json`, לא ייצוא נאמן שלו — ובוודאי לא גיבוי.**
+> הקישורים משוחזרים מהמסד, ולא נקראים מקובץ. שלוש השלכות:
+>
+> 1. **התשובה כוללת קישורים שלא היו באף `links.json`.** אוצריא מייצרת קישור
+>    הפוך (`SOURCE`) לכל מפרש שמצביע אל הספר, וממזגת קישורי-משתמש שיובאו
+>    מ-CSV. שניהם מוחזרים כאן ככל קישור אחר.
+> 2. **כתיבת התשובה לקובץ `<שם הספר>_links.json` וייבואה חזרה תשכפל את
+>    הספרייה בהיפוך.** הייבוא המובנה של אוצריא קורא בדיוק את תבנית השם הזו
+>    ומקבל `SOURCE`. אל תשתמשו בפלט הזה כגיבוי.
+> 3. **חלק מהערכים משוחזרים ולא מקוריים:** `path_2` הוא כותרת ספר היעד
+>    במסלול המסד, אך במסלול הקבצים הוא הנתיב כפי שהופיע בקובץ (עם תיקייה
+>    וסיומת); `heRef_2` נופל לכותרת היעד כשאין לשורה כתובת.
+
+> ⚠️ **שתי מוסכמות אינדוקס באותה קריאה.** `startLine`/`endLine` שבבקשה הם
+> 0-based כמו בכל ה-SDK, אך `line_index_1`/`line_index_2` שבפלט הם **1-based**
+> — זו מוסכמת `links.json`, ותיקונה היה שובר את הפורמט.
+>
+> המפתח `Conection Type` כתוב כך, בשגיאת כתיב, גם בפורמט המקורי. אל תתקנו.
+
+- `startLine`/`endLine` — אופציונליים, אך **חובה יחד** (0-based, כולל), כמו
+  ב-`getCommentators`. בלעדיהם נסרקות 1000 השורות הראשונות. חלון גדול מ-**1000
+  שורות** מוחזר כ-`error.invalid_params`. הטווח שנסרק בפועל חוזר בתשובה.
+- `targetTitles` / `connectionTypes` — סינון זהה לזה של `getLinks`.
+- התשובה נחתכת אחרי **10,000** קישורים ומסומנת `truncated: true`.
+
+הפלט נושא בדיוק את המפתחות שהפורמט מגדיר. `targetCategoryId`, `isCommentary`,
+`targetIsUserBook`, עוגני-מילה וקישורי-טווח **אינם** חלק ממנו — מי שצריך אותם
+משתמש ב-`getLinks`. שימו לב במיוחד ש-`targetIsUserBook` נשמט: קישור אישי לספר
+ששמו זהה לספר רשמי אינו ניתן להבחנה בפלט הזה.
+
+```javascript
+const { data } = await Otzaria.call('library.getRawLinks', {
+  bookId: 'בראשית',
+  startLine: 0,                     // אופציונלי, חובה יחד עם endLine
+  endLine: 40,
+  targetTitles: ['רש״י על בראשית'], // אופציונלי
+  connectionTypes: ['COMMENTARY']   // אופציונלי
+});
+// {
+//   truncated: false,
+//   startLine: 0,
+//   endLine: 40,                    // הטווח שנסרק בפועל
+//   links: [{
+//     "heRef_2": "רש״י על בראשית א, א",
+//     "line_index_1": 1,            // 1-based!
+//     "path_2": "רש״י על בראשית",
+//     "line_index_2": 4,            // 1-based!
+//     "Conection Type": "COMMENTARY"
+//     // "start" / "end" — רק בספרים שהקישורים שלהם נקראים מקובץ
+//   }]
+// }
+```
+
+לייצוא ספר שלם, קחו את `maxSourceLine` מ-`getLinkTargetsSummary` וצעדו
+בחלונות. **`endLine` הוא נקודת המשך תקפה רק כש-`truncated` הוא `false`** —
+בחלון שנחתך אין שום סימן היכן החיתוך נפל, ולכן חובה לצמצם ולנסות שוב במקום
+להתקדם:
+
+```javascript
+const { data: summary } = await Otzaria.call('library.getLinkTargetsSummary', {
+  bookId: 'בראשית'
+});
+
+const all = [];
+let line = 0;
+let window = 1000;                  // תקרת החלון של הקריאה
+while (line <= summary.maxSourceLine) {
+  const { data } = await Otzaria.call('library.getRawLinks', {
+    bookId: 'בראשית',
+    startLine: line,
+    endLine: line + window - 1
+  });
+  if (data.truncated) {
+    if (window === 1) throw new Error(`שורה ${line} חורגת מ-10,000 קישורים`);
+    window = Math.max(1, window >> 1);
+    continue;                       // אותה שורת התחלה, חלון קטן יותר
+  }
+  all.push(...data.links);
+  line = data.endLine + 1;
+  window = 1000;
+}
 ```
 
 ### `library.getLinkTargetsSummary`
@@ -1213,6 +1377,7 @@ window.addEventListener('search.external.requested', async (event) => {
 await Otzaria.call('reader.openSearchTab', {
   query: 'ברכת המזון',
   selectItems: ['include-hebrewbooks'],
+  autoSearch: false,
 });
 // true
 
@@ -1619,6 +1784,59 @@ Otzaria.on('plugin.boot', async (payload) => {
 
 ---
 
+### `plugin.listInstalled`
+**הרשאה:** `app.info.read` (הרשאת בסיס; אין צורך להצהיר עליה במניפסט) · **מגרסה:** 0.9.97
+
+מחזיר רשימה של כל התוספים המותקנים כרגע באוצריא.
+
+```javascript
+const { data } = await Otzaria.call('plugin.listInstalled');
+for (const plugin of data) {
+  console.log(plugin.name, plugin.version);
+}
+```
+
+**תוצאה לדוגמה:**
+
+```json
+[
+  {
+    "pluginId": "example-plugin",
+    "name": "Example Plugin",
+    "version": "1.0.0",
+    "enabled": true,
+    "showInTools": true,
+    "toolTabIconName": "book_24_regular"
+  }
+]
+```
+
+**שדות התוצאה:**
+
+| שדה | סוג | תיאור |
+|-----|-----|--------|
+| `pluginId` | `string` | המזהה הייחודי של התוסף. |
+| `name` | `string` | שם התוסף. |
+| `version` | `string` | גרסת התוסף. |
+| `enabled` | `boolean` | האם התוסף מופעל. |
+| `showInTools` | `boolean` | האם התוסף מוגדר להצגה באזור הכלים של אוצריא. זהו ערך ההגדרה של התוסף ואינו מציין האם התוסף פתוח כרגע. |
+| `toolTabIconName` | `string` | שם אייקון ה-Fluent שבו התוסף משתמש באזור הכלים. אם שם האייקון שהוגדר בתוסף אינו אייקון Fluent מוכר (או שלא הוגדר), מוחזר `puzzle_piece_24_regular`. |
+
+**Fallback של האייקון:**
+
+- אייקון מוכר → מוחזר שם האייקון המקורי.
+- אייקון לא מוכר או לא מוגדר → מוחזר `puzzle_piece_24_regular`.
+
+**סדר הרשימה:**
+
+הרשימה ממוינת לפי שלושה קריטריונים, כולם עולים ודטרמיניסטיים:
+
+1. **סדר התצוגה** — תוסף שהמשתמש סידר ידנית (גרירה) מקבל ערך ≥ 1000; תוסף שלא סודר ידנית מקבל את הערך שהוצהר ב-`toolTab.order` במניפסט (ברירת מחדל: 900). ערך נמוך יותר = מוקדם יותר.
+2. **תאריך התקנה** (tie-breaker) — כשלשניים אותו ערך סדר, הישן מגיע ראשון.
+3. **`pluginId`** (tie-breaker אחרון) — סדר לקסיקוגרפי; מבטיח תוצאה זהה בכל הרצה.
+
+---
+
 ## notes.* - הערות אישיות
 
 ### `notes.list`
@@ -1813,6 +2031,50 @@ if (res.success && res.data.path) {
   // אפשר כעת להוריד/לחלץ/למחוק בתוך folder
 }
 ```
+
+### `ui.print`
+**הרשאה:** (אין — דיאלוג ההדפסה של המערכת הוא שער ההסכמה)
+
+מדפיסה את דף התוסף: המנוע מייצר PDF מהדף, ואוצריא פותחת עליו את דיאלוג
+ההדפסה של מערכת ההפעלה (בחירת מדפסת, צבע/שחור-לבן, מאפייני מדפסת).
+מחזירה `{ printed: true }` אם המשתמש אישר, ו-`{ printed: false }` אם ביטל.
+
+`window.print()` הרגיל ממשיך לפתוח את חלונית ההדפסה של המנוע, עם תצוגה
+מקדימה ובחירת טווח עמודים. `ui.print` היא החלופה למי שרוצה את דיאלוג
+המערכת ואת מאפייני המדפסת המלאים.
+
+השליטה בפריסת ההדפסה היא דרך CSS `@media print` בדף התוסף עצמו.
+
+```javascript
+const res = await Otzaria.call('ui.print', {
+  jobName: 'דף לדוגמה'  // אופציונלי; ברירת המחדל היא שם התוסף
+});
+// { printed: true }
+```
+
+### `ui.exportPdf`
+**הרשאה:** (אין — דיאלוג „שמור בשם” של המערכת הוא שער ההסכמה)
+
+מייצאת את דף התוסף לקובץ PDF: אותו PDF שנשלח להדפסה, נשמר במקום שהמשתמש
+בוחר בדיאלוג המערכת. מחזירה `{ saved: true, name }` עם שם הקובץ שנשמר, או
+`{ saved: false, name: null }` אם המשתמש ביטל.
+
+**הנתיב המלא אינו מוחזר** — התוסף אינו מקבל גישה למה שנשמר; רק שם הקובץ.
+מ-`fileName` נלקח שם מוצע לדיאלוג בלבד (מפרידי נתיב מוסרים ממנו).
+
+```javascript
+const res = await Otzaria.call('ui.exportPdf', {
+  fileName: 'שני טורים',  // אופציונלי; שם מוצע בדיאלוג
+  title: 'ייצוא ל-PDF'    // אופציונלי; כותרת הדיאלוג
+});
+// { saved: true, name: 'שני טורים.pdf' }
+```
+
+> **שתי הקריאות דורשות פעולת משתמש מפורשת.** אוצריא בודקת ישירות ב-WebView
+> אם קיימת הפעלת-משתמש חולפת (`navigator.userActivation`), ולכן אין דרך
+> לזייף אותה מתוך התוסף. קריאה מטעינת הדף, מטיימר, או אחרי שרשרת `await`
+> ארוכה — מוחזרת ב-`error.forbidden`. קראו להן ישירות מתוך מטפל לחיצה.
+> בנוסף, דיאלוג אחד בכל רגע: קריאה נוספת בזמן שדיאלוג פתוח נדחית.
 
 ---
 
@@ -3311,6 +3573,7 @@ async function scheduleReminder(title, body, dateTime) {
 {
   "permissions": [
     "app.startup_contributions",
+    "app.shortcuts",
     "app.run_on_startup",
     "reader.toolbar",
     "reader.context_menu",
@@ -3332,6 +3595,14 @@ async function scheduleReminder(title, body, dateTime) {
           "id": "lookup",
           "title": "חפש במילון",
           "showWhen": { "selectionContainsAny": ["רש\"י", "תוס'"] }
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "lookup-shortcut",
+          "label": "חפש במילון",
+          "key": "ctrl+alt+l",
+          "contextMenuItemId": "lookup"
         }
       ],
       "publishedData": [
@@ -3359,12 +3630,25 @@ async function scheduleReminder(title, body, dateTime) {
 |---|---|---|
 | `toolbarItems` | זהה ל-`reader.addToolbarItem` | `reader.toolbar` |
 | `contextMenuItems` | זהה ל-`reader.addContextMenuItem` | `reader.context_menu` |
+| `shortcuts` | זהה ל-`app.registerShortcut` | `app.shortcuts` |
 | `publishedData` | `{type, key, payload, scope?}` | `published_data.write` |
 | `programs` | תכניות חישוב Host מוולדות | הרשאות הפקודות שבתכנית |
 | `searchDialogItems` | שורות checkbox סטטיות בדיאלוג החיפוש | `search.dialog` |
 | `externalEditions` | קונפיגורציית מהדורות מקבילות חיצוניות (טבלת מיפוי במקור DB מוכרז) | `database.read` וגם `library.books.read` |
 | `activationEvents` | שמות אירועים או `app.startup`; אפשר גם `{topic, when}` | הרשאת ה-subscribe של כל נושא |
 | `keepAlive` | `boolean` (ברירת מחדל: `false`) | `app.background_keep_alive` וגם `app.run_on_startup` |
+
+### קיצורי מקלדת (shortcuts)
+
+`startup.shortcuts` מאפשר לתוסף להצהיר על קיצורי מקלדת בלי להריץ קוד —
+אותה סכימה של `app.registerShortcut` (ראו § app.registerShortcut). כל קיצור
+דורש `command` או `contextMenuItemId`, ויכול לצרף קיצור ברירת מחדל (`key`).
+הקיצורים מופיעים במסך **הגדרות → קיצורי מקשים** תחת "קיצורי תוספים",
+והמשתמש יכול לשנות או לבטל כל אחד מהם.
+
+קיצור עם `command` מפעיל את מנוע התוסף ושולח לו אירוע `app.command`;
+קיצור עם `contextMenuItemId` מפעיל את פעולת תפריט ההקשר בדיוק כמו לחיצה
+ימנית עליה (דורש טקסט מסומן בספר).
 
 ### תכניות Host ללא WebView
 
@@ -4104,7 +4388,7 @@ https://googleapis.com      # ❌ פותח את כל שירותי גוגל
 await Otzaria.call('reader.addContextMenuItem', {
   id: 'my-save-item',       // מזהה ייחודי (חובה)
   label: 'הוסף למראי המקומות שלי',  // טקסט לתצוגה (חובה)
-  icon: 'bookmark_24_regular',  // שם אייקון FluentUI System Icons (אופציונלי)
+  icon: 'bookmark_24_regular',  // שם אייקון מאוצריא או מפלואנט (אופציונלי) — ראה ICONS.md
   openPlugin: true,          // לחיצה תפתח את דף התוסף (אופציונלי, מגרסה 0.9.96)
   param: 'save-mode'         // ערך חופשי שיוחזר ב-payload של אירוע הלחיצה (אופציונלי)
 });
@@ -4253,7 +4537,7 @@ Otzaria.on('reader.context_menu_item_clicked', (data) => {
 await Otzaria.call('reader.addToolbarItem', {
   id: 'my-button',              // מזהה ייחודי (חובה)
   title: 'שמור מראה מקום',      // tooltip + טקסט בתפריט ה-overflow (חובה)
-  icon: 'bookmark_24_regular',  // שם אייקון FluentUI System Icons (חובה בפקד עליון)
+  icon: 'bookmark_24_regular',  // שם אייקון מאוצריא או מפלואנט (חובה בפקד עליון) — ראה ICONS.md
   openPlugin: true,             // לחיצה תפתח את דף התוסף (אופציונלי)
   param: 'save-mode'            // ערך חופשי שיוחזר ב-payload של הלחיצה (אופציונלי)
 });

@@ -10,8 +10,10 @@ import 'package:otzaria/settings/l10n/settings_l10n_exports.dart';
 import 'package:otzaria/tabs/bloc/tabs_bloc.dart';
 import 'package:otzaria/tabs/bloc/tabs_event.dart';
 import 'package:otzaria/tabs/bloc/tabs_state.dart';
+import 'package:otzaria/tabs/models/combined_tab.dart';
 import 'package:otzaria/tabs/models/tab.dart';
 import 'package:otzaria/widgets/misc/app_menu_exports.dart';
+import 'package:otzaria/widgets/misc/middle_click_autoscroll.dart';
 
 /// גובה שורת כרטיסיה בעמודה האנכית.
 const double kVerticalTabHeight = 38;
@@ -90,6 +92,13 @@ class _VerticalReadingTabStripState extends State<VerticalReadingTabStrip> {
           requireLongPressToDrag: !isDesktop,
           onReorder: (tab, newIndex) =>
               context.read<TabsBloc>().add(MoveTab(tab, newIndex)),
+          // חלונית של טאב מפוצל שנגררת לעמודה חוזרת לכרטיסייה עצמאית.
+          acceptsExternal: (tab) => context.read<TabsBloc>().state.tabs.any(
+            (t) => t is CombinedTab && t.sibling(tab) != null,
+          ),
+          onExternalDrop: (tab, insertIndex) => context.read<TabsBloc>().add(
+            DetachPane(tab, insertIndex: insertIndex),
+          ),
           onSpringOpen: (tab) {
             // ה-state שנתפס ב-build עלול להיות מיושן באמצע גרירה.
             final bloc = context.read<TabsBloc>();
@@ -193,7 +202,7 @@ class _VerticalReadingTabStripState extends State<VerticalReadingTabStrip> {
             bloc.add(SetCurrentTab(target));
           }
         },
-        child: child,
+        child: AutoScrollBarrier(child: child),
       ),
     );
   }

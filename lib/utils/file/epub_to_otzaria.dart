@@ -19,7 +19,7 @@ import 'package:otzaria/utils/file/toc_parser.dart' show kTocExcludeAttr;
 /// גרסת הממיר [epubToText] — **חובה להעלות בכל שינוי שמשפיע על הפלט**:
 /// מטמון התוכן כולל את הגרסה במפתח-התוקף, והעלאה פוסלת רשומות ישנות.
 /// v15: חבילה שאינה קריאה זורקת חריגה מוקלדת במקום להחזיר כותרת בלבד.
-const int kEpubConverterVersion = 15;
+const int kEpubConverterVersion = 16;
 
 /// תג raw-text סוגר-עצמו (`<script/>`, `<title/>` וכד') — חוקי ב-XHTML אך
 /// בפרסינג HTML התג נחשב פתוח וכל שאר המסמך נבלע כטקסט גולמי. מסירים לפני
@@ -48,7 +48,9 @@ String epubToText(
   bool embedImages = true,
   int maxTotalEmbeddedImageBytes = EmbeddedMediaLimits.maxTotalImageBytes,
 }) {
-  final List<String> output = ['<h1>${escapeHtmlText(title)}</h1>'];
+  final List<String> output = [
+    otzariaInlineText('<h1>${escapeHtmlText(title)}</h1>'),
+  ];
 
   // ZipDecoder הוא stateful — מופע מקומי לכל המרה מונע דריסת מצב בין
   // קריאות מקבילות באותו isolate.
@@ -955,7 +957,7 @@ void _processList(
   required int depth,
 }) {
   var number = int.tryParse(list.attributes['start'] ?? '') ?? 1;
-  final indent = '    ' * depth;
+  final indent = '\u00a0\u00a0\u00a0\u00a0' * depth;
 
   for (final child in list.children) {
     if (child.localName != 'li') continue;
