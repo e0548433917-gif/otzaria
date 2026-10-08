@@ -8,33 +8,33 @@
 :root{--color-primary:#A9812F;--color-on-primary:#ffffff;--color-surface:#ffffff;--color-on-surface:#2a2016;--color-on-surface-dim:#6b6250;--color-surface-container-highest:#f1ece0;--color-outline:#d8cfb8;--color-bg:#faf7f0;--radius-sm:8px;--radius-md:12px;--font-main:'Heebo',Arial,sans-serif}
 :root[data-theme="dark"]{--color-primary:#d8ab52;--color-on-primary:#1a1610;--color-surface:#201c17;--color-on-surface:#f0e9dc;--color-on-surface-dim:#c3b8a3;--color-surface-container-highest:#1d1914;--color-outline:#4a4032;--color-bg:#16130f}
 *{box-sizing:border-box}
-body{margin:0;background:var(--color-bg);color:var(--color-on-surface);font-family:var(--font-main);font-size:1rem;line-height:1.6}
-main{max-width:56rem;margin:auto;padding:1rem}
-h1{font-size:1.5rem;margin:0 0 .5rem}
+body{margin:0;background:var(--color-bg);color:var(--color-on-surface);font-family:var(--font-main);font-size:.9rem;line-height:1.5}
+main{max-width:52rem;margin:auto;padding:.6rem .75rem}
+h1{font-size:1.3rem;margin:0 0 .35rem}
 .row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin:.5rem 0}
 button,select,input{font:inherit;padding:.35rem .6rem;border:1px solid var(--color-outline);background:var(--color-surface);color:var(--color-on-surface);border-radius:var(--radius-sm)}
 button{cursor:pointer}
 button.on{background:var(--color-primary);color:var(--color-on-primary);border-color:var(--color-primary)}
 button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--color-primary)}
 input.c{width:7em}
-#dial{display:block;margin:.5rem auto;width:100%;max-width:17rem;height:auto}
+#dial{display:block;margin:.5rem auto;width:100%;max-width:14rem;height:auto}
 .pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:1rem;align-items:center}
 @media (max-width:40rem){.pair{grid-template-columns:minmax(0,1fr)}}
 #rot{width:100%}
 .grow{flex:1}
 #satUrl{word-break:break-all;font-size:.85rem;color:var(--color-on-surface-dim)}
-#big{font-size:2.4rem;text-align:center;margin:0}
+#big{font-size:2rem;text-align:center;margin:0}
 #txt{text-align:center;margin:.25rem 0 .75rem}
 #loc{color:var(--color-on-surface-dim);font-size:.9rem;margin:.25rem 0}
 #bar{position:sticky;top:0;z-index:5;display:flex;gap:.4rem;align-items:center;flex-wrap:nowrap;overflow-x:auto;background:var(--color-surface);border-bottom:1px solid var(--color-outline);padding:.4rem .75rem}
 #bar>*{flex:0 0 auto}
 #bar strong{font-size:1.1rem;margin-inline-end:.25rem}
-.pop{position:fixed;top:3.2rem;inset-inline:.75rem;margin:auto;max-width:44rem;max-height:75vh;overflow:auto;background:var(--color-surface);border:1px solid var(--color-outline);border-radius:var(--radius-md);padding:.5rem 1rem;white-space:normal}
+.pop{position:fixed;top:3.2rem;inset-inline:.75rem;margin:auto;max-width:44rem;max-height:70vh;overflow:auto;background:var(--color-surface);border:1px solid var(--color-outline);border-radius:var(--radius-md);padding:.5rem 1rem;white-space:normal}
 #fbText{display:block;width:100%;margin:.5rem 0;font:inherit;color:var(--color-on-surface);background:var(--color-surface);border:1px solid var(--color-outline);border-radius:var(--radius-sm);padding:.4rem}
 #ways{padding-inline-start:1.25rem;margin:.25rem 0}
 #ways li{margin:.5rem 0}
 #ways .off{color:var(--color-on-surface-dim)}
-#map{width:100%;height:auto;border:1px solid var(--color-outline);background:color-mix(in srgb,var(--color-primary) 8%,var(--color-surface));border-radius:var(--radius-md)}
+#map{width:100%;max-height:52vh;height:auto;border:1px solid var(--color-outline);background:color-mix(in srgb,var(--color-primary) 8%,var(--color-surface));border-radius:var(--radius-md)}
 .land{fill:color-mix(in srgb,var(--color-primary) 22%,var(--color-surface));stroke:color-mix(in srgb,var(--color-primary) 55%,var(--color-surface));stroke-width:1}
 small{color:var(--color-on-surface-dim)}
 </style>
@@ -106,7 +106,7 @@ small{color:var(--color-on-surface-dim)}
  <div class="row"><button id="stHere">סמן את מקומי במפה</button><small>גרירה מזיזה את המפה, לחיצה בוחרת רחוב.</small></div>
  <div id="stNone" hidden>
   <div class="row"><button id="stDl">הורד את האזור (פעם אחת, עם אינטרנט)</button><button id="stBrw">פתח בדפדפן</button><button id="stImp">טען קובץ</button></div>
-  <p id="stUrlBox" hidden><small>שמור את הדף שנפתח (Ctrl+S) וטען אותו בכפתור "טען קובץ". הכתובת, להעתקה למחשב אחר:</small><br><small id="stUrl" style="word-break:break-all;user-select:all"></small></p>
+  <p id="stUrlBox" hidden><small>שמור את הדף שנפתח (Ctrl+S) וטען אותו בכפתור "טען קובץ". הכתובת, להעתקה לדפדפן או למחשב אחר:</small> <button id="stCopy" type="button">העתק כתובת</button><br><small id="stUrl" style="word-break:break-all;user-select:all"></small></p>
  </div>
  <p id="stMsg" style="margin:.25rem 0"></p>
 </div></div>

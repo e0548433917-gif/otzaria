@@ -46,8 +46,12 @@ async function stImport(){const m=$("stMsg");let txt=null;
  try{const a=stCompact(JSON.parse(txt));await stWriteArea(a);ST.area=a;m.textContent=`נטענו ${a.w.length} רחובות ונשמרו לשימוש בלי אינטרנט.`;
   if(!pos||dist(pos,[a.lat,a.lon])*1000>a.r)setPos([a.lat,a.lon],"מרכז אזור הרחובות שנטען",null,false);else map()}
  catch(e){m.textContent="הקובץ אינו קובץ רחובות תקין. ודא ששמרת את כל הטקסט שהדפדפן הציג."}}
-function stBrowser(){if(!pos)return;const url=stUrl(0,pos[0],pos[1],ST.radius);$("stUrl").textContent=url;$("stUrlBox").hidden=false;
- if(O)O.call("app.openUrl",{url}).catch(()=>{});else try{window.open(url,"_blank")}catch(e){}}
+function stCopy(){const t=$("stUrl").textContent;if(!t)return;const ok=()=>$("stCopy").textContent="הועתק ✓";
+ const legacy=()=>{try{const r=document.createRange();r.selectNodeContents($("stUrl"));const g=getSelection();g.removeAllRanges();g.addRange(r);if(document.execCommand("copy"))ok()}catch(e){}};
+ try{navigator.clipboard.writeText(t).then(ok,legacy)}catch(e){legacy()}}
+function stBrowser(){if(!pos)return;const url=stUrl(0,pos[0],pos[1],ST.radius);$("stUrl").textContent=url;$("stUrlBox").hidden=false;$("stCopy").textContent="העתק כתובת";
+ const fail=()=>{let w=null;try{w=window.open(url,"_blank")}catch(e){}if(!w)$("stMsg").textContent="הדפדפן לא נפתח מכאן. העתק את הכתובת (כפתור \"העתק כתובת\") והדבק אותה בדפדפן."};
+ (O?O.call("app.openUrl",{url}):Promise.reject()).then(r=>{if(r&&(r.success===false||(r.data&&r.data.opened===false)))fail()}).catch(fail)}
 
 /* ---- ציור ---- */
 const stM=()=>[111320*Math.cos(pos[0]*R),110540];
@@ -104,7 +108,7 @@ function stSettings(){const l=$("stList");if(!l)return;l.replaceChildren();
 /* ---- חיבור לממשק ---- */
 (function(){const prevMap=map;
  map=function(){if($("mapMode").value==="street"&&pos)return streetMap();$("stPanel").hidden=true;return prevMap()};
- $("mapMode").onchange=()=>map(); $("stDl").onclick=stDownload;$("stImp").onclick=stImport;$("stBrw").onclick=stBrowser;
+ $("mapMode").onchange=()=>map(); $("stDl").onclick=stDownload;$("stImp").onclick=stImport;$("stBrw").onclick=stBrowser;$("stCopy").onclick=stCopy;
  $("stHere").onclick=()=>{ST.setHere=!ST.setHere;$("stHere").classList.toggle("on",ST.setHere);stText()};
  $("stRad").onchange=()=>{ST.radius=+$("stRad").value;try{O&&O.call("storage.set",{key:"kivun-st-radius",value:ST.radius}).catch(()=>{})}catch(e){}};
  $("bSet").onclick=()=>{const o=$("set").hidden;pop("bHelp","help",false);pop("bFb","fb",false);pop("bSet","set",o)};
