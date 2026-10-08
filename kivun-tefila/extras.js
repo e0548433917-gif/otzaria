@@ -108,6 +108,25 @@ async function pcFind() {
   mode = "m:" + p[0] + "," + p[1]; save(mode);
 }
 
+/* ---- מראי מקומות: פתיחה בספריית אוצריא ---- */
+async function openSrc(q, r) {
+  if (!O) return;
+  try {
+    const l = dat(await O.call("library.findBooks", { query: q, limit: 10 })) || [];
+    const b = l.find(x => x.title === q || x.bookId === q) || l.find(x => (x.title || "").includes(q)) || l[0];
+    if (b) { const ok = dat(await O.call("reader.openBookAtRef", { bookId: b.bookId, ref: r, highlight: true })); if (ok !== false) return }
+  } catch (e) {}
+  try { await O.call("reader.openSearchTab", { query: q + " " + r }) } catch (e) {}
+}
+document.querySelectorAll("button.src").forEach(b => b.onclick = () => openSrc(b.dataset.q, b.dataset.r));
+if (!O) document.querySelectorAll("button.src").forEach(b => b.disabled = true);
+
+/* ---- מצפן זמין: מציגים את מצב התפילה גם במכשיר שאינו מגע ---- */
+setInterval(() => { if (heading != null) document.body.classList.add("hascompass") }, 2000);
+
+/* ---- הורדת האזור של המיקום הנוכחי מתוך ההגדרות ---- */
+$("setDl").onclick = () => { if (!pos) return; pop("bSet", "set", false); $("mapMode").value = "street"; map(); setTimeout(() => stDownload(), 300) };
+
 /* ---- חיבור ---- */
 $("bPray").onclick = () => prayOpen(true);
 $("prayX").onclick = () => prayOpen(false);

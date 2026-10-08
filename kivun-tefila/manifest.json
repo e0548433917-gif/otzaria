@@ -16,7 +16,9 @@
     "settings.read",
     "events.subscribe:calendar.city_changed",
     "plugin.open_other",
-    "fs.user_files.read"
+    "fs.user_files.read",
+    "reader.open",
+    "library.books.read"
   ],
   "network": {
     "enabled": true,
