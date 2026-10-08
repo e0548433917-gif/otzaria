@@ -1,0 +1,29 @@
+name: כיוון תפילה — Release
+
+# יוצר GitHub Release לכל גרסה חדשה של כיוון תפילה, עם קובץ ה-.otzplugin ותיאור מתוך README.
+# רץ על כל דחיפה לענף ההפצה; גרסה שכבר יש לה Release — מדלג.
+on:
+  push:
+    branches: ['כיוון-תפילה']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          v="$(node -p "require('./kivun-tefila/manifest.json').version")"
+          tag="kivun-tefila-v$v"
+          file="kivun-tefila-$v.otzplugin"
+          if gh release view "$tag" >/dev/null 2>&1; then echo "Release $tag כבר קיים"; exit 0; fi
+          if [ ! -f "$file" ]; then echo "::warning::$file לא נמצא בענף"; exit 0; fi
+          awk -v h="## מה חדש ב-$v" 'index($0,h)==1{f=1;next} /^## /{if(f)exit} f' README.md > notes.md
+          printf '\n### התקנה\nבאוצריא: כלים ← תוספים ← התקן תוסף חדש, ובחירת הקובץ. או מחנות התוספים של אוצריא.\n' >> notes.md
+          gh release create "$tag" "$file" --target "$GITHUB_SHA" --title "כיוון תפילה $v" --notes-file notes.md --latest
