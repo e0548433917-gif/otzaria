@@ -75,6 +75,7 @@ body.hascompass #bPray{display:inline-block}
 }
 
 .row.tight{gap:.3rem}.row.tight button{padding:.25rem .45rem}
+.foot{margin:.2rem 0}
 .newsbox{background:var(--color-surface);border:1px solid var(--color-primary);border-radius:var(--radius-md);padding:.4rem .8rem;margin:.4rem 0}
 .newsbox ul{margin:.25rem 0;padding-inline-start:1.2rem}
 /* החלוניות (זיהוי ידני, הגדרות, הארות) נפתחות בצד ולא מכסות את החוגה והמפה */
@@ -253,7 +254,6 @@ body.hascompass #bPray{display:inline-block}
  <div class="row"><input id="stQ" list="stNames" placeholder="חיפוש רחוב" aria-label="חיפוש רחוב" class="grow" style="min-width:8em"><datalist id="stNames"></datalist><button id="stGo">מצא</button>
   <label><input type="checkbox" id="stSyn" checked> בתי כנסת ✡</label><button id="stSynNear">הקרוב</button></div>
  <div class="row tight"><span title="אפשר גם Shift + גלגלת על המפה">סיבוב:</span><button id="stRL" title="סובב נגד כיוון השעון" aria-label="סובב 15 מעלות נגד כיוון השעון">⟲</button><button id="stRR" title="סובב עם כיוון השעון" aria-label="סובב 15 מעלות עם כיוון השעון">⟳</button><button id="stR90">90°</button><button id="stJup">ירושלים למעלה</button><button id="stN">צפון למעלה</button><button id="stHere" title="סמן במפה את המקום שבו אתה עומד">סמן את מקומי</button></div>
- <div class="row"><small>גרירה מזיזה, לחיצה בוחרת רחוב, לחיצה ארוכה: "אני עומד כאן".</small></div>
  <div id="stNone" hidden>
   <p id="stNearBox" hidden><span id="stNearTxt"></span><button id="stNearGo">עבור אליו (בלי אינטרנט)</button></p>
   <div class="row"><button id="stDl">הורד את האזור (פעם אחת, עם אינטרנט)</button><button id="stBrw">פתח בדפדפן</button><button id="stImp">טען קובץ</button></div>
@@ -262,7 +262,7 @@ body.hascompass #bPray{display:inline-block}
  <p id="stMsg" style="margin:.25rem 0"></p>
 </div>
 </div>
-<p><small>החישוב אל הר הבית לפי השיטה שנבחרה. בשאלה מעשית יש להתייעץ עם רב.</small></p>
+<p class="foot"><small><span id="stHint" hidden>גרירה מזיזה, לחיצה בוחרת רחוב, לחיצה ארוכה: "אני עומד כאן". · </span>החישוב אל הר הבית לפי השיטה שנבחרה. בשאלה מעשית יש להתייעץ עם רב.</small></p>
 </main>
 <script src="world.js"></script>
 <script>const VER="1.2.9"</script>

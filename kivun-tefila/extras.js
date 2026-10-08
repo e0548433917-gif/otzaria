@@ -131,6 +131,9 @@ $("setDl").onclick = () => { if (!pos) return; pop("bSet", "set", false); $("map
 const DL_URL = "https://github.com/e0548433917-gif/otzaria/tree/%D7%9B%D7%99%D7%95%D7%95%D7%9F-%D7%AA%D7%A4%D7%99%D7%9C%D7%94";
 $("dlLink").onclick = () => { copyText(DL_URL); let w = null; try { w = window.open(DL_URL, "_blank", "noopener") } catch (e) {} if (!w && O) O.call("app.openUrl", { url: DL_URL }).catch(() => {}); $("dlLink").textContent = "הכתובת הועתקה ללוח" };
 
+/* ---- הסבר השימוש במפה מוצג בשורה התחתונה, רק בתצוגת הרחובות ---- */
+(function () { const mp = map; map = function () { const r = mp.apply(this, arguments); $("stHint").hidden = $("stPanel").hidden; return r } })();
+
 /* ---- חיבור ---- */
 $("bPray").onclick = () => prayOpen(true);
 $("prayX").onclick = () => prayOpen(false);
