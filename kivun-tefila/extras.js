@@ -127,6 +127,10 @@ setInterval(() => { if (heading != null) document.body.classList.add("hascompass
 /* ---- הורדת האזור של המיקום הנוכחי מתוך ההגדרות ---- */
 $("setDl").onclick = () => { if (!pos) return; pop("bSet", "set", false); $("mapMode").value = "street"; map(); setTimeout(() => stDownload(), 300) };
 
+/* ---- דף ההורדה: פותח בדפדפן, ומעתיק את הכתובת ללוח ---- */
+const DL_URL = "https://github.com/e0548433917-gif/otzaria/tree/%D7%9B%D7%99%D7%95%D7%95%D7%9F-%D7%AA%D7%A4%D7%99%D7%9C%D7%94";
+$("dlLink").onclick = () => { copyText(DL_URL); let w = null; try { w = window.open(DL_URL, "_blank", "noopener") } catch (e) {} if (!w && O) O.call("app.openUrl", { url: DL_URL }).catch(() => {}); $("dlLink").textContent = "הכתובת הועתקה ללוח" };
+
 /* ---- חיבור ---- */
 $("bPray").onclick = () => prayOpen(true);
 $("prayX").onclick = () => prayOpen(false);
