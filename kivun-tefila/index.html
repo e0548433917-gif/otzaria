@@ -95,7 +95,7 @@ small{color:var(--color-on-surface-dim)}
 </header>
 <main>
 <div id="news" class="newsbox" hidden><strong>מה חדש בגרסה <span id="newsVer"></span></strong>
- <ul><li><b>לחיצה ארוכה על מפת הרחובות</b>: "אני עומד כאן", והמפה מסתובבת כך שירושלים למעלה.</li>
+ <ul><li><b>כיוונים גם באנגלית</b> (N, S, E, W), כמו במצפן רגיל.</li><li><b>לחיצה ארוכה על מפת הרחובות</b>: "אני עומד כאן", והמפה מסתובבת כך שירושלים למעלה.</li>
  <li><b>סיבוב המפה</b>: הכפתורים מתחת למפה, או Shift + גלגלת.</li>
  <li><b>חיפוש רחוב</b>, <b>מקומות שמורים</b> ו<b>בתי כנסת ✡</b>, הכל גם בלי אינטרנט.</li>
  <li>שמות רחובות בחו"ל בעברית (אפשר לשנות ב"הגדרות").</li></ul>
@@ -107,10 +107,10 @@ small{color:var(--color-on-surface-dim)}
 <svg id="dial" viewBox="-120 -120 240 240" aria-label="חוגת כיוון">
   <g id="rose">
     <circle r="110" fill="var(--color-surface)" stroke="var(--color-outline)"/>
-    <text y="-90" text-anchor="middle" font-size="18" fill="var(--color-on-surface)">צ</text>
-    <text y="102" text-anchor="middle" font-size="18" fill="var(--color-on-surface-dim)">ד</text>
-    <text x="96" y="6" text-anchor="middle" font-size="18" fill="var(--color-on-surface-dim)">מז</text>
-    <text x="-96" y="6" text-anchor="middle" font-size="18" fill="var(--color-on-surface-dim)">מע</text>
+    <text y="-90" text-anchor="middle" font-size="18" fill="var(--color-on-surface)">צ <tspan font-size="12">N</tspan></text>
+    <text y="102" text-anchor="middle" font-size="18" fill="var(--color-on-surface-dim)">ד <tspan font-size="12">S</tspan></text>
+    <text x="94" y="0" text-anchor="middle" font-size="18" fill="var(--color-on-surface-dim)">מז</text><text x="94" y="15" text-anchor="middle" font-size="12" fill="var(--color-on-surface-dim)">E</text>
+    <text x="-94" y="0" text-anchor="middle" font-size="18" fill="var(--color-on-surface-dim)">מע</text><text x="-94" y="15" text-anchor="middle" font-size="12" fill="var(--color-on-surface-dim)">W</text>
     <g id="sun" style="display:none"><circle cy="-75" r="9" fill="var(--color-primary)"/></g>
     <g id="needle"><path d="M0,-95 L10,0 L0,10 L-10,0 Z" fill="var(--color-on-surface)"/><circle r="5" fill="var(--color-primary)"/></g>
   </g>
@@ -139,7 +139,7 @@ small{color:var(--color-on-surface-dim)}
 <p><small>החישוב אל הר הבית לפי השיטה שנבחרה. בשאלה מעשית יש להתייעץ עם רב.</small></p>
 </main>
 <script src="world.js"></script>
-<script>const VER="1.2.4"</script>
+<script>const VER="1.2.5"</script>
 <script>
 const J=[31.7781,35.2359],R=Math.PI/180,O=window.Otzaria;
 const C=[["ירושלים – גאולה",31.7885,35.2188],["ירושלים – רמות",31.8156,35.1955],["ירושלים – הר נוף",31.7858,35.1742],["ירושלים – רמת שלמה",31.8111,35.2175],["ירושלים – בית וגן",31.7641,35.1867],
@@ -173,7 +173,7 @@ function sun(lat,lon,t=new Date()){const d=t/864e5-10957.5,g=(357.529+.98560028*
  alt=Math.asin(Math.sin(la)*Math.sin(dec)+Math.cos(la)*Math.cos(dec)*Math.cos(H)),
  az=(Math.atan2(-Math.sin(H),Math.tan(dec)*Math.cos(la)-Math.sin(la)*Math.cos(H))/R+360)%360;return{az,alt:alt/R}}
 const meth=()=>$("meth").value,bear=()=>meth()==="rh"?rhumb(pos,J):bearing(pos,J);
-const NAMES=["צפון","צפון-מזרח","מזרח","דרום-מזרח","דרום","דרום-מערב","מערב","צפון-מערב"],nm=b=>NAMES[Math.round(b/45)%8];
+const NAMES=["צפון","צפון-מזרח","מזרח","דרום-מזרח","דרום","דרום-מערב","מערב","צפון-מערב"],EN=["N","NE","E","SE","S","SW","W","NW"],nm=b=>{const i=Math.round(b/45)%8;return NAMES[i]+" (\u2066"+EN[i]+"\u2069)"};
 const turn=x=>{x=((x+540)%360)-180;return Math.abs(x)<5?"זה הכיוון":`הסתובב ${Math.round(Math.abs(x))}° ${x>0?"ימינה":"שמאלה"}`};
 function near(){let m=null;C.forEach(c=>{const d=dist(pos,[c[1],c[2]]);if(!m||d<m[1])m=[c[0],d]});return m}
 

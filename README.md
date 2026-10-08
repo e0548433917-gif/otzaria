@@ -1,10 +1,13 @@
 # כיוון תפילה — שיח רינה-עמודי שש
 
 ## הורדה
-- **כיוון תפילה 1.2.4:** [kivun-tefila-1.2.4.otzplugin](https://github.com/e0548433917-gif/otzaria/raw/%D7%9B%D7%99%D7%95%D7%95%D7%9F-%D7%AA%D7%A4%D7%99%D7%9C%D7%94/kivun-tefila-1.2.4.otzplugin). זמין גם בחנות התוספים של אוצריא. קבצי המקור נמצאים בתיקייה [kivun-tefila](kivun-tefila).
+- **כיוון תפילה 1.2.5:** [kivun-tefila-1.2.5.otzplugin](https://github.com/e0548433917-gif/otzaria/raw/%D7%9B%D7%99%D7%95%D7%95%D7%9F-%D7%AA%D7%A4%D7%99%D7%9C%D7%94/kivun-tefila-1.2.5.otzplugin). זמין גם בחנות התוספים של אוצריא. קבצי המקור נמצאים בתיקייה [kivun-tefila](kivun-tefila).
 - **סידורון 3.7.1 התואם** (עם כפתור לפתיחת כיוון תפילה; התוסף של Y-PLONI, נערך באישורו): [com.moshenahari.siduron-3.7.1.otzplugin](https://github.com/e0548433917-gif/otzaria/raw/%D7%9B%D7%99%D7%95%D7%95%D7%9F-%D7%AA%D7%A4%D7%99%D7%9C%D7%94/siduron/com.moshenahari.siduron-3.7.1.otzplugin). הוגש כבקשת מיזוג לריפו שלו: [Y-PLONI/siduron_plugin#1](https://github.com/Y-PLONI/siduron_plugin/pull/1). פירוט השינויים בתיקיית [siduron](siduron).
 
 ---
+
+## מה חדש ב-1.2.5
+- **כיוונים גם באנגלית,** כמו ברוב המצפנים: על החוגה (N, S, E, W) ובטקסט, למשל "דרום-מזרח (SE)". זה בעקבות הצעה בפורום.
 
 ## מה חדש ב-1.2.4
 - **חלונית "מה חדש"** מופיעה פעם אחת אחרי כל עדכון, עם הטיפים העיקריים: לחיצה ארוכה, סיבוב, חיפוש. אותם טיפים מופיעים גם ב"הגדרות".
