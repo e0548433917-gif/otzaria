@@ -3,6 +3,7 @@
    בלי רשת באוצריא אפשר לפתוח את אותה כתובת בדפדפן, לשמור את הקובץ ולטעון אותו כאן. */
 const OVP=["https://overpass-api.de/api/interpreter","https://overpass.kumi.systems/api/interpreter"];
 const ST={idx:[],area:null,sel:null,pan:[0,0],setHere:false,radius:1500};
+const EMB=typeof EMB_STREETS!=="undefined"?EMB_STREETS:[];
 const fsCall=(m,a)=>O?O.call(m,a).then(dat):Promise.reject(0);
 
 /* ---- אחסון ---- */
@@ -14,12 +15,12 @@ async function stSaveIdx(){const s=JSON.stringify(ST.idx);try{await fsCall("fs.w
 async function stWriteArea(a){const s=JSON.stringify(a),p="streets/"+a.k+".json";
  try{await fsCall("fs.writeFile",{path:p,content:s})}catch(e){try{localStorage.setItem("kivun-st-"+a.k,s)}catch(e2){throw new Error("אין מקום לשמירה")}}
  ST.idx=ST.idx.filter(x=>x.k!==a.k);ST.idx.push({k:a.k,lat:a.lat,lon:a.lon,r:a.r,d:a.d,n:a.w.length,name:a.name||""});await stSaveIdx();stSettings()}
-async function stReadArea(k){try{return JSON.parse((await fsCall("fs.readFile",{path:"streets/"+k+".json"})).content)}catch(e){
+async function stReadArea(k){const e=EMB.find(a=>a.k===k);if(e)return e;try{return JSON.parse((await fsCall("fs.readFile",{path:"streets/"+k+".json"})).content)}catch(e){
  try{return JSON.parse(localStorage.getItem("kivun-st-"+k))}catch(e2){return null}}}
 async function stDelete(k){try{await fsCall("fs.deleteEntry",{path:"streets/"+k+".json"})}catch(e){}try{localStorage.removeItem("kivun-st-"+k)}catch(e){}
  ST.idx=ST.idx.filter(x=>x.k!==k);if(ST.area&&ST.area.k===k)ST.area=null;await stSaveIdx();stSettings();if(pos)map()}
 /* האזור השמור שמכסה את המיקום (בשוליים של 150 מ' מהקצה) */
-function stCover(){if(!pos)return null;let b=null;for(const a of ST.idx){const m=dist(pos,[a.lat,a.lon])*1000;if(m<=a.r-150&&(!b||m<b[1]))b=[a,m]}return b&&b[0]}
+function stCover(){if(!pos)return null;let b=null;for(const a of ST.idx.concat(EMB)){const m=dist(pos,[a.lat,a.lon])*1000;if(m<=a.r-150&&(!b||m<b[1]))b=[a,m]}return b&&b[0]}
 
 /* ---- נתונים ---- */
 function stQuery(lat,lon,r){return`[out:json][timeout:60];way["highway"]["name"](around:${r},${lat.toFixed(5)},${lon.toFixed(5)});out tags geom;`}
@@ -93,6 +94,7 @@ function zoomKeep(fn){const z=zoom;fn();zoom=z;map()}
 
 /* ---- הגדרות: האזורים השמורים והסבר לעבודה בלי אינטרנט ---- */
 function stSettings(){const l=$("stList");if(!l)return;l.replaceChildren();
+ const eb=$("stEmb");if(eb)eb.textContent=EMB.length?`מובנים בתוסף, בלי הורדה (${EMB.length} אזורים): `+EMB.map(a=>a.name).join(", ")+".":"";
  if(!ST.idx.length){const li=document.createElement("li");li.textContent="עדיין לא נשמר אף אזור.";l.append(li)}
  for(const a of ST.idx){const li=document.createElement("li"),x=document.createElement("button");
   li.textContent=`${a.name||a.lat+", "+a.lon} — ${a.n} רחובות, ברדיוס ${a.r>=1000?(a.r/1000)+' ק"מ':a.r+" מ'"} (${a.d}) `;

@@ -60,7 +60,8 @@ small{color:var(--color-on-surface-dim)}
   <div id="set" class="pop" hidden>
     <h2 style="font-size:1.1rem;margin:.25rem 0">מפת רחובות — גם בלי אינטרנט</h2>
     <p>בתצוגת "הרחובות סביבי" רואים את הרחובות סביבך עם שמותיהם, ואת הקו לירושלים. לוחצים על הרחוב שלידך, ומקבלים הוראה כמו "עמוד במקביל לרחוב, כשפניך לכיוון צפון, והסתובב 23° ימינה". כך אפשר לכוון בלי מצפן, במחשב או בטלפון.</p>
-    <p><strong>פעם אחת צריך אינטרנט, ואחר כך לא.</strong> כשבוחרים מיקום, לוחצים "הורד את האזור". הרחובות שברדיוס שנבחר נשמרים במחשב, ומאותו רגע האזור עובד בלי אינטרנט בכלל. אפשר לשמור כמה אזורים (בית, ישיבה, הורים).</p>
+    <p><strong>ריכוזי הקהילה מובנים בתוסף</strong> (שכונות ירושלים, בני ברק, בית שמש, מודיעין עילית, ביתר, אלעד, ברוקלין, לייקווד, לונדון ועוד) ועובדים בלי אינטרנט כבר מההתקנה.</p>
+    <p><strong>לכל מקום אחר, פעם אחת צריך אינטרנט, ואחר כך לא.</strong> כשבוחרים מיקום, לוחצים "הורד את האזור". הרחובות שברדיוס שנבחר נשמרים במחשב, ומאותו רגע האזור עובד בלי אינטרנט בכלל. אפשר לשמור כמה אזורים (בית, ישיבה, הורים).</p>
     <p><strong>כשאוצריא לא מצליחה להוריד</strong> (אין בה גישה לרשת, או במחשב שאין בו אינטרנט):</p>
     <ol>
       <li>בוחרים את המיקום (עיר, קואורדינטות או נקודה במפה) ולוחצים "פתח בדפדפן". אפשר גם להעתיק את הכתובת שמוצגת ולפתוח אותה בכל מחשב אחר שיש בו אינטרנט.</li>
@@ -68,7 +69,8 @@ small{color:var(--color-on-surface-dim)}
       <li>מעבירים את הקובץ למחשב הזה אם צריך (למשל בדיסק און קי), ולוחצים כאן "טען קובץ". הקובץ נשמר בתוסף, ואין צורך לשמור עליו אחר כך.</li>
     </ol>
     <label>רדיוס להורדה: <select id="stRad"><option value="700">700 מ' (קטן ומהיר)</option><option value="1500">1.5 ק"מ</option><option value="3000">3 ק"מ (שכונות סמוכות)</option></select></label>
-    <p style="margin:.75rem 0 .25rem"><strong>אזורים שמורים:</strong></p>
+    <p id="stEmb"></p>
+    <p style="margin:.75rem 0 .25rem"><strong>אזורים שהורדת:</strong></p>
     <ul id="stList"></ul>
     <p><small>נתוני הרחובות: © OpenStreetMap contributors, ברישיון ODbL.</small></p>
   </div>
@@ -112,7 +114,7 @@ small{color:var(--color-on-surface-dim)}
 <p><small>החישוב אל הר הבית לפי השיטה שנבחרה. בשאלה מעשית יש להתייעץ עם רב.</small></p>
 </main>
 <script src="world.js"></script>
-<script>const VER="1.1.0"</script>
+<script>const VER="1.2.0"</script>
 <script>
 const J=[31.7781,35.2359],R=Math.PI/180,O=window.Otzaria;
 const C=[["ירושלים – גאולה",31.7885,35.2188],["ירושלים – רמות",31.8156,35.1955],["ירושלים – הר נוף",31.7858,35.1742],["ירושלים – רמת שלמה",31.8111,35.2175],["ירושלים – בית וגן",31.7641,35.1867],
@@ -274,6 +276,7 @@ if(O){O.on("plugin.boot",async p=>{applyTheme(p&&p.theme);await loadCal();let v=
  O.on("theme.changed",applyTheme);O.call("app.getTheme").then(r=>r&&applyTheme(r.data)).catch(()=>{})}
 else try{restore(localStorage.getItem("kivun-city"))}catch(e){}
 </script>
+<script src="streets-data.js"></script>
 <script src="streets.js"></script>
 <script>startCompass()</script>
 </body>
