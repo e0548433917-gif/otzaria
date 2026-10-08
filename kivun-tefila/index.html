@@ -18,7 +18,9 @@ button.on{background:var(--color-primary);color:var(--color-on-primary);border-c
 button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--color-primary)}
 input.c{width:7em}
 #dial{display:block;margin:.5rem auto;width:100%;max-width:14rem;height:auto}
-.pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:1rem;align-items:center}
+.pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:0 1rem;align-items:start}
+/* מתחת למפה ולמצפן: שורות הכלים לכל רוחב הדף */
+#stPanel{grid-column:1/-1}
 @media (max-width:40rem){.pair{grid-template-columns:minmax(0,1fr)}}
 #rot{width:100%}
 .grow{flex:1}
@@ -38,7 +40,7 @@ input.c{width:6em}
 #ways{padding-inline-start:1.25rem;margin:.25rem 0}
 #ways li{margin:.5rem 0}
 #ways .off{color:var(--color-on-surface-dim)}
-#map{width:100%;max-height:48vh;height:auto;border:1px solid var(--color-outline);background:color-mix(in srgb,var(--color-primary) 8%,var(--color-surface));border-radius:var(--radius-md)}
+#map{width:100%;max-height:47vh;height:auto;border:1px solid var(--color-outline);background:color-mix(in srgb,var(--color-primary) 8%,var(--color-surface));border-radius:var(--radius-md)}
 .land{fill:color-mix(in srgb,var(--color-primary) 22%,var(--color-surface));stroke:color-mix(in srgb,var(--color-primary) 55%,var(--color-surface));stroke-width:1}
 small{color:var(--color-on-surface-dim)}
 .feat ul{margin:.1rem 0 .4rem;padding-inline-start:1.2rem}.feat p{margin:.4rem 0 0}
@@ -234,6 +236,7 @@ body.hascompass #bPray{display:inline-block}
 <div><select id="mapMode" aria-label="תצוגת מפה"><option value="street" selected>הרחובות סביבי</option><option value="near">הסביבה הקרובה</option><option value="far">עד ירושלים</option></select>
 <button id="zIn" aria-label="הגדל מפה">+</button><button id="zOut" aria-label="הקטן מפה">−</button><button id="zReset">איפוס תצוגה</button>
 <svg id="map" viewBox="0 0 400 320" aria-label="מפה"></svg>
+</div>
 <div id="stPanel" hidden>
  <p id="stTxt" style="font-weight:600;margin:.4rem 0"></p>
  <div class="row"><input id="stQ" list="stNames" placeholder="חיפוש רחוב" aria-label="חיפוש רחוב" class="grow" style="min-width:8em"><datalist id="stNames"></datalist><button id="stGo">מצא</button>
@@ -246,7 +249,7 @@ body.hascompass #bPray{display:inline-block}
   <p id="stUrlBox" hidden><small>שמור את הדף שנפתח (Ctrl+S) וטען אותו בכפתור "טען קובץ". הכתובת, להעתקה לדפדפן או למחשב אחר:</small> <button id="stCopy" type="button">העתק כתובת</button><br><small id="stUrl" style="word-break:break-all;user-select:all"></small></p>
  </div>
  <p id="stMsg" style="margin:.25rem 0"></p>
-</div></div>
+</div>
 </div>
 <p><small>החישוב אל הר הבית לפי השיטה שנבחרה. בשאלה מעשית יש להתייעץ עם רב.</small></p>
 </main>
