@@ -41,6 +41,24 @@ input.c{width:6em}
 #map{width:100%;max-height:48vh;height:auto;border:1px solid var(--color-outline);background:color-mix(in srgb,var(--color-primary) 8%,var(--color-surface));border-radius:var(--radius-md)}
 .land{fill:color-mix(in srgb,var(--color-primary) 22%,var(--color-surface));stroke:color-mix(in srgb,var(--color-primary) 55%,var(--color-surface));stroke-width:1}
 small{color:var(--color-on-surface-dim)}
+#pray{position:fixed;inset:0;z-index:50;background:var(--color-bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5rem;padding:1rem;text-align:center}
+#pray[hidden]{display:none}
+#pray svg{width:min(70vw,60vh);height:auto}
+#prayX{position:absolute;top:.6rem;inset-inline-start:.6rem}
+#prayDeg{font-size:2.2rem;margin:0}
+#prayTxt{max-width:30rem;margin:0;color:var(--color-on-surface-dim)}
+#printHead{display:none}
+@media print{
+ #bar,#news,#plRow,#pray,.row,#stNone,#stMsg,#txt,#rot,#bSat,.pair>div:first-child>.row,main>p:last-child,#mapMode,#zIn,#zOut,#zReset{display:none!important}
+ #printHead{display:block;text-align:center}
+ #printHead h1{margin:.2rem 0}
+ .pbig{font-size:1.6rem;font-weight:700}
+ .pair{display:block}
+ #dial{max-width:10rem}
+ #map{max-height:none;width:100%}
+ body{background:var(--color-surface)}
+}
+
 .newsbox{background:var(--color-surface);border:1px solid var(--color-primary);border-radius:var(--radius-md);padding:.4rem .8rem;margin:.4rem 0}
 .newsbox ul{margin:.25rem 0;padding-inline-start:1.2rem}
 /* "איך לזהות ידנית" נפתח כחלונית צד ולא מכסה את החוגה והמפה */
@@ -57,9 +75,10 @@ small{color:var(--color-on-surface-dim)}
   <button id="bManT" aria-expanded="false" aria-controls="manBox">מיקום ידני</button>
   <span id="manBox" hidden><input id="lat" class="c" inputmode="decimal" placeholder="קו רוחב" aria-label="קו רוחב">
   <input id="lon" class="c" inputmode="decimal" placeholder="קו אורך" aria-label="קו אורך">
-  <button id="bMan">חשב</button></span>
+  <button id="bMan">חשב</button><input id="pc" class="c" placeholder="או מיקוד" aria-label="מיקוד" maxlength="8"><button id="pcGo">לפי מיקוד</button></span>
   <select id="meth" aria-label="שיטת חישוב"><option value="gc">הקו הקצר על הכדור</option><option value="rh">כיוון קבוע על המפה</option></select>
   <button id="bSid" hidden>פתח סידורון</button>
+  <button id="bPray" title="חץ גדול לירושלים בלבד">מצב תפילה</button>
   <button id="bHelp" aria-expanded="false" aria-controls="help">איך לזהות ידנית</button>
   <button id="bSet" aria-expanded="false" aria-controls="set">הגדרות</button>
   <button id="bFb" aria-expanded="false" aria-controls="fb">הארות</button>
@@ -93,9 +112,14 @@ small{color:var(--color-on-surface-dim)}
     <p id="satUrl"></p>
   </div>
 </header>
+<div id="pray" hidden><button id="prayX" aria-label="סגור את מצב התפילה">✕ סגור</button>
+ <svg viewBox="-120 -120 240 240" aria-hidden="true"><circle r="112" fill="none" stroke="var(--color-outline)" stroke-width="2"/>
+  <g id="prayArrow"><path d="M0,-100 L26,-40 L9,-46 L9,92 L-9,92 L-9,-46 L-26,-40Z" fill="var(--color-primary)"/></g></svg>
+ <p id="prayDeg"></p><p id="prayTxt"></p></div>
+<div id="printHead"></div>
 <main>
 <div id="news" class="newsbox" hidden><strong>מה חדש בגרסה <span id="newsVer"></span></strong>
- <ul><li><b>כיוונים גם באנגלית</b> (N, S, E, W), כמו במצפן רגיל.</li><li><b>לחיצה ארוכה על מפת הרחובות</b>: "אני עומד כאן", והמפה מסתובבת כך שירושלים למעלה.</li>
+ <ul><li><b>מצב תפילה</b> (חץ גדול בלבד), <b>הדפסת דף כיוון</b>, <b>בית הכנסת הקרוב</b> ולחיצה על ✡, <b>חיפוש לפי מיקוד</b> (ב"מיקום ידני"), ו-10 אזורים מובנים חדשים.</li><li><b>כיוונים גם באנגלית</b> (N, S, E, W), כמו במצפן רגיל.</li><li><b>לחיצה ארוכה על מפת הרחובות</b>: "אני עומד כאן", והמפה מסתובבת כך שירושלים למעלה.</li>
  <li><b>סיבוב המפה</b>: הכפתורים מתחת למפה, או Shift + גלגלת.</li>
  <li><b>חיפוש רחוב</b>, <b>מקומות שמורים</b> ו<b>בתי כנסת ✡</b>, הכל גם בלי אינטרנט.</li>
  <li>שמות רחובות בחו"ל בעברית (אפשר לשנות ב"הגדרות").</li></ul>
@@ -127,6 +151,7 @@ small{color:var(--color-on-surface-dim)}
  <div class="row"><input id="stQ" list="stNames" placeholder="חיפוש רחוב" aria-label="חיפוש רחוב" class="grow" style="min-width:8em"><datalist id="stNames"></datalist><button id="stGo">מצא</button>
   <label><input type="checkbox" id="stSyn" checked> בתי כנסת ✡</label></div>
  <div class="row"><span title="אפשר גם Shift + גלגלת על המפה">סיבוב המפה:</span><button id="stRL" title="סובב נגד כיוון השעון" aria-label="סובב 15 מעלות נגד כיוון השעון">⟲</button><button id="stRR" title="סובב עם כיוון השעון" aria-label="סובב 15 מעלות עם כיוון השעון">⟳</button><button id="stR90">90°</button><button id="stJup">ירושלים למעלה</button><button id="stN">צפון למעלה</button><button id="stHere">סמן את מקומי במפה</button></div>
+ <div class="row"><button id="stSynNear">✡ בית הכנסת הקרוב</button><button id="stPrint">הדפס דף כיוון</button></div>
  <div class="row"><small>גרירה מזיזה את המפה, לחיצה בוחרת רחוב, לחיצה ארוכה: "אני עומד כאן" וירושלים למעלה.</small></div>
  <div id="stNone" hidden>
   <p id="stNearBox" hidden><span id="stNearTxt"></span><button id="stNearGo">עבור אליו (בלי אינטרנט)</button></p>
@@ -139,13 +164,13 @@ small{color:var(--color-on-surface-dim)}
 <p><small>החישוב אל הר הבית לפי השיטה שנבחרה. בשאלה מעשית יש להתייעץ עם רב.</small></p>
 </main>
 <script src="world.js"></script>
-<script>const VER="1.2.5"</script>
+<script>const VER="1.3.0"</script>
 <script>
 const J=[31.7781,35.2359],R=Math.PI/180,O=window.Otzaria;
-const C=[["ירושלים – גאולה",31.7885,35.2188],["ירושלים – רמות",31.8156,35.1955],["ירושלים – הר נוף",31.7858,35.1742],["ירושלים – רמת שלמה",31.8111,35.2175],["ירושלים – בית וגן",31.7641,35.1867],
-["בני ברק",32.0874,34.8324],["בית שמש",31.7462,34.9887],["רמת בית שמש",31.71,34.98],["מודיעין עילית",31.9324,35.0433],["ביתר עילית",31.7019,35.1073],["אלעד",32.0501,34.9522],["אשדוד",31.7977,34.653],["פתח תקווה",32.0878,34.886],["צפת",32.9646,35.5025],["טבריה",32.7939,35.5329],["חיפה",32.8191,34.9984],["רכסים",32.751,35.1014],["עמנואל",32.161,35.137],["נתיבות",31.4214,34.5884],["ערד",31.2612,35.2146],["קרית גת",31.6094,34.7712],["כוכב יעקב",31.8814,35.2453],
-["ברוקלין – בורו פארק",40.634,-73.9968],["ברוקלין – וויליאמסבורג",40.7146,-73.9535],["לייקווד",40.0941,-74.215],["מונסי",41.118,-74.0594],["קרית יואל",41.342,-74.1679],["בולטימור",39.36,-76.7],["שיקגו",42.0,-87.7],["לוס אנג'לס",34.0792,-118.3523],["טורונטו",43.73,-79.43],["מונטריאול",45.5186,-73.6069],["מקסיקו סיטי",19.4335,-99.1909],["בואנוס איירס",-34.6092,-58.406],
-["לונדון – סטמפורד היל",51.5707,-0.069],["מנצ'סטר",53.5143,-2.2593],["גייטסהד",54.9617,-1.6044],["אנטוורפן",51.21,4.42],["פריז",48.8589,2.32],["ציריך",47.3744,8.541],["שטרסבורג",48.5846,7.7507],["וינה",48.2006,16.4269],["מוסקבה",55.75,37.62],["יוהנסבורג",-26.14,28.1008],["מלבורן",-37.8708,145.0218]];
+const C=[["ירושלים – גאולה",31.7885,35.2188],["ירושלים – רמות",31.8156,35.1955],["ירושלים – הר נוף",31.7858,35.1742],["ירושלים – רמת שלמה",31.8111,35.2175],["ירושלים – בית וגן",31.7641,35.1867],["ירושלים – נווה יעקב",31.8395,35.242],["ירושלים – גבעת שאול",31.79,35.193],["ירושלים – סנהדריה",31.8,35.224],["ירושלים – קרית משה",31.7848,35.2003],
+["בני ברק",32.0874,34.8324],["בית שמש",31.7462,34.9887],["רמת בית שמש",31.71,34.98],["מודיעין עילית",31.9324,35.0433],["ביתר עילית",31.7019,35.1073],["אלעד",32.0501,34.9522],["אשדוד",31.7977,34.653],["פתח תקווה",32.0878,34.886],["צפת",32.9646,35.5025],["טבריה",32.7939,35.5329],["חיפה",32.8191,34.9984],["רכסים",32.751,35.1014],["עמנואל",32.161,35.137],["נתיבות",31.4214,34.5884],["ערד",31.2612,35.2146],["קרית גת",31.6094,34.7712],["כוכב יעקב",31.8814,35.2453],["חריש",32.463,35.044],["טלזסטון",31.805,35.102],["אופקים",31.314,34.62],["קרית אתא",32.806,35.106],
+["ברוקלין – בורו פארק",40.634,-73.9968],["ברוקלין – וויליאמסבורג",40.7146,-73.9535],["לייקווד",40.0941,-74.215],["מונסי",41.118,-74.0594],["קרית יואל",41.342,-74.1679],["בולטימור",39.36,-76.7],["שיקגו",42.0,-87.7],["לוס אנג'לס",34.0792,-118.3523],["טורונטו",43.73,-79.43],["מונטריאול",45.5186,-73.6069],["מקסיקו סיטי",19.4335,-99.1909],["בואנוס איירס",-34.6092,-58.406],["מונטווידאו",-34.909,-56.15],
+["לונדון – סטמפורד היל",51.5707,-0.069],["מנצ'סטר",53.5143,-2.2593],["גייטסהד",54.9617,-1.6044],["אנטוורפן",51.21,4.42],["פריז",48.8589,2.32],["ציריך",47.3744,8.541],["שטרסבורג",48.5846,7.7507],["וינה",48.2006,16.4269],["פראג",50.09,14.419],["מוסקבה",55.75,37.62],["יוהנסבורג",-26.14,28.1008],["מלבורן",-37.8708,145.0218]];
 const $=id=>document.getElementById(id);
 let pos=null,heading=null,manual=null,isCity=false,zoom=1,calCities=[],calName=null,mode=null,src="",acc=null,place="";
 const esc=x=>String(x).replace(/[&<>"']/g,c=>"&#"+c.charCodeAt(0)+";");
@@ -296,13 +321,14 @@ async function loadCal(){try{const l=dat(await O.call("calendar.getCities"));if(
  buildSel()}
 async function sidLink(){try{const l=dat(await O.call("plugin.listInstalled"))||[],sd=l.find(x=>/siduron/i.test(x.pluginId||""));
  if(sd){$("bSid").hidden=false;$("bSid").onclick=()=>O.call("plugin.openOther",{pluginId:sd.pluginId}).catch(()=>{})}}catch(e){}}
-if(O){O.on("plugin.boot",async p=>{applyTheme(p&&p.theme);await loadCal();let v=null;try{v=dat(await O.call("storage.get",{key:"kivun-city"}))}catch(e){}restore(v);sidLink();if(typeof plLoad==="function")plLoad();if(typeof newsCheck==="function")newsCheck()});
+if(O){O.on("plugin.boot",async p=>{applyTheme(p&&p.theme);await loadCal();let v=null;try{v=dat(await O.call("storage.get",{key:"kivun-city"}))}catch(e){}restore(v);sidLink();if(typeof plLoad==="function")plLoad();if(typeof newsCheck==="function")newsCheck();if(typeof extrasBoot==="function")extrasBoot()});
  O.on("calendar.city_changed",p=>{if(p&&p.city){calName=p.city;buildSel();if(mode==="cal"||mode==null)useCal()}});
  O.on("theme.changed",applyTheme);O.call("app.getTheme").then(r=>r&&applyTheme(r.data)).catch(()=>{})}
 else try{restore(localStorage.getItem("kivun-city"))}catch(e){}
 </script>
 <script src="streets-data.js"></script>
 <script src="streets.js"></script>
+<script src="extras.js"></script>
 <script>
 /* מקומות שמורים: שם + קואורדינטות, נשמרים באחסון התוסף */
 let places=[];
