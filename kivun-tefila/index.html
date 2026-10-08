@@ -41,6 +41,11 @@ input.c{width:6em}
 #map{width:100%;max-height:48vh;height:auto;border:1px solid var(--color-outline);background:color-mix(in srgb,var(--color-primary) 8%,var(--color-surface));border-radius:var(--radius-md)}
 .land{fill:color-mix(in srgb,var(--color-primary) 22%,var(--color-surface));stroke:color-mix(in srgb,var(--color-primary) 55%,var(--color-surface));stroke-width:1}
 small{color:var(--color-on-surface-dim)}
+/* רקע: שורות אבני הכותל המערבי, מצוירות בקו דק בצבעי הערכה (לא תמונה) */
+#wall{position:fixed;inset:0;width:100%;height:100%;z-index:-1;opacity:.07;pointer-events:none}
+#wall .m{stroke-width:.6;opacity:.7}
+@media print{#wall{display:none}}
+
 #pray{position:fixed;inset:0;z-index:50;background:var(--color-bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5rem;padding:1rem;text-align:center}
 #pray[hidden]{display:none}
 #pray svg{width:min(70vw,60vh);height:auto}
@@ -68,6 +73,7 @@ small{color:var(--color-on-surface-dim)}
 </style>
 </head>
 <body>
+<svg id="wall" aria-hidden="true" focusable="false"><defs><pattern id="wallP" width="480" height="192" patternUnits="userSpaceOnUse"><g fill="none" stroke="var(--color-on-surface)" stroke-width="1.2"><rect x="-18" y="2" width="85" height="30" rx="3"/><rect class="m" x="-13" y="7" width="75" height="20" rx="2"/><rect x="71" y="2" width="116" height="30" rx="3"/><rect class="m" x="76" y="7" width="106" height="20" rx="2"/><rect x="191" y="2" width="72" height="30" rx="3"/><rect class="m" x="196" y="7" width="62" height="20" rx="2"/><rect x="267" y="2" width="75" height="30" rx="3"/><rect class="m" x="272" y="7" width="65" height="20" rx="2"/><rect x="346" y="2" width="134" height="30" rx="3"/><rect class="m" x="351" y="7" width="124" height="20" rx="2"/><rect x="-4" y="36" width="112" height="24" rx="3"/><rect x="112" y="36" width="140" height="24" rx="3"/><rect x="256" y="36" width="73" height="24" rx="3"/><rect x="333" y="36" width="130" height="24" rx="3"/><rect x="467" y="36" width="93" height="24" rx="3"/><rect x="0" y="64" width="77" height="34" rx="3"/><rect class="m" x="5" y="69" width="67" height="24" rx="2"/><rect x="81" y="64" width="121" height="34" rx="3"/><rect class="m" x="86" y="69" width="111" height="24" rx="2"/><rect x="206" y="64" width="119" height="34" rx="3"/><rect class="m" x="211" y="69" width="109" height="24" rx="2"/><rect x="329" y="64" width="74" height="34" rx="3"/><rect class="m" x="334" y="69" width="64" height="24" rx="2"/><rect x="407" y="64" width="96" height="34" rx="3"/><rect class="m" x="412" y="69" width="86" height="24" rx="2"/><rect x="-3" y="102" width="136" height="26" rx="3"/><rect class="m" x="2" y="107" width="126" height="16" rx="2"/><rect x="137" y="102" width="120" height="26" rx="3"/><rect class="m" x="142" y="107" width="110" height="16" rx="2"/><rect x="261" y="102" width="73" height="26" rx="3"/><rect class="m" x="266" y="107" width="63" height="16" rx="2"/><rect x="338" y="102" width="138" height="26" rx="3"/><rect class="m" x="343" y="107" width="128" height="16" rx="2"/><rect x="480" y="102" width="81" height="26" rx="3"/><rect class="m" x="485" y="107" width="71" height="16" rx="2"/><rect x="-58" y="132" width="94" height="22" rx="3"/><rect x="40" y="132" width="146" height="22" rx="3"/><rect x="190" y="132" width="146" height="22" rx="3"/><rect x="340" y="132" width="140" height="22" rx="3"/><rect x="-58" y="158" width="73" height="32" rx="3"/><rect class="m" x="-53" y="163" width="63" height="22" rx="2"/><rect x="19" y="158" width="139" height="32" rx="3"/><rect class="m" x="24" y="163" width="129" height="22" rx="2"/><rect x="162" y="158" width="140" height="32" rx="3"/><rect class="m" x="167" y="163" width="130" height="22" rx="2"/><rect x="306" y="158" width="116" height="32" rx="3"/><rect class="m" x="311" y="163" width="106" height="22" rx="2"/><rect x="426" y="158" width="72" height="32" rx="3"/><rect class="m" x="431" y="163" width="62" height="22" rx="2"/></g></pattern></defs><rect width="100%" height="100%" fill="url(#wallP)"/></svg>
 <header id="bar">
   <strong>כיוון תפילה</strong>
   <button id="bOn">מיקום אוטומטי</button>
@@ -113,7 +119,8 @@ small{color:var(--color-on-surface-dim)}
      <li>10 אזורים מובנים חדשים: נווה יעקב, גבעת שאול, סנהדריה, קרית משה, חריש, טלזסטון, אופקים, קרית אתא, מונטווידאו, פראג.</li>
      <li>כיוונים גם באנגלית (N, S, E, W).</li>
      <li>התצוגה (סוג מפה, סיבוב, זום) נשמרת בין פתיחות.</li>
-     <li>החלוניות (זיהוי ידני, הגדרות, הארות) נפתחות בצד ולא מכסות את החוגה והמפה.</li></ul></details>
+     <li>החלוניות (זיהוי ידני, הגדרות, הארות) נפתחות בצד ולא מכסות את החוגה והמפה.</li>
+     <li>רקע עדין של אבני הכותל המערבי.</li></ul></details>
     <details><summary><b>1.2.x</b></summary><ul>
      <li>45 ריכוזי קהילה מובנים, עובדים בלי אינטרנט.</li>
      <li>סיבוב מפה, "ירושלים למעלה", ולחיצה ארוכה = "אני עומד כאן".</li>
