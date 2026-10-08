@@ -1,0 +1,362 @@
+/* style.css — Siduron v2. Material-3-aligned, RTL, theme-variable driven. */
+
+:root {
+  --c-primary: #6750A4;
+  --c-on-primary: #ffffff;
+  --c-secondary: #625B71;
+  --c-secondary-container: #E8DEF8;
+  --c-on-secondary-container: #1D192B;
+  --c-surface: #FEF7FF;
+  --c-on-surface: #1D1B20;
+  --c-on-surface-variant: #49454F;
+  --c-surface-container: #F3EDF7;
+  --c-surface-container-high: #ECE6F0;
+  --c-surface-container-highest: #E6E0E9;
+  --c-outline: #79747E;
+  --c-outline-variant: #CAC4D0;
+  --c-error: #B3261E;
+  --c-primary-subtle: rgba(103, 80, 164, 0.12);
+  --c-on-surface-subtle: rgba(29, 27, 32, 0.07);   /* dropdown field fill (idle) */
+  --c-on-surface-hover:  rgba(29, 27, 32, 0.12);   /* dropdown field fill (hover/focus) */
+  --c-primary-border:    rgba(103, 80, 164, 0.22); /* dropdown field focus border */
+
+  --font-size-base: 22px;
+  --line-height: 1.85;
+  --content-width: 760px;
+  --ui-font: 'Heebo', 'Segoe UI', 'Noto Sans Hebrew', system-ui, sans-serif;
+  --prayer-font: 'FrankRuhlCLM', 'Frank Ruhl Libre', 'David', 'Noto Serif Hebrew', serif;
+  --radius: 16px;
+  --radius-sm: 10px;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  background: var(--c-surface);
+  color: var(--c-on-surface);
+  font-family: var(--ui-font);
+}
+body { overflow: hidden; }
+
+.app { display: flex; flex-direction: column; height: 100vh; }
+
+/* ── Header ── */
+.header {
+  background: var(--c-surface-container);
+  border-bottom: 1px solid var(--c-outline-variant);
+  padding: 10px 14px 0;
+  flex: 0 0 auto;
+}
+.header-tools { display: flex; gap: 4px; margin-inline-start: auto; }
+.tool-btn {
+  width: 38px; height: 38px; border: none; border-radius: 50%;
+  background: transparent; color: var(--c-on-surface-variant);
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  transition: background .15s;
+}
+.tool-btn svg { width: 21px; height: 21px; }
+.tool-btn[hidden] { display: none; }
+.tool-btn:hover { background: var(--c-primary-subtle); color: var(--c-on-surface); }
+
+.header-date { display: flex; align-items: center; gap: 10px; margin: 0 0 2px; }
+.hdr-date { font-size: 1.05rem; font-weight: 600; }
+.hdr-season { font-size: .82rem; color: var(--c-on-surface-variant); }
+/* Compact prayer title — only shown once the reader is scrolled. */
+.hdr-svc { font-size: 1rem; font-weight: 700; color: var(--c-primary); display: none; }
+.scrolled .hdr-svc { display: inline; }
+.scrolled .hdr-date, .scrolled .hdr-season { display: none; }
+
+/* Collapse the badges + tabs on scroll to give the text more height. */
+.hdr-badges, .tabs { transition: max-height .2s ease, opacity .15s ease, margin .2s ease; overflow: hidden; max-height: 60px; }
+.scrolled .hdr-badges, .scrolled .tabs { max-height: 0; opacity: 0; margin-top: 0; margin-bottom: 0; pointer-events: none; }
+
+.hdr-badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.badge {
+  font-size: .74rem; font-weight: 600; padding: 3px 10px; border-radius: 999px;
+  background: var(--c-secondary-container); color: var(--c-on-secondary-container);
+  white-space: nowrap;
+}
+.badge.b-blue   { background: #DCE7FF; color: #0B3D91; }
+.badge.b-green  { background: #D7F0DC; color: #14502A; }
+.badge.b-amber  { background: #FCEBC8; color: #6B4E00; }
+.badge.b-red    { background: #FBDAD7; color: #8C1D18; }
+.badge.b-purple { background: #ECE0FF; color: #3F2A6B; }
+.badge.b-teal   { background: #CDEFEC; color: #0B4C49; }
+.badge.b-ghost  { background: transparent; color: var(--c-on-surface-variant); border: 1px solid var(--c-outline-variant); }
+
+.dark .badge.b-blue   { background: #21304f; color: #BFD4FF; }
+.dark .badge.b-green  { background: #1d3a27; color: #B8E6C4; }
+.dark .badge.b-amber  { background: #4a3a14; color: #F4D58A; }
+.dark .badge.b-red    { background: #4d211e; color: #F6B4AE; }
+.dark .badge.b-purple { background: #342450; color: #D6C2FF; }
+.dark .badge.b-teal   { background: #103e3b; color: #9FE0DB; }
+
+/* ── Tabs ── */
+.tabs { display: flex; gap: 4px; margin-top: 4px; overflow-x: auto; }
+.tab {
+  border: none; background: transparent; color: var(--c-on-surface-variant);
+  padding: 10px 16px; font-size: .95rem; font-weight: 600; cursor: pointer;
+  border-bottom: 3px solid transparent; white-space: nowrap; font-family: inherit;
+}
+.tab:hover { color: var(--c-on-surface); }
+.tab.active { color: var(--c-primary); border-bottom-color: var(--c-primary); }
+
+/* ── Reader ── */
+.reader-scroll { flex: 1 1 auto; overflow-y: auto; padding: 8px 0 80px; }
+.service-title {
+  text-align: center; font-size: 1.4rem; font-weight: 700; margin: 14px 0 4px;
+  color: var(--c-primary); font-family: var(--prayer-font);
+}
+.content { max-width: var(--content-width); margin: 0 auto; padding: 0 18px; }
+
+.prayer {
+  font-family: var(--prayer-font);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height);
+  text-align: justify;
+}
+.fade-in { animation: fade .25s ease; }
+@keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.s-section {
+  font-size: 1.05em; font-weight: 700; color: var(--c-primary);
+  margin: 22px 0 6px; padding-bottom: 4px;
+  border-bottom: 2px solid var(--c-primary-subtle);
+  font-family: var(--ui-font);
+}
+.s-subsection {
+  font-size: .8em; font-weight: 700; color: var(--c-on-surface-variant);
+  margin: 14px 0 2px; font-family: var(--ui-font);
+}
+.s-seg { margin-bottom: 18px; }
+.s-line { margin: 2px 0; }
+.s-line b, .prayer b { font-weight: 800; color: var(--c-primary); }
+/* Lead word of each passage — larger, bold, with a little breathing room below. */
+.s-firstword { font-size: 1.32em; font-weight: 700; line-height: 1; }
+.s-seg > .s-line:first-child { margin-bottom: 6px; }
+
+/* Accordions (optional / grouped content) */
+.s-optional, .s-group {
+  margin: 10px 0; border: 1px dashed var(--c-outline-variant);
+  border-radius: var(--radius-sm); background: var(--c-surface-container);
+  padding: 2px 12px;
+}
+.s-optional > summary, .s-group > summary {
+  cursor: pointer; font-family: var(--ui-font); font-size: .9rem; font-weight: 600;
+  color: var(--c-on-surface-variant); padding: 8px 2px; list-style: none;
+}
+.s-optional > summary::-webkit-details-marker, .s-group > summary::-webkit-details-marker { display: none; }
+.s-optional > summary::before, .s-group > summary::before { content: '▸ '; color: var(--c-primary); }
+.s-optional[open] > summary::before, .s-group[open] > summary::before { content: '▾ '; }
+.s-hint { font-weight: 400; opacity: .7; font-size: .8em; }
+.s-optional-body, .s-group-body { padding: 4px 0 10px; }
+
+/* ── Floating panels (rounded card, slides in from the left) ── */
+.backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,.32);
+  opacity: 0; pointer-events: none; transition: opacity .18s ease-out; z-index: 1000;
+}
+.backdrop.open { opacity: 1; pointer-events: auto; }
+.panel {
+  position: fixed; top: 10px; bottom: 12px; left: 10px; right: auto;
+  width: min(380px, 92vw);
+  background: var(--c-surface-container-high); color: var(--c-on-surface);
+  border-radius: 24px; box-shadow: 0 8px 28px rgba(0,0,0,.22);
+  z-index: 1001; display: flex; flex-direction: column; overflow: hidden;
+  opacity: 0; transform: translateX(-28px); pointer-events: none;
+  transition: opacity .18s ease-out, transform .22s cubic-bezier(.2, 0, 0, 1);
+}
+.panel.open { opacity: 1; transform: none; pointer-events: auto; }
+.panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 20px 12px; font-weight: 700; font-size: 1.1rem;
+  flex: 0 0 auto;
+}
+.panel-body { overflow-y: auto; padding: 4px 20px 20px; }
+
+/* כרטיס תוכן בתוך חלונית (כמו SettingsCard, ללא כותרת) — אחיד עם חלונית ההגדרות */
+.panel-card {
+  background: var(--c-surface);
+  border-radius: 20px;            /* AppTokens.radiusXL */
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+/* Zmanim */
+.zmanim-loc {
+  display: flex; align-items: center; gap: 7px;
+  margin: 4px 2px 10px;
+  color: var(--c-on-surface-variant);
+  font-size: .9rem;
+}
+.zmanim-loc svg { width: 17px; height: 17px; flex: none; color: var(--c-primary); }
+.zmanim-loc span { font-weight: 600; }
+.zman { display: flex; justify-content: space-between; align-items: center; padding: 11px 16px; }
+.panel-card > .zman + .zman { border-top: 1.5px solid var(--c-surface-container-highest); }
+.z-name { color: var(--c-on-surface-variant); }
+.z-val { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* Nav list */
+.nav-item {
+  display: block; width: 100%; text-align: start; border: none; background: transparent;
+  color: var(--c-on-surface); padding: 11px 16px; font-size: .95rem; cursor: pointer;
+  font-family: inherit;
+}
+.panel-card > .nav-item + .nav-item { border-top: 1.5px solid var(--c-surface-container-highest); }
+.nav-item:hover { background: var(--c-primary-subtle); }
+
+/* Settings — titled cards (SettingsCard) + segmented controls (SegmentedSettingsTile) */
+.settings-card {
+  background: var(--c-surface);
+  border-radius: 20px;                 /* AppTokens.radiusXL */
+  overflow: hidden;
+  margin-top: 16px;                    /* kSettingsCardSpacing */
+}
+.settings-card:first-child { margin-top: 4px; }
+.settings-card-title {
+  font-size: 1rem; font-weight: 700;
+  color: var(--c-primary);             /* SettingsCardHeader → primary, bold */
+  padding: 18px 16px 10px; margin: 0;
+}
+/* 1.5px divider between rows, like AppCard.section */
+.settings-card-body > .settings-row + .settings-row {
+  border-top: 1.5px solid var(--c-surface-container-highest);
+}
+.settings-row { padding: 12px 16px; }
+.settings-row.stacked { display: flex; flex-direction: column; gap: 10px; }
+.settings-row.toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.settings-row-title    { font-size: 1rem; }
+.settings-row-subtitle { font-size: .8rem; color: var(--c-on-surface-variant); margin-top: 2px; }
+.settings-row-subtitle.warn { color: var(--c-error); }
+
+/* Connected segmented control, full-width (narrow-layout SegmentedSettingsTile) */
+.segmented {
+  display: flex;
+  border: 1px solid var(--c-outline-variant);
+  border-radius: 8px;                  /* AppTokens.radiusSM */
+  overflow: hidden;
+}
+.segmented button {
+  flex: 1 1 0; min-width: 0;
+  border: none; background: transparent;
+  color: var(--c-on-surface-variant);
+  height: 40px; padding: 0 8px;
+  font-family: inherit; font-size: .9rem; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: background .15s, color .15s;
+}
+.segmented button + button { border-inline-start: 1px solid var(--c-outline-variant); }
+.segmented button:hover:not(.active) { background: var(--c-primary-subtle); }
+.segmented button.active {                          /* selected segment */
+  background: var(--c-secondary-container);
+  color: var(--c-on-secondary-container);
+  font-weight: 600;
+}
+
+/* Dropdown field (like AppDropdownField / DropdownSettingsTile) — for long option lists */
+.dropdown-field { position: relative; }
+.dropdown-field::after {                            /* chevron (no native arrow) */
+  content: ''; position: absolute; inset-inline-end: 14px; top: 50%;
+  width: 8px; height: 8px; pointer-events: none;
+  border-right: 2px solid var(--c-on-surface-variant);
+  border-bottom: 2px solid var(--c-on-surface-variant);
+  transform: translateY(-65%) rotate(45deg);
+}
+.dropdown-field select {
+  width: 100%; height: 40px;
+  border: 1.4px solid transparent; border-radius: 20px;   /* AppInputTokens.compactRadius */
+  background: var(--c-on-surface-subtle);                  /* onSurface @ 0.07 */
+  color: var(--c-on-surface);
+  font-family: inherit; font-size: 1rem;
+  padding-inline: 14px 34px; text-align: start;
+  cursor: pointer; appearance: none; -webkit-appearance: none;
+  transition: background .12s, border-color .12s;
+}
+.dropdown-field select:hover { background: var(--c-on-surface-hover); }
+.dropdown-field select:focus { background: var(--c-on-surface-hover); border-color: var(--c-primary-border); outline: none; }
+.switch {
+  width: 46px; height: 26px; border-radius: 999px; border: 2px solid var(--c-outline);
+  background: transparent; position: relative; cursor: pointer; transition: .2s; flex: 0 0 auto;
+}
+/* הבוהן ממוקמת לפי inset-inline-start: ב-RTL היא מתחילה בימין (כבוי) ומחליקה שמאלה (דלוק) */
+.switch::after {
+  content: ''; position: absolute; top: 3px; inset-inline-start: 3px;
+  width: 16px; height: 16px; border-radius: 50%; background: var(--c-outline); transition: .2s;
+}
+.switch.on { background: var(--c-primary); border-color: var(--c-primary); }
+.switch.on::after { inset-inline-start: 23px; background: var(--c-on-primary); }
+.set-note { font-size: .78rem; color: var(--c-on-surface-variant); line-height: 1.5; margin-top: 18px; }
+
+/* Action button inside a settings row (e.g. create desktop shortcut) */
+.set-action {
+  align-self: flex-start;
+  border: 1px solid var(--c-primary-border);
+  background: var(--c-primary-subtle);
+  color: var(--c-primary);
+  font-family: inherit;
+  font-size: .9rem;
+  font-weight: 600;
+  padding: 9px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.set-action:hover:not(:disabled) { background: var(--c-primary); color: var(--c-on-primary); }
+.set-action:disabled { opacity: .55; cursor: default; }
+
+/* ── Font bar ── */
+.fontbar {
+  position: absolute; bottom: 14px; inset-inline-start: 14px; z-index: 20;
+  display: flex; align-items: center; gap: 4px;
+  background: var(--c-surface-container-highest); border-radius: 999px;
+  padding: 4px 6px; box-shadow: 0 2px 8px rgba(0,0,0,.18);
+}
+.fs-btn {
+  border: none; background: transparent; color: var(--c-on-surface);
+  width: 34px; height: 30px; border-radius: 999px; cursor: pointer; font-size: .9rem; font-weight: 700;
+}
+.fs-btn:hover { background: var(--c-primary-subtle); }
+.fs-val { min-width: 26px; text-align: center; font-size: .85rem; font-variant-numeric: tabular-nums; }
+
+/* ── Extras (תוספות) ── */
+.extras-menu { max-width: var(--content-width); margin: 0 auto; padding: 8px 18px; }
+.extras-cat {
+  font-size: .85rem; font-weight: 700; color: var(--c-on-surface-variant);
+  margin: 18px 4px 8px; text-transform: none;
+}
+.extras-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.extra-card {
+  border: 1px solid var(--c-outline-variant); background: var(--c-surface-container);
+  color: var(--c-on-surface); border-radius: var(--radius-sm); padding: 16px 14px;
+  font-size: 1rem; font-weight: 600; cursor: pointer; font-family: var(--prayer-font);
+  text-align: center; transition: .15s;
+}
+.extra-card:hover { background: var(--c-primary-subtle); border-color: var(--c-primary); }
+.extras-back {
+  display: inline-block; margin: 6px 0 4px; border: none; background: transparent;
+  color: var(--c-primary); font-size: .95rem; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.extras-back:hover { text-decoration: underline; }
+
+/* Instruction (rubric) + special-day inserts inside prayer text */
+.s-instruction {
+  font-family: var(--ui-font); font-size: .8em; color: var(--c-on-surface-variant);
+  font-style: italic; margin: 8px 0; padding: 4px 12px;
+  border-inline-start: 3px solid var(--c-outline-variant); background: var(--c-surface-container);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.s-special {
+  margin: 8px 0; padding: 6px 12px; border-radius: var(--radius-sm);
+  background: var(--c-primary-subtle); border-inline-start: 3px solid var(--c-primary);
+}
+/* Marks a section skipped because it may only be said with a מניין — the reader
+   sees why a familiar part is missing instead of an unexplained gap. */
+.s-minyan-note {
+  font-family: var(--ui-font); font-size: .78em; color: var(--c-on-surface-variant);
+  margin: 10px 0; padding: 5px 12px; border-radius: var(--radius-sm);
+  background: var(--c-surface-container); border: 1px dashed var(--c-outline-variant);
+  text-align: center;
+}
+
+/* ── Utilities ── */
+.muted { color: var(--c-on-surface-variant); }
+.center { text-align: center; padding: 40px 16px; }

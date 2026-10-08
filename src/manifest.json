@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "com.moshenahari.siduron",
+  "name": "סידורון",
+  "version": "3.7.1",
+  "description": "סידור חכם",
+  "author": "y.pl",
+  "homepage": "https://github.com/",
+  "entrypoint": "index.html",
+  "icon": "icon/icon.png",
+  "stability": "beta",
+  "minAppVersion": "0.9.98",
+  "sdkVersion": "1.x",
+  "permissions": [
+    "app.info.read",
+    "calendar.read",
+    "settings.read",
+    "plugin.storage.read",
+    "plugin.storage.write",
+    "ui.feedback",
+    "ui.create_shortcut",
+    "plugin.open_other",
+    "events.subscribe:theme.changed",
+    "events.subscribe:calendar.date_changed",
+    "events.subscribe:settings.changed"
+  ],
+  "network": {
+    "enabled": false,
+    "allowlist": []
+  },
+  "contributes": {
+    "toolTab": {
+      "title": "סידורון",
+      "order": 300,
+      "allowOrderBeforeBuiltIns": false,
+      "defaultPinned": true,
+      "iconName": "book_open_24_regular"
+    }
+  }
+}

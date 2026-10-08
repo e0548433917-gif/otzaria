@@ -1,0 +1,967 @@
+/* app.js — Siduron v2 orchestration.
+ *
+ * Wires the Otzaria SDK to the flag engine (calendar.js) → assembler
+ * (assembler.js) → renderer (render.js), and drives the UI: service tabs,
+ * the halachic header with flag badges, the profile/settings panel, the
+ * zmanim panel, jump-to-section, font size, and divine-name display.
+ *
+ * The Hebrew date comes from Otzaria's selected date; all halachic flags
+ * (omer, parsha, tal/geshem, yaaleh-veyavo, …) are computed locally with
+ * @hebcal/core, since the SDK does not expose them.
+ */
+(function () {
+  'use strict';
+
+  var STATE = {
+    nusach: 'edot_mizrach',     // edot_mizrach | sfard | ashkenaz
+    gender: 'male',             // male | female
+    isInIsrael: true,           // derived from the city chosen in Otzaria (not a manual toggle)
+    city: null,                 // selected city name (from Otzaria's calendar), or null
+    country: null,              // its country (Hebrew), or null
+    withMinyan: true,
+    purimDate: 'fourteenth',    // fourteenth | fifteenth | both
+    divineName: 'yy',           // source | hashem | yy | yedovid (see applyDivineName)
+    fontSize: 22,
+    fontFamily: '',             // '' = follow Otzaria's font; else a specific family
+    textWidth: '760',           // content max-width in px, or 'full'
+    themeFont: '',              // Otzaria's typography.fontFamily (captured from theme)
+    platform: '',               // host OS (from plugin.boot): windows|linux|macos|android|ios
+    permissions: null,          // granted permissions (from plugin.boot), or null when unknown
+    service: null,              // current service id
+    extra: null,                // current extra id (within the תוספות view)
+    date: null,                 // JS Date — the halachic day Otzaria reports
+    dayFlags: null,
+    times: null,                // Otzaria's getDailyTimes for that day
+    dayAdvanced: false,         // host already rolled the day over at שקיעה
+    maarivDate: null,           // the day whose entering night ערבית belongs to
+    maarivFlags: null,
+    nav: [],
+  };
+
+  var SERVICES = [
+    { id: 'shacharit', he: 'שחרית', template: function (n) { return 'shacharit_' + n; } },
+    { id: 'mincha', he: 'מנחה', template: function () { return 'mincha'; } },
+    { id: 'maariv', he: 'מעריב', template: function (n) { return 'maariv_' + n; } },
+    { id: 'omer', he: 'ספירת העומר', template: function (n) { return 'sefirat_haomer_' + n; },
+      showIf: function () { return STATE.dayFlags && STATE.dayFlags.omerDay != null; } },
+    { id: 'extras', he: 'תוספות', extras: true },
+  ];
+
+  // App service id → Tfilon (weekday) service key (js/services.js). Services not
+  // listed here (e.g. omer) fall through to the smart-siddur assembler.
+  var SERVICE_TO_TFILON = { shacharit: 'shacharit', mincha: 'mincha', maariv: 'arvit' };
+
+  // Which SIDURON_SHABBAT service to show, given the flags the service is
+  // rendered against (see flagsForService — ערבית gets the flags of the day its
+  // night enters, so the test is simply "is that day שבת"):
+  //   • מעריב → the Shabbat night service (קבלת שבת + ערבית) when the entering
+  //     day is שבת. On מוצאי שבת the entering day is Sunday → null → weekday
+  //     Tfilon, which adds אתה חוננתנו/הבדלה via the motzaei_shabbat flag.
+  //   • שחרית / מנחה → the Shabbat service on שבת itself.
+  // Returns null when the service isn't a Shabbat one (→ weekday Tfilon).
+  function shabbatServiceKey(serviceId, dayFlags) {
+    var flags = (dayFlags && dayFlags.flags) || [];
+    var isShabbat = flags.indexOf('shabbat') >= 0;
+    if (serviceId === 'maariv') return isShabbat ? 'maariv' : null;
+    if (serviceId === 'shacharit') return isShabbat ? 'shacharit' : null;
+    if (serviceId === 'mincha') return isShabbat ? 'mincha' : null;
+    return null;
+  }
+
+  // Full Yom-Tov of the שלש רגלים (festival amidah + musaf + hallel). NOT חול
+  // המועד (weekday amidah + insertions) and NOT ראש השנה/יום כיפור (separate
+  // machzorim). חוה"מ סוכות also carries the `sukkot` flag, so exclude when a
+  // chol-hamoed flag is set. Takes precedence over Shabbat — the festival amidah
+  // already folds in the בשבת rubrics for a festival that falls on Shabbat.
+  function yomtovServiceKey(serviceId, dayFlags) {
+    var f = (dayFlags && dayFlags.flags) || [];
+    function has(x) { return f.indexOf(x) >= 0; }
+    var cholHamoed = has('chol_hamoed_pesach') || has('chol_hamoed_sukkot');
+    var fullYT = (has('pesach') || has('shavuot') || has('sukkot') ||
+                  has('shemini_atzeret') || has('simchat_torah')) && !cholHamoed;
+    if (!fullYT) return null;
+    if (serviceId === 'shacharit' || serviceId === 'mincha' || serviceId === 'maariv') return serviceId;
+    return null;
+  }
+
+  var NUSACHIM = [
+    { id: 'edot_mizrach', he: 'עדות המזרח' },
+    { id: 'sfard', he: 'ספרד' },
+    { id: 'ashkenaz', he: 'אשכנז' },
+  ];
+
+  // Flag → badge {label, cls}. Only "display-worthy" flags surface.
+  var FLAG_BADGES = {
+    shabbat: ['שבת', 'b-blue'], rosh_chodesh: ['ראש חודש', 'b-blue'],
+    chanukah: ['חנוכה', 'b-amber'], purim: ['פורים', 'b-amber'],
+    pesach: ['פסח', 'b-green'], chol_hamoed_pesach: ['חול המועד פסח', 'b-green'],
+    sukkot: ['סוכות', 'b-green'], chol_hamoed_sukkot: ['חול המועד סוכות', 'b-green'],
+    hoshana_raba: ['הושענא רבה', 'b-green'], shemini_atzeret: ['שמיני עצרת', 'b-green'],
+    simchat_torah: ['שמחת תורה', 'b-green'], shavuot: ['שבועות', 'b-green'],
+    rosh_hashanah: ['ראש השנה', 'b-purple'], yom_kippur: ['יום כיפור', 'b-purple'],
+    aseret_yemei_teshuva: ['עשי״ת', 'b-purple'], fast_day: ['תענית', 'b-red'],
+    tisha_beav: ['תשעה באב', 'b-red'], omer_period: ['ספירת העומר', 'b-teal'],
+    tu_bishvat: ['ט״ו בשבט', 'b-green'], lag_baomer: ['ל״ג בעומר', 'b-amber'],
+    isru_chag: ['אסרו חג', 'b-green'], pesach_sheni: ['פסח שני', 'b-green'],
+    tu_bav: ['ט״ו באב', 'b-green'], yom_kippur_katan: ['יום כיפור קטן', 'b-purple'],
+  };
+  // Order badges appear in.
+  var BADGE_ORDER = ['shabbat', 'rosh_hashanah', 'yom_kippur', 'aseret_yemei_teshuva',
+    'pesach', 'chol_hamoed_pesach', 'shavuot', 'sukkot', 'chol_hamoed_sukkot',
+    'hoshana_raba', 'shemini_atzeret', 'simchat_torah', 'rosh_chodesh', 'chanukah',
+    'purim', 'fast_day', 'tisha_beav', 'tu_bishvat', 'lag_baomer', 'tu_bav',
+    'pesach_sheni', 'isru_chag', 'yom_kippur_katan', 'omer_period'];
+
+  /* ────────────── Otzaria SDK helpers ────────────── */
+  function hasOtzaria() { return typeof window.Otzaria !== 'undefined' && window.Otzaria.call; }
+  async function call(method, params) {
+    if (!hasOtzaria()) return null;
+    try { var r = await window.Otzaria.call(method, params || {}); return r && r.success ? r.data : null; }
+    catch (e) { return null; }
+  }
+  async function storageGet(key) { var v = await call('storage.get', { key: key }); return v; }
+  function storageSet(key, value) { if (hasOtzaria()) window.Otzaria.call('storage.set', { key: key, value: value }); }
+
+  /* ────────────── Theme ────────────── */
+  function applyTheme(theme) {
+    if (!theme || !theme.colorScheme) return;
+    var cs = theme.colorScheme, r = document.documentElement;
+    function set(k, v) { if (v) r.style.setProperty(k, v); }
+    set('--c-primary', cs.primary); set('--c-on-primary', cs.onPrimary);
+    set('--c-secondary', cs.secondary);
+    set('--c-secondary-container', cs.secondaryContainer);
+    set('--c-on-secondary-container', cs.onSecondaryContainer);
+    set('--c-surface', cs.surface); set('--c-on-surface', cs.onSurface);
+    set('--c-on-surface-variant', cs.onSurfaceVariant);
+    set('--c-surface-container', cs.surfaceContainer);
+    set('--c-surface-container-high', cs.surfaceContainerHigh);
+    set('--c-surface-container-highest', cs.surfaceContainerHighest);
+    set('--c-outline', cs.outline); set('--c-outline-variant', cs.outlineVariant);
+    set('--c-error', cs.error);
+    if (cs.primary) {
+      set('--c-primary-subtle', hexToRgba(cs.primary, 0.12));
+      set('--c-primary-border', hexToRgba(cs.primary, 0.22));
+    }
+    if (cs.onSurface) {
+      set('--c-on-surface-subtle', hexToRgba(cs.onSurface, 0.07));
+      set('--c-on-surface-hover', hexToRgba(cs.onSurface, 0.12));
+    }
+    document.body.classList.toggle('dark', theme.mode === 'dark');
+    if (theme.typography) {
+      var tp = theme.typography;
+      if (tp.lineHeight) r.style.setProperty('--line-height', String(tp.lineHeight));
+      // Remember Otzaria's chosen font so "default" follows the rest of the app.
+      if (tp.fontFamily) { STATE.themeFont = tp.fontFamily; applyFont(); }
+    }
+  }
+  function hexToRgba(hex, a) {
+    try {
+      return 'rgba(' + parseInt(hex.slice(1, 3), 16) + ',' + parseInt(hex.slice(3, 5), 16) +
+        ',' + parseInt(hex.slice(5, 7), 16) + ',' + a + ')';
+    } catch (e) { return 'rgba(103,80,164,' + a + ')'; }
+  }
+
+  /* ────────────── Hebrew date / numerals ────────────── */
+  function hebNum(n) {
+    n = parseInt(n, 10); if (!n || n < 1) return '';
+    var ones = ['', 'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט'];
+    var tens = ['', 'י', 'כ', 'ל', 'מ', 'נ', 'ס', 'ע', 'פ', 'צ'];
+    var huns = ['', 'ק', 'ר', 'ש', 'ת', 'תק', 'תר', 'תש', 'תת', 'תתק'];
+    n = n % 1000; var s = huns[Math.floor(n / 100)]; n = n % 100;
+    if (n === 15) s += 'טו'; else if (n === 16) s += 'טז';
+    else s += tens[Math.floor(n / 10)] + ones[n % 10];
+    return s;
+  }
+  function gershize(s) {
+    if (!s) return ''; if (s.length === 1) return s + '׳';
+    return s.slice(0, -1) + '״' + s.slice(-1);
+  }
+
+  /* ────────────── Divine-name display ────────────── */
+  // Consonant skeleton of the Tetragrammaton, allowing nikud/te'amim (Unicode
+  // Mn marks) between and after each letter — mirrors Otzaria's _holyName regex.
+  var TETRA_RE = /י\p{Mn}*ה\p{Mn}*ו\p{Mn}*ה\p{Mn}*/gu;
+  var MARK_RE = /\p{Mn}/u;          // a single combining (nikud/te'amim) mark
+  var HEB_LETTER_RE = /[א-ת]/;
+  // Otzaria's guard (_hasThreeContiguousHebrewLettersBeforeMatch): a skeleton
+  // match is the Name only when it is NOT buried inside a longer word — i.e.
+  // fewer than 3 contiguous Hebrew letters precede it (marks skipped). This
+  // still lets 1–2 letter prefixes through (לה׳, כה׳, ובה׳) while sparing words
+  // like "וַיַּגְבִּיהוּהוּ" where יהוה appears mid-word.
+  function hasThreeLettersBefore(text, start) {
+    var n = 0;
+    for (var i = start - 1; i >= 0; i--) {
+      var ch = text.charAt(i);
+      if (MARK_RE.test(ch)) { continue; }          // skip nikud/te'amim
+      if (HEB_LETTER_RE.test(ch)) { if (++n >= 3) { return true; } continue; }
+      break;                                        // space/tag/punctuation → word boundary
+    }
+    return false;
+  }
+  // How the Name is displayed. Siddurim rarely print ה׳ — they print two yods
+  // (יְיָ) or ידוד, vocalised — so those are offered too, and the vowels/te'amim
+  // of the source are carried over letter by letter instead of being dropped:
+  //   יְהֹוָה → יְיָ   (yod keeps the שוא, the second yod takes the ו's קמץ)
+  //   יְהֹוָה → יְדֹוָד (each ה becomes ד, keeping its own marks)
+  var DIVINE_NAMES = [
+    ['yy', 'יְיָ'], ['yedovid', 'יְדֹוָד'], ['hashem', 'ה׳'], ['source', 'יהוה'],
+  ];
+  // Split a Tetragrammaton match into letter+marks groups.
+  function letterGroups(m) { return m.match(/[א-ת]\p{Mn}*/gu) || []; }
+  function marksOf(group) { return group ? group.slice(1) : ''; }
+  function renderDivineName(m, mode) {
+    var g = letterGroups(m);
+    if (g.length < 4) return 'ה׳';            // defensive: unexpected shape
+    if (mode === 'yedovid') return g[0] + 'ד' + marksOf(g[1]) + g[2] + 'ד' + marksOf(g[3]);
+    if (mode === 'yy') return g[0] + 'י' + marksOf(g[2]);
+    return 'ה׳';
+  }
+  function applyDivineName(html) {
+    var mode = STATE.divineName;
+    if (mode === 'source') return html;
+    return html.replace(TETRA_RE, function (m, offset, str) {
+      return hasThreeLettersBefore(str, offset) ? m : renderDivineName(m, mode);
+    });
+  }
+
+  /* ────────────── Location (from Otzaria's selected city) ────────────── */
+  // We no longer ask the user "are you in Israel?" — we read the city they
+  // picked in Otzaria's calendar (settings key 'key-selected-city') and derive
+  // both the display label and ארץ-ישראל/חו״ל from it, mirroring the host's own
+  // city→country table (data/locations.js). Falls back to Israel when unknown
+  // (e.g. standalone preview, or a city missing from the table).
+  var ISRAEL_COUNTRY = 'ארץ ישראל';
+  async function refreshLocation() {
+    var city = await call('settings.get', { key: 'key-selected-city' });
+    if (typeof city !== 'string' || !city) city = null;
+    var byCity = (window.SIDURON_LOCATIONS && window.SIDURON_LOCATIONS.byCity) || {};
+    var country = city ? (byCity[city] || null) : null;
+    STATE.city = city;
+    STATE.country = country;
+    STATE.isInIsrael = country ? (country === ISRAEL_COUNTRY) : true;
+  }
+  // Short, human label for the day-times strip, e.g. "בני ברק, ישראל".
+  function locationLabel() {
+    if (!STATE.city) return '';
+    var country = STATE.country === ISRAEL_COUNTRY ? 'ישראל' : STATE.country;
+    return country ? STATE.city + ', ' + country : STATE.city;
+  }
+
+  /* ────────────── Date + flags ────────────── */
+  // Otzaria's `calendar.getSelectedDate` is the HALACHIC day: its calendar rolls
+  // the date over at שקיעה (the `calendarDayTransition` setting), so from sunset
+  // on Thursday the host already reports Friday. שחרית/מנחה of that day are the
+  // coming morning and afternoon, which is exactly what we want — but ערבית is
+  // said at the START of a halachic day, so the night we're standing in belongs
+  // to the day the host already advanced to.
+  //
+  //   Thursday 20:00 → host says Friday → ערבית = ערבית of Friday (יום חול)
+  //   Friday   20:00 → host says שבת    → ערבית = קבלת שבת + ערבית לשבת
+  //   Saturday 20:00 → host says Sunday → ערבית = מוצאי שבת (אתה חוננתנו, הבדלה)
+  //
+  // Before שקיעה (and for a date the user picked in the calendar) the day has not
+  // rolled over yet, so the *next* nightfall opens the following day — that is
+  // how a printed siddur lists ערבית, and it keeps "מעריב" on Friday afternoon
+  // showing קבלת שבת rather than the night that already passed.
+  // Returns the date whose entering night ערבית belongs to.
+  function maarivDateFor(hostDate, advanced) {
+    var d = new Date(hostDate.getTime());
+    if (!advanced) d.setDate(d.getDate() + 1);
+    return d;
+  }
+  // Did the host's day already roll over at שקיעה? True when the reported day is
+  // tomorrow *and* the wall clock is at/after sunset. `times` is the host's
+  // getDailyTimes map (its שקיעה is for the reported day — a minute or two off
+  // the current day's, hence the small tolerance).
+  function hostDayAdvanced(hostDate, times, now) {
+    var civilToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var host = new Date(hostDate.getFullYear(), hostDate.getMonth(), hostDate.getDate());
+    var diffDays = Math.round((host - civilToday) / 86400000);
+    if (diffDays !== 1) return false;
+    var sunset = minutesOfDay(times && (times.shkiah || times.sunset || times.seaLevelSunset));
+    var nowM = now.getHours() * 60 + now.getMinutes();
+    if (sunset == null) return nowM >= 17 * 60;      // no times → assume evening
+    return nowM >= sunset - 5;
+  }
+  function minutesOfDay(v) {
+    if (!v) return null;
+    var m = String(v).match(/(\d{1,2}):(\d{2})/);
+    return m ? (+m[1] * 60 + +m[2]) : null;
+  }
+
+  async function refreshDate() {
+    await refreshLocation();
+    var iso = await call('calendar.getSelectedDate');
+    var d;
+    if (iso) { d = new Date(iso); if (isNaN(d.getTime())) d = new Date(); }
+    else d = new Date();
+    // Normalise to local noon to avoid TZ day-shift in hebcal.
+    STATE.date = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
+    STATE.times = await call('calendar.getDailyTimes');
+    setPrayerDays(new Date());
+    renderHeader();
+    await renderZmanim();
+    return STATE.dayFlags;
+  }
+
+  // Recompute the day flags for the header/day services and for ערבית.
+  function setPrayerDays(now) {
+    var ctx = userContext();
+    STATE.dayFlags = window.SiduronCalendar.flagsFor(STATE.date, ctx);
+    STATE.dayAdvanced = hostDayAdvanced(STATE.date, STATE.times, now || new Date());
+    STATE.maarivDate = maarivDateFor(STATE.date, STATE.dayAdvanced);
+    STATE.maarivFlags = STATE.dayAdvanced
+      ? STATE.dayFlags
+      : window.SiduronCalendar.flagsFor(STATE.maarivDate, ctx);
+  }
+
+  // Flags a given service is rendered against: ערבית follows the night it enters.
+  function flagsForService(serviceId) {
+    return serviceId === 'maariv' ? (STATE.maarivFlags || STATE.dayFlags) : STATE.dayFlags;
+  }
+
+  // "מעריב · ליל שבת" — names the night, so the day model is visible rather than
+  // guessed at (especially right after שקיעה, when the date has just rolled over).
+  function maarivNightLabel() {
+    var f = (STATE.maarivFlags && STATE.maarivFlags.flags) || [];
+    function has(x) { return f.indexOf(x) >= 0; }
+    if (has('yom_kippur')) return 'ליל יום כיפור';
+    if (has('rosh_hashanah')) return 'ליל ראש השנה';
+    if (has('shabbat')) return 'ליל שבת';
+    if (has('pesach') && !has('chol_hamoed_pesach')) return 'ליל פסח';
+    if (has('shavuot')) return 'ליל שבועות';
+    if (has('sukkot') && !has('chol_hamoed_sukkot')) return 'ליל סוכות';
+    if (has('shemini_atzeret')) return 'ליל שמיני עצרת';
+    if (has('simchat_torah')) return 'ליל שמחת תורה';
+    if (has('motzaei_shabbat')) return 'מוצאי שבת';
+    return '';
+  }
+
+  // Set both the in-content title and the compact header title (shown on scroll).
+  function setTitle(t) {
+    var a = document.getElementById('hdr-title'); if (a) a.textContent = t || '';
+    var b = document.getElementById('hdr-svc'); if (b) b.textContent = t || '';
+  }
+
+  function userContext() {
+    return {
+      nusach: STATE.nusach, gender: STATE.gender, isInIsrael: STATE.isInIsrael,
+      withMinyan: STATE.withMinyan, purimDate: STATE.purimDate,
+    };
+  }
+
+  function renderHeader() {
+    var df = STATE.dayFlags, hd = df && df.hd;
+    var dateEl = document.getElementById('hdr-date');
+    if (hd) {
+      // hebcal renders the full Hebrew date with gershayim, e.g. "כ״ט סיון תשפ״ו".
+      var s;
+      try { s = hd.renderGematriya(true); } catch (e) { s = ''; }
+      if (!s) s = gershize(hebNum(hd.getDate())) + ' ' + hd.getMonthName();
+      dateEl.textContent = s;
+    } else dateEl.textContent = '';
+
+    // Flag badges.
+    var bEl = document.getElementById('hdr-badges');
+    var flags = df ? df.flags : [];
+    var html = '';
+    for (var i = 0; i < BADGE_ORDER.length; i++) {
+      var f = BADGE_ORDER[i];
+      if (flags.indexOf(f) >= 0 && FLAG_BADGES[f]) {
+        html += '<span class="badge ' + FLAG_BADGES[f][1] + '">' + FLAG_BADGES[f][0] + '</span>';
+      }
+    }
+    if (df && df.omerDay != null) {
+      html += '<span class="badge b-teal">עומר: יום ' + df.omerDay + '</span>';
+    }
+    if (df && df.upcomingParshah && df.upcomingParshah.he) {
+      html += '<span class="badge b-ghost">' + df.upcomingParshah.he + '</span>';
+    }
+    bEl.innerHTML = html || '<span class="badge b-ghost">יום חול</span>';
+
+    // Tal/Geshem hint.
+    var seasonEl = document.getElementById('hdr-season');
+    if (df) {
+      var season = flags.indexOf('mashiv_haruach') >= 0 ? 'משיב הרוח ומוריד הגשם' : 'מוריד הטל';
+      var tu = flags.indexOf('tal_umatar') >= 0 ? ' · ותן טל ומטר' : '';
+      seasonEl.textContent = season + tu;
+    }
+  }
+
+  var ZMAN_ORDER = [
+    ['עלות השחר', ['alotHaShachar', 'alos72Zmanis', 'alos72Degrees', 'alotHashachar']],
+    ['משיכיר', ['misheyakir', 'misheyakir11', 'misheyakir10point2']],
+    ['הנץ החמה', ['sunrise', 'netz', 'seaLevelSunrise']],
+    ['סו״ז ק״ש מג״א', ['sofZmanShmaMGA', 'sofZmanShmaMGA72Degrees', 'sofZmanShmaMGA72Zmanis']],
+    ['סו״ז ק״ש גר״א', ['sofZmanShma', 'sofZmanShmaGRA']],
+    ['סו״ז תפילה גר״א', ['sofZmanTfilla', 'sofZmanTfilaGRA']],
+    ['חצות', ['chatzot', 'chatzos']],
+    ['מנחה גדולה', ['minchaGedola', 'minchaGedolaGRA']],
+    ['מנחה קטנה', ['minchaKetana']],
+    ['פלג המנחה', ['plagHaMincha', 'plagGRA']],
+    ['שקיעה', ['shkiah', 'sunset', 'seaLevelSunset']],
+    ['צאת הכוכבים', ['tzeit', 'tzet', 'tzeitGeonim8point5']],
+  ];
+  // Location strip above the times — surfaces which city the times were
+  // computed for, so a wrong city in Otzaria can't silently skew the zmanim.
+  function renderLocationStrip() {
+    var place = locationLabel();
+    if (!place) return '';
+    return '<div class="zmanim-loc" title="המיקום נקבע לפי העיר שנבחרה באוצריא">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z"/><circle cx="12" cy="11" r="2.2"/></svg>' +
+      '<span>' + window.SiduronRender.esc(place) + '</span></div>';
+  }
+  async function renderZmanim() {
+    var el = document.getElementById('zmanim-body');
+    if (!el) return;
+    var loc = renderLocationStrip();
+    var times = STATE.times || await call('calendar.getDailyTimes');
+    if (!times || typeof times !== 'object') { el.innerHTML = loc + '<div class="muted">זמני היום אינם זמינים</div>'; return; }
+    var html = '';
+    for (var i = 0; i < ZMAN_ORDER.length; i++) {
+      var lbl = ZMAN_ORDER[i][0], keys = ZMAN_ORDER[i][1], val = null;
+      for (var k = 0; k < keys.length; k++) if (times[keys[k]] != null) { val = times[keys[k]]; break; }
+      if (val == null) continue;
+      html += '<div class="zman"><span class="z-name">' + lbl + '</span><span class="z-val">' + val + '</span></div>';
+    }
+    el.innerHTML = loc + (html ? '<div class="panel-card">' + html + '</div>' : '<div class="muted">זמני היום אינם זמינים</div>');
+  }
+
+  /* ────────────── Service tabs + rendering ────────────── */
+  function renderTabs() {
+    var bar = document.getElementById('tabs');
+    bar.innerHTML = '';
+    SERVICES.forEach(function (s) {
+      if (s.showIf && !s.showIf()) return;
+      var b = document.createElement('button');
+      b.className = 'tab' + (STATE.service === s.id ? ' active' : '');
+      b.textContent = s.he;
+      b.onclick = function () { openService(s.id); };
+      bar.appendChild(b);
+    });
+  }
+
+  function serviceById(id) { for (var i = 0; i < SERVICES.length; i++) if (SERVICES[i].id === id) return SERVICES[i]; return null; }
+
+  function openService(id) {
+    var svc = serviceById(id);
+    // Fall back when the requested service isn't available today (e.g. the
+    // Omer tab on a non-Omer day, restored from saved state).
+    if (!svc || (svc.showIf && !svc.showIf())) { svc = serviceById('shacharit'); }
+    if (!svc) return;
+    id = svc.id;
+    STATE.service = id;
+    storageSet('service', id);
+    renderTabs();
+
+    if (svc.extras) { renderExtrasView(); return; }
+    STATE.extra = null;
+
+    var contentEl = document.getElementById('content');
+    var result;
+    try {
+      // Main services (שחרית/מנחה/מעריב) for all nuschaot are sourced from the
+      // Tfilon corpus on weekdays (js/services.js) and from seforim.db on
+      // Shabbat (window.SIDURON_SHABBAT). Other services (ספירת העומר) still use
+      // the smart-siddur assembler.
+      // ערבית is rendered against the flags of the night it enters (see
+      // setPrayerDays) — every other service against the day itself.
+      var flags = flagsForService(id);
+      var tfilonSvc = SERVICE_TO_TFILON[id];
+      var yomtovSvc = yomtovServiceKey(id, flags);
+      var shabbatSvc = shabbatServiceKey(id, flags);
+      var S = window.SiduronServices;
+      if (yomtovSvc && S && S.hasYomtov(STATE.nusach, yomtovSvc)) {
+        result = S.renderYomtov(STATE.nusach, yomtovSvc, flags);
+      } else if (shabbatSvc && S && S.hasShabbat(STATE.nusach, shabbatSvc)) {
+        result = S.renderShabbat(STATE.nusach, shabbatSvc, flags);
+      } else if (tfilonSvc && window.SiduronServices && window.SiduronServices.has(STATE.nusach, tfilonSvc)) {
+        result = window.SiduronServices.render(STATE.nusach, tfilonSvc, flags);
+      } else {
+        var templateId = svc.template(STATE.nusach);
+        var segs = window.SiduronAssembler.assemble(templateId, userContext(), flags);
+        result = window.SiduronRender.render(segs);
+      }
+    } catch (e) {
+      contentEl.innerHTML = '<div class="muted center">שגיאה בהרכבת התפילה: ' + window.SiduronRender.esc(String(e && e.message || e)) + '</div>';
+      return;
+    }
+    STATE.nav = result.nav;
+    var night = id === 'maariv' ? maarivNightLabel() : '';
+    setTitle(night ? svc.he + ' · ' + night : svc.he);
+    contentEl.innerHTML = '<div class="prayer fade-in">' + applyDivineName(result.html) + '</div>';
+    contentEl.scrollTop = 0;
+    var sc = document.getElementById('reader-scroll'); if (sc) sc.scrollTop = 0;
+    renderNavList();
+  }
+
+  /* ────────────── Extras (תוספות) view ────────────── */
+  function renderExtrasView() {
+    var contentEl = document.getElementById('content');
+    var sc = document.getElementById('reader-scroll'); if (sc) sc.scrollTop = 0;
+    contentEl.scrollTop = 0;
+
+    if (!window.SiduronExtras) { contentEl.innerHTML = '<div class="muted center">התוספות לא נטענו.</div>'; return; }
+
+    if (!STATE.extra) {
+      // Menu of extras.
+      setTitle('תוספות וברכות');
+      STATE.nav = [];
+      contentEl.innerHTML = '<div class="extras-menu fade-in">' + window.SiduronExtras.renderMenu() + '</div>';
+      var cards = contentEl.querySelectorAll('[data-extra]');
+      for (var i = 0; i < cards.length; i++) {
+        cards[i].onclick = function () { STATE.extra = this.getAttribute('data-extra'); renderExtrasView(); };
+      }
+      return;
+    }
+    // A specific extra.
+    var item = null, list = window.SiduronExtras.list();
+    for (var k = 0; k < list.length; k++) if (list[k].id === STATE.extra) item = list[k];
+    setTitle(item ? item.title : 'תוספת');
+    var result = window.SiduronExtras.renderExtra(STATE.extra, STATE.nusach, STATE.dayFlags);
+    STATE.nav = result.nav || [];
+    contentEl.innerHTML =
+      '<button class="extras-back" id="extras-back">‹ חזרה לרשימת התוספות</button>' +
+      '<div class="prayer fade-in">' + applyDivineName(result.html) + '</div>';
+    var back = document.getElementById('extras-back');
+    if (back) back.onclick = function () { STATE.extra = null; renderExtrasView(); };
+    renderNavList();
+  }
+
+  function rerender() {
+    setPrayerDays(new Date());
+    renderHeader();
+    renderTabs();
+    if (STATE.service) openService(STATE.service);
+  }
+
+  // Re-read date + location from Otzaria, recompute flags, and repaint
+  // everything (header, tabs, current service, zmanim, settings label).
+  // Used on both calendar.date_changed and city changes.
+  function refreshAndRerender() {
+    return refreshDate().then(function () {
+      renderTabs();
+      if (STATE.service) openService(STATE.service);
+      buildSettings();
+    });
+  }
+
+  /* ────────────── Jump-to-section ────────────── */
+  function renderNavList() {
+    var el = document.getElementById('nav-body');
+    if (!el) return;
+    if (!STATE.nav.length) { el.innerHTML = '<div class="muted">אין קטעים</div>'; return; }
+    el.innerHTML = '<div class="panel-card">' + STATE.nav.map(function (n) {
+      return '<button class="nav-item" data-anchor="' + n.anchor + '">' + window.SiduronRender.esc(n.label) + '</button>';
+    }).join('') + '</div>';
+    var btns = el.querySelectorAll('.nav-item');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].onclick = function () {
+        var a = this.getAttribute('data-anchor');
+        var target = document.getElementById(a);
+        closeAllPanels();
+        if (target) {
+          // expand a parent accordion if collapsed.
+          var det = target.closest('details');
+          if (det && !det.open) det.open = true;
+          if (target.scrollIntoView) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      };
+    }
+  }
+
+  /* ────────────── Service auto-selection by time ────────────── */
+  function pickServiceByTime(times) {
+    var now = new Date();
+    // Otzaria already rolled the day over at שקיעה → it is night, and the service
+    // being said now is ערבית (of the day that just began).
+    if (STATE.dayAdvanced) return 'maariv';
+    // Otherwise only meaningful when the reported day is today.
+    var sameDay = STATE.date && now.toDateString() === STATE.date.toDateString();
+    if (!sameDay || !times) return 'shacharit';
+    function mins(v) { return minutesOfDay(v); }
+    var nowM = now.getHours() * 60 + now.getMinutes();
+    var chatzot = mins(times.chatzot || times.chatzos);
+    var sunset = mins(times.shkiah || times.sunset || times.seaLevelSunset);
+    if (chatzot != null && nowM < chatzot) return 'shacharit';
+    if (sunset != null && nowM < sunset) return 'mincha';
+    return 'maariv';
+  }
+
+  /* ────────────── Settings panel ────────────── */
+  // Build a connected segmented control (single-select), like SegmentedSettingsTile.
+  // opts: array of [value, label]. onPick(value) is called on selection.
+  function buildSegment(elId, opts, current, onPick) {
+    var el = document.getElementById(elId);
+    if (!el) return;
+    el.innerHTML = opts.map(function (o) {
+      var sel = current === o[0];
+      return '<button type="button" class="' + (sel ? 'active' : '') +
+        '" data-val="' + o[0] + '" aria-pressed="' + sel + '">' + o[1] + '</button>';
+    }).join('');
+    el.querySelectorAll('[data-val]').forEach(function (b) {
+      b.onclick = function () { onPick(this.getAttribute('data-val')); };
+    });
+  }
+
+  // Build a dropdown (single-select), like DropdownSettingsTile — for long option lists.
+  // opts: array of [value, label]. onPick(value) is called on selection.
+  function buildSelect(elId, opts, current, onPick) {
+    var el = document.getElementById(elId);
+    if (!el) return;
+    el.innerHTML = opts.map(function (o) {
+      return '<option value="' + o[0] + '"' + (current === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+    }).join('');
+    el.onchange = function () { onPick(this.value); };
+  }
+
+  function buildSettings() {
+    // Nusach
+    buildSegment('set-nusach', NUSACHIM.map(function (n) { return [n.id, n.he]; }), STATE.nusach,
+      function (v) { STATE.nusach = v; storageSet('nusach', v); buildSettings(); rerender(); });
+    // Gender
+    buildSegment('set-gender', [['male', 'זכר'], ['female', 'נקבה']], STATE.gender,
+      function (v) { STATE.gender = v; storageSet('gender', v); buildSettings(); rerender(); });
+    // Purim date (walled cities)
+    buildSegment('set-purim', [['fourteenth', 'י״ד'], ['fifteenth', 'ט״ו'], ['both', 'שניהם']], STATE.purimDate,
+      function (v) { STATE.purimDate = v; storageSet('purimDate', v); buildSettings(); rerender(); });
+    // Font family (first = default: follow Otzaria). Dropdown — long labels.
+    buildSelect('set-font',
+      [['', 'ברירת מחדל'], ['FrankRuhlCLM', 'פרנק רוהל'], ['David', 'דוד'], ['TaameyFrankCLM', 'טעמי פרנק'], ['Shofar', 'שופר']],
+      STATE.fontFamily,
+      function (v) { STATE.fontFamily = v; storageSet('fontFamily', v); applyFont(); });
+    // Text width.
+    buildSegment('set-width', [['600', 'צר'], ['760', 'בינוני'], ['920', 'רחב'], ['full', 'מלא']], STATE.textWidth,
+      function (v) { STATE.textWidth = v; storageSet('textWidth', v); applyWidth(); buildSettings(); });
+    // Location (read-only — derived from the city chosen in Otzaria).
+    var locEl = document.getElementById('set-location');
+    if (locEl) {
+      var place = locationLabel();
+      locEl.textContent = place
+        ? place + ' · נקבע לפי העיר שנבחרה באוצריא'
+        : 'נקבע לפי העיר שנבחרה באוצריא';
+    }
+    // Desktop shortcut — only meaningful on desktop hosts. plugin.boot tells us
+    // which permissions were actually GRANTED (not merely declared in the
+    // manifest), so a missing grant is called out before the user clicks and
+    // gets a bare failure.
+    var shortcutCard = document.getElementById('card-shortcut');
+    if (shortcutCard) shortcutCard.hidden = !isDesktop();
+    var shortcutBtn = document.getElementById('set-shortcut');
+    if (shortcutBtn) shortcutBtn.onclick = createShortcut;
+    var shortcutNote = document.getElementById('set-shortcut-note');
+    if (shortcutNote) {
+      shortcutNote.textContent = shortcutPermissionGranted()
+        ? 'פתיחת התוסף ישירות משולחן העבודה'
+        : 'נדרשת הרשאה: הגדרות → כלים → סידורון → ניהול הרשאות → "יצירת קיצור דרך"';
+      shortcutNote.classList.toggle('warn', !shortcutPermissionGranted());
+    }
+    // Divine-name display (ה׳ / יְיָ / יְדֹוָד / as written).
+    buildSegment('set-divine', DIVINE_NAMES, STATE.divineName, function (v) {
+      STATE.divineName = v; storageSet('divineName', v);
+      buildSettings();
+      if (STATE.service) openService(STATE.service);
+    });
+    // Toggles
+    setToggle('set-minyan', STATE.withMinyan, function (v) { STATE.withMinyan = v; storageSet('withMinyan', v); rerender(); });
+    var fv = document.getElementById('fs-val'); if (fv) fv.textContent = String(STATE.fontSize);
+  }
+  function setToggle(id, on, onChange) {
+    var el = document.getElementById(id); if (!el) return;
+    el.classList.toggle('on', !!on);
+    el.onclick = function () { var v = !el.classList.contains('on'); el.classList.toggle('on', v); onChange(v); };
+  }
+
+  /* ────────────── Font size ────────────── */
+  var FS_MIN = 16, FS_MAX = 40;
+  function applyFontSize(px) {
+    px = Math.max(FS_MIN, Math.min(FS_MAX, parseInt(px, 10) || 22));
+    STATE.fontSize = px;
+    document.documentElement.style.setProperty('--font-size-base', px + 'px');
+    var v = document.getElementById('fs-val'); if (v) v.textContent = String(px);
+  }
+  function changeFont(d) { applyFontSize(STATE.fontSize + d); storageSet('fontSize', STATE.fontSize); }
+
+  /* ────────────── Font family ────────────── */
+  // Built-in serif fallbacks appended so the prayer text always renders nicely.
+  var FONT_FALLBACK = "'David', 'Noto Serif Hebrew', serif";
+  function applyFont() {
+    var fam = STATE.fontFamily || STATE.themeFont || 'FrankRuhlCLM';
+    document.documentElement.style.setProperty('--prayer-font', "'" + fam + "', " + FONT_FALLBACK);
+  }
+
+  /* ────────────── Text width ────────────── */
+  function applyWidth() {
+    var w = STATE.textWidth === 'full' ? '100%' : (parseInt(STATE.textWidth, 10) || 760) + 'px';
+    document.documentElement.style.setProperty('--content-width', w);
+  }
+
+  /* ────────────── Desktop shortcut (shortcut.create) ────────────── */
+  // Shortcuts are a desktop-only host capability; the host builds a safe
+  // deep-link (otzaria://open/plugin/<id>) and shows its own confirm dialog,
+  // so the plugin only supplies a label.
+  function isDesktop() {
+    return ['windows', 'linux', 'macos'].indexOf(STATE.platform) >= 0;
+  }
+  // plugin.boot carries the granted-permission list; when it's missing (older
+  // host, standalone preview) assume granted rather than nagging.
+  function shortcutPermissionGranted() {
+    if (!STATE.permissions) return true;
+    return STATE.permissions.indexOf('ui.create_shortcut') >= 0;
+  }
+  // Turn the host's RPC error into something a user can act on. The bridge
+  // returns codes like `permission_denied`, `error.unsupported: target folder
+  // not found` or `error.internal: USERPROFILE not set`; blaming the permission
+  // for every one of them (as this used to) sent people to re-grant a permission
+  // that was already granted while the real cause — no Desktop folder, a
+  // OneDrive-redirected desktop, an app too old for the API — stayed hidden.
+  function shortcutErrorMessage(err) {
+    var msg = err && typeof err === 'object'
+      ? [err.code, err.message].filter(Boolean).join(' ')
+      : String(err || '');
+    if (/permission_denied|create_shortcut/.test(msg)) {
+      return 'אין הרשאה ליצירת קיצור דרך. פתחו: הגדרות → כלים → סידורון → ניהול הרשאות, ' +
+        'ואשרו "יצירת קיצור דרך". אם ההרשאה כבר מסומנת — כבו והדליקו אותה כדי לשמור אותה מחדש.';
+    }
+    if (/unknown action|unknown domain|not ready|Unknown/i.test(msg)) {
+      return 'הגרסה של אוצריא המותקנת אצלכם אינה תומכת עדיין ביצירת קיצורי דרך. עדכנו את אוצריא ונסו שוב.';
+    }
+    if (/target folder not found/.test(msg)) {
+      return 'לא נמצאה תיקיית שולחן העבודה במחשב (למשל כשהיא מנותבת ל-OneDrive). ' +
+        'צרו את התיקייה או נסו שוב לאחר סנכרון OneDrive.';
+    }
+    if (/rate_limited/.test(msg)) return 'יותר מדי בקשות ברצף. המתינו רגע ונסו שוב.';
+    return 'לא ניתן היה ליצור קיצור דרך' + (msg ? ' (' + msg + ')' : '') + '.';
+  }
+  async function createShortcut() {
+    var btn = document.getElementById('set-shortcut');
+    if (btn) btn.disabled = true;
+    // Deliberately NOT via call(): that helper swallows the host's error and
+    // returns null, which is exactly what hid the real failure from users.
+    var res = null, err = null;
+    try {
+      var r = await window.Otzaria.call('shortcut.create', { label: 'סידורון', location: 'desktop' });
+      if (r && r.success) res = r.data;
+      else err = (r && r.error) || { message: 'unknown' };
+    } catch (e) { err = e; }
+    if (btn) btn.disabled = false;
+    if (res && res.created) {
+      call('ui.showSuccess', { message: 'נוצר קיצור דרך לסידורון בשולחן העבודה.' });
+    } else if (res && res.created === false) {
+      // User dismissed the host's confirm dialog — nothing to do.
+    } else {
+      call('ui.showError', { message: shortcutErrorMessage(err) });
+    }
+  }
+
+  /* ────────────── כיוון תפילה (תוסף נפרד) ────────────── */
+  // The header compass button opens the separate "כיוון תפילה" plugin via
+  // plugin.openOther (permission plugin.open_other, Otzaria 0.9.97+).
+  // Note: otzaria:// deep-links work only from outside the app, not from a
+  // plugin page, so they are not used here.
+  var KIVUN_ID = 'com.shiachrina.kivuntefila';
+  async function openKivunTefila() {
+    var err = null;
+    try {
+      var r = await window.Otzaria.call('plugin.openOther', { pluginId: KIVUN_ID });
+      if (!r || !r.success) err = (r && r.error) || { message: 'unknown' };
+    } catch (e) { err = e; }
+    if (!err) return;
+    var msg = err && typeof err === 'object' ? [err.code, err.message].filter(Boolean).join(' ') : String(err);
+    if (/not_found/.test(msg)) {
+      call('ui.showError', { message: 'תוסף "כיוון תפילה" אינו מותקן. ניתן להתקין אותו מחנות התוספים של אוצריא.' });
+    } else if (/permission|forbidden/i.test(msg)) {
+      call('ui.showError', { message: 'אין הרשאה לפתיחת תוסף אחר. פתחו: הגדרות → כלים → סידורון → ניהול הרשאות, ואשרו "פתיחת תוסף אחר".' });
+    } else {
+      call('ui.showError', { message: 'לא ניתן היה לפתוח את "כיוון תפילה"' + (msg ? ' (' + msg + ')' : '') + '.' });
+    }
+  }
+  // Hide the button only when we can positively tell the plugin isn't
+  // installed. If the host can't tell us (no API / no permission), keep it.
+  async function updateKivunButton() {
+    var btn = document.getElementById('btn-kivun');
+    if (!btn) return;
+    var list = await call('plugin.listInstalled');
+    if (!Array.isArray(list)) { btn.hidden = false; return; }
+    btn.hidden = !list.some(function (p) { return p && (p.pluginId === KIVUN_ID || p.id === KIVUN_ID); });
+  }
+
+  /* ────────────── Panels ────────────── */
+  function closeAllPanels() {
+    var open = document.querySelectorAll('.panel.open');
+    for (var i = 0; i < open.length; i++) open[i].classList.remove('open');
+    var bd = document.getElementById('backdrop'); if (bd) bd.classList.remove('open');
+  }
+  function togglePanel(panelId) {
+    var p = document.getElementById(panelId); if (!p) return;
+    var wasOpen = p.classList.contains('open');
+    closeAllPanels();
+    if (!wasOpen) { p.classList.add('open'); document.getElementById('backdrop').classList.add('open'); }
+  }
+
+  /* ────────────── Load / save settings ────────────── */
+  async function loadSettings() {
+    // 'isInIsrael' is intentionally absent — it's derived from Otzaria's
+    // selected city (see refreshLocation), not stored as a manual preference.
+    var keys = ['nusach', 'gender', 'withMinyan', 'purimDate', 'divineName', 'fontSize', 'fontFamily', 'textWidth', 'service'];
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i]; var v = await storageGet(k);
+      if (v == null) continue;
+      if (k === 'fontSize') STATE.fontSize = v;
+      else STATE[k] = v;
+    }
+    if (!isDivineName(STATE.divineName)) STATE.divineName = null;
+    if (!STATE.divineName) {
+      // No style stored yet. Honour the old boolean setting (censorNames) if it
+      // exists, otherwise follow Otzaria's own "הצגת שם הקודש" preference; the
+      // default style is two yods, as printed in siddurim.
+      var legacy = await storageGet('censorNames');
+      if (legacy === false) STATE.divineName = 'source';
+      else if (legacy === true) STATE.divineName = 'yy';
+      else {
+        var hostReplaces = await call('settings.get', { key: 'key-replace-holy-names' });
+        STATE.divineName = hostReplaces === false ? 'source' : 'yy';
+      }
+    }
+  }
+  function isDivineName(v) {
+    for (var i = 0; i < DIVINE_NAMES.length; i++) if (DIVINE_NAMES[i][0] === v) return true;
+    return false;
+  }
+
+  /* ────────────── Boot ────────────── */
+  function wireUi() {
+    var kivunBtn = document.getElementById('btn-kivun'); if (kivunBtn) kivunBtn.onclick = openKivunTefila;
+    document.getElementById('btn-zmanim').onclick = function () { togglePanel('panel-zmanim'); };
+    document.getElementById('btn-nav').onclick = function () { renderNavList(); togglePanel('panel-nav'); };
+    document.getElementById('btn-settings').onclick = function () { buildSettings(); togglePanel('panel-settings'); };
+    var bd = document.getElementById('backdrop'); if (bd) bd.onclick = closeAllPanels;
+    var closers = document.querySelectorAll('[data-close]');
+    for (var i = 0; i < closers.length; i++) closers[i].onclick = closeAllPanels;
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeAllPanels(); });
+    document.getElementById('fs-dec').onclick = function () { changeFont(-1); };
+    document.getElementById('fs-inc').onclick = function () { changeFont(1); };
+
+    // Collapse the header (tabs + badges) on scroll, surfacing the compact
+    // prayer title — gives the text more vertical room while reading.
+    // Direction-aware: scrolling DOWN collapses, scrolling UP (even slightly)
+    // restores it immediately — no need to return to the very top.
+    var sc = document.getElementById('reader-scroll');
+    if (sc) {
+      var collapsed = false;
+      var lastTop = 0;
+      sc.addEventListener('scroll', function () {
+        var top = sc.scrollTop;
+        var delta = top - lastTop;
+        var should = collapsed;
+        if (top <= 36) {
+          should = false;          // near the top → always expanded
+        } else if (delta > 4) {
+          should = true;           // scrolling down → collapse
+        } else if (delta < -4) {
+          should = false;          // scrolling up → expand
+        }
+        if (should !== collapsed) { collapsed = should; document.body.classList.toggle('scrolled', should); }
+        lastTop = top;
+      });
+    }
+  }
+
+  // Standalone (no Otzaria): inject a date simulator bar for QA/preview.
+  function injectDevBar() {
+    if (document.getElementById('dev-bar')) return;
+    var bar = document.createElement('div');
+    bar.id = 'dev-bar';
+    bar.style.cssText = 'position:fixed;bottom:14px;inset-inline-end:14px;z-index:60;display:flex;gap:6px;align-items:center;background:var(--c-surface-container-highest);padding:6px 10px;border-radius:999px;box-shadow:0 2px 8px rgba(0,0,0,.2);font-family:var(--ui-font);font-size:.8rem;';
+    var iso = STATE.date ? STATE.date.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
+    bar.innerHTML = '<span style="opacity:.7">תאריך (תצוגה):</span>' +
+      '<input type="date" id="dev-date" value="' + iso + '" style="font-family:inherit;border:1px solid var(--c-outline-variant);border-radius:8px;padding:3px 6px;background:var(--c-surface);color:var(--c-on-surface)">';
+    document.body.appendChild(bar);
+    document.getElementById('dev-date').onchange = function () {
+      if (this.value) window.SiduronApp.setDate(this.value);
+    };
+  }
+
+  async function boot() {
+    try {
+      await loadSettings();
+      applyFontSize(STATE.fontSize);
+      applyFont();
+      applyWidth();
+      await refreshDate();
+      if (!hasOtzaria()) injectDevBar();
+      // Auto-pick the service by time of day, unless one was saved.
+      if (!STATE.service) STATE.service = pickServiceByTime(STATE.times);
+      renderTabs();
+      buildSettings();
+      openService(STATE.service || 'shacharit');
+      updateKivunButton();
+    } catch (e) {
+      document.getElementById('content').innerHTML =
+        '<div class="muted center">שגיאה בטעינת הסידור: ' + window.SiduronRender.esc(String(e && e.message || e)) + '</div>';
+    }
+  }
+
+  /* ────────────── Init ────────────── */
+  function onReady(fn) {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn);
+    else fn();
+  }
+  onReady(wireUi);
+
+  if (typeof window.Otzaria !== 'undefined' && window.Otzaria.on) {
+    window.Otzaria.on('plugin.boot', function (payload) {
+      if (payload && payload.app && payload.app.platform) STATE.platform = payload.app.platform;
+      if (payload && Array.isArray(payload.permissions)) STATE.permissions = payload.permissions;
+      applyTheme(payload && payload.theme);
+      boot();
+    });
+    window.Otzaria.on('theme.changed', applyTheme);
+    window.Otzaria.on('calendar.date_changed', refreshAndRerender);
+    window.Otzaria.on('settings.changed', function (e) {
+      // The selected city lives in the calendar state; changing it re-derives
+      // our location + ארץ-ישראל and can flip flags (tefillin, mussaf, …),
+      // so recompute everything just like a date change.
+      if (e && e.key === 'key-selected-city') refreshAndRerender();
+    });
+  } else {
+    // Standalone (dev / browser preview) — boot when the DOM is ready.
+    onReady(boot);
+  }
+
+  // Expose a tiny dev API for the standalone preview harness.
+  window.SiduronApp = {
+    setDate: function (iso) {
+      var d = new Date(iso);
+      STATE.date = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
+      rerender();
+    },
+    // Simulate Otzaria's selected city (no SDK in standalone) — derives the
+    // location label + ארץ-ישראל from the same table the host uses.
+    setCity: function (city) {
+      var byCity = (window.SIDURON_LOCATIONS && window.SIDURON_LOCATIONS.byCity) || {};
+      STATE.city = city || null;
+      STATE.country = STATE.city ? (byCity[STATE.city] || null) : null;
+      STATE.isInIsrael = STATE.country ? (STATE.country === ISRAEL_COUNTRY) : true;
+      rerender();
+      renderZmanim();
+      buildSettings();
+    },
+    state: STATE,
+    // Pure helpers, exported for the test harness (tools/test-*.js).
+    _internals: {
+      maarivDateFor: maarivDateFor,
+      hostDayAdvanced: hostDayAdvanced,
+      renderDivineName: renderDivineName,
+      applyDivineName: applyDivineName,
+      divineNames: DIVINE_NAMES,
+      shabbatServiceKey: shabbatServiceKey,
+      yomtovServiceKey: yomtovServiceKey,
+      pickServiceByTime: pickServiceByTime,
+      shortcutErrorMessage: shortcutErrorMessage,
+      maarivNightLabel: maarivNightLabel,
+      setPrayerDays: setPrayerDays,
+      flagsForService: flagsForService,
+    },
+  };
+})();
