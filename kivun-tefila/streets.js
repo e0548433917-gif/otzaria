@@ -2,7 +2,7 @@
    אזור שהורד פעם אחת נשמר בתיקייה הפרטית של התוסף ועובד מאז בלי אינטרנט.
    בלי רשת באוצריא אפשר לפתוח את אותה כתובת בדפדפן, לשמור את הקובץ ולטעון אותו כאן. */
 const OVP=["https://overpass-api.de/api/interpreter","https://overpass.kumi.systems/api/interpreter"];
-const ST={idx:[],area:null,sel:null,pan:[0,0],setHere:false,radius:1500,showSyn:true,lang:"he",rot:0};
+const ST={idx:[],area:null,sel:null,pan:[0,0],setHere:false,radius:1500,showSyn:true,lang:"he",rot:0,vb:{x0:0,y0:0,x1:400,y1:320}};
 const EMB=typeof EMB_STREETS!=="undefined"?EMB_STREETS:[];
 /* כל אזור מובנה נמצא בקובץ משלו (st-NN.js) ונטען רק כשצריך. הקואורדינטות שמורות כהפרשים במאה-אלפיות המעלה. */
 const EMB_DATA={};function EMB_PUT(a){EMB_DATA[a.k]=a}
@@ -118,23 +118,23 @@ async function streetMap(){const svg=$("map"),panel=$("stPanel");panel.hidden=fa
  for(let i=0;i<ST.area.w.length;i++){const[nmS,hw,g]=ST.area.w[i];let d="",best=null,bx=[1e9,-1e9,1e9,-1e9];
   for(let k=0;k<g.length;k+=2){const p=P(g[k],g[k+1]);bx=[Math.min(bx[0],p[0]),Math.max(bx[1],p[0]),Math.min(bx[2],p[1]),Math.max(bx[3],p[1])];d+=(k?"L":"M")+f(p[0])+","+f(p[1]);
    if(k){const q=P(g[k-2],g[k-1]),L=Math.hypot(p[0]-q[0],p[1]-q[1]);if(!best||L>best[0])best=[L,q,p]}}
-  if(bx[1]<-50||bx[0]>450||bx[3]<-50||bx[2]>370)continue;const big=/^(motorway|trunk|primary|secondary)/.test(hw);
+  const VB=ST.vb;if(bx[1]<VB.x0-50||bx[0]>VB.x1+50||bx[3]<VB.y0-50||bx[2]>VB.y1+50)continue;const big=/^(motorway|trunk|primary|secondary)/.test(hw);
   lines+=`<path d="${d}" fill="none" stroke="var(--color-on-surface-dim)" stroke-opacity=".75" stroke-width="${big?4:2.5}" stroke-linecap="round" stroke-linejoin="round"/>`;
   if(best&&best[0]>70&&nmS){let a=Math.atan2(best[2][1]-best[1][1],best[2][0]-best[1][0])/R;if(a>90)a-=180;if(a<-90)a+=180;
-   const cl=x=>Math.max(15,Math.min(385,x)),mx=cl((best[1][0]+best[2][0])/2),my=Math.max(15,Math.min(300,(best[1][1]+best[2][1])/2));
+   const cl=x=>Math.max(VB.x0+15,Math.min(VB.x1-15,x)),mx=cl((best[1][0]+best[2][0])/2),my=Math.max(VB.y0+15,Math.min(VB.y1-20,(best[1][1]+best[2][1])/2));
    labels+=`<text transform="translate(${f(mx)},${f(my)}) rotate(${f(a)})" y="-5" text-anchor="middle" font-size="11" fill="var(--color-on-surface)" paint-order="stroke" stroke="var(--color-surface)" stroke-width="3">${esc(stNm(nmS))}</text>`}}
  if(ST.sel){const g=ST.area.w[ST.sel.i][2],q=P(g[ST.sel.k],g[ST.sel.k+1]),p=P(g[ST.sel.k+2],g[ST.sel.k+3]);
   hl=`<line x1="${f(q[0])}" y1="${f(q[1])}" x2="${f(p[0])}" y2="${f(p[1])}" stroke="var(--color-primary)" stroke-width="7" stroke-linecap="round"/>`}
- let syn="";if(ST.showSyn)for(const[sn,la,lo]of ST.area.s||[]){const p=P(la,lo);if(p[0]<-10||p[0]>410||p[1]<-10||p[1]>330)continue;
+ let syn="";if(ST.showSyn)for(const[sn,la,lo]of ST.area.s||[]){const p=P(la,lo);const VB=ST.vb;if(p[0]<VB.x0-10||p[0]>VB.x1+10||p[1]<VB.y0-10||p[1]>VB.y1+10)continue;
   syn+=`<g><title>${esc(sn||"בית כנסת")}</title><text x="${f(p[0])}" y="${f(p[1]+5)}" text-anchor="middle" font-size="14" fill="var(--color-primary)" paint-order="stroke" stroke="var(--color-surface)" stroke-width="3">✡</text>`
    +(zoom>=2&&sn?`<text x="${f(p[0])}" y="${f(p[1]+18)}" text-anchor="middle" font-size="10" fill="var(--color-primary)" paint-order="stroke" stroke="var(--color-surface)" stroke-width="3">${esc(sn)}</text>`:"")+"</g>"}
  const a=P(pos[0],pos[1]),L=150,br=b+ST.rot,e=[a[0]+Math.sin(br*R)*L,a[1]-Math.cos(br*R)*L];
  svg.innerHTML=lines+hl+labels+syn+`<line x1="${f(a[0])}" y1="${f(a[1])}" x2="${f(e[0])}" y2="${f(e[1])}" stroke="var(--color-primary)" stroke-width="3" stroke-dasharray="8 4"/><circle cx="${f(e[0])}" cy="${f(e[1])}" r="6" fill="var(--color-primary)"/>`
   +`<text x="${f(e[0])}" y="${f(e[1]-9)}" text-anchor="middle" font-size="12" fill="var(--color-on-surface)" paint-order="stroke" stroke="var(--color-surface)" stroke-width="3">לירושלים</text>`
   +`<circle cx="${f(a[0])}" cy="${f(a[1])}" r="6" fill="var(--color-on-surface)" stroke="var(--color-surface)" stroke-width="2"/>`
-  +`<g transform="translate(380,30) rotate(${f(ST.rot)})"><path d="M0,-12 L6,7 L0,3 L-6,7Z" fill="var(--color-on-surface)" stroke="var(--color-surface)" stroke-width="1.5"/><text y="-15" text-anchor="middle" font-size="11" fill="var(--color-on-surface)" paint-order="stroke" stroke="var(--color-surface)" stroke-width="3">צ N</text></g>`
-  +`<text x="362" y="18" direction="rtl" text-anchor="start" font-size="12" fill="var(--color-on-surface-dim)">${Math.round(v.hw*2)} מ' לרוחב</text>`
-  +`<text x="8" y="312" direction="ltr" text-anchor="start" font-size="10" fill="var(--color-on-surface-dim)">© OpenStreetMap contributors · ${esc(ST.area.d||"")}</text>`;
+  +`<g transform="translate(${ST.vb.x1-20},${ST.vb.y0+30}) rotate(${f(ST.rot)})"><path d="M0,-12 L6,7 L0,3 L-6,7Z" fill="var(--color-on-surface)" stroke="var(--color-surface)" stroke-width="1.5"/><text y="-15" text-anchor="middle" font-size="11" fill="var(--color-on-surface)" paint-order="stroke" stroke="var(--color-surface)" stroke-width="3">צ N</text></g>`
+  +`<text x="${ST.vb.x1-38}" y="${ST.vb.y0+18}" direction="rtl" text-anchor="start" font-size="12" fill="var(--color-on-surface-dim)">${Math.round(v.hw*2*(ST.vb.x1-ST.vb.x0)/400)} מ' לרוחב</text>`
+  +`<text x="${ST.vb.x0+8}" y="${ST.vb.y1-8}" direction="ltr" text-anchor="start" font-size="10" fill="var(--color-on-surface-dim)">© OpenStreetMap contributors · ${esc(ST.area.d||"")}</text>`;
  stText()}
 /* ההוראה: לאורך איזה רחוב לעמוד, ובכמה מעלות להסתובב ממנו */
 function stText(){const t=$("stTxt");if(!ST.sel){t.textContent=ST.setHere?"לחץ במפה על המקום שבו אתה נמצא.":"לחץ במפה על הרחוב שלידך, ותקבל הוראה ביחס לכיוון שלו.";return}

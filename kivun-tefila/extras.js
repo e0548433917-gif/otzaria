@@ -134,6 +134,28 @@ $("dlLink").onclick = () => { copyText(DL_URL); let w = null; try { w = window.o
 /* ---- הסבר השימוש במפה מוצג בשורה התחתונה, רק בתצוגת הרחובות ---- */
 (function () { const mp = map; map = function () { const r = mp.apply(this, arguments); $("stHint").hidden = $("stPanel").hidden; return r } })();
 
+/* ---- מפה במסך מלא ---- */
+/* במסך מלא: מרחיבים את שטח הציור (viewBox) במקום למתוח אותו, כך שרואים יותר רחובות בגודל טקסט רגיל */
+function mapVB() {
+  const full = document.body.classList.contains("mapfull"), svg = $("map");
+  if (!full) { ST.vb = { x0: 0, y0: 0, x1: 400, y1: 320 }; svg.setAttribute("viewBox", "0 0 400 320"); return }
+  const r = svg.getBoundingClientRect(), k = 1.7, W = r.width / k, H = r.height / k;
+  ST.vb = { x0: 200 - W / 2, y0: 160 - H / 2, x1: 200 + W / 2, y1: 160 + H / 2 };
+  svg.setAttribute("viewBox", `${ST.vb.x0.toFixed(1)} ${ST.vb.y0.toFixed(1)} ${W.toFixed(1)} ${H.toFixed(1)}`);
+}
+function mapFull(o) {
+  document.body.classList.toggle("mapfull", o); $("mapFullBar").hidden = !o;
+  $("zFull").classList.toggle("on", o); mapVB(); if (pos) map(); $("fTxt").hidden = !o;
+}
+setInterval(() => { if (document.body.classList.contains("mapfull")) { const t = $("mapMode").value === "street" ? $("stTxt").textContent : $("txt").textContent; if ($("fTxt").textContent !== t) $("fTxt").textContent = t } }, 300);
+addEventListener("resize", () => { if (document.body.classList.contains("mapfull")) { mapVB(); if (pos) map() } });
+$("zFull").onclick = () => mapFull(!document.body.classList.contains("mapfull"));
+$("fX").onclick = () => mapFull(false);
+$("fIn").onclick = () => $("zIn").click(); $("fOut").onclick = () => $("zOut").click();
+$("fJup").onclick = () => { if ($("mapMode").value === "street") $("stJup").click() };
+$("fN").onclick = () => { if ($("mapMode").value === "street") $("stN").click() };
+addEventListener("keydown", e => { if (e.key === "Escape" && document.body.classList.contains("mapfull")) mapFull(false) });
+
 /* ---- חיבור ---- */
 $("bPray").onclick = () => prayOpen(true);
 $("prayX").onclick = () => prayOpen(false);

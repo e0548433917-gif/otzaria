@@ -76,6 +76,11 @@ body.hascompass #bPray{display:inline-block}
 
 .row.tight{gap:.3rem}.row.tight button{padding:.25rem .45rem}
 .foot{margin:.2rem 0}
+/* מפה במסך מלא, על כל שטח התוסף */
+body.mapfull #map{position:fixed;inset:var(--bar-h,2.6rem) 0 0 0;width:100%;height:calc(100vh - var(--bar-h,2.6rem));max-height:none;z-index:30;border-radius:0;border:0}
+#mapFullBar{position:fixed;top:calc(var(--bar-h,2.6rem) + .5rem);inset-inline-end:.5rem;z-index:31;display:flex;gap:.3rem;flex-wrap:wrap}
+#mapFullBar[hidden],#fTxt[hidden]{display:none}
+#fTxt{position:fixed;bottom:1.6rem;left:50%;transform:translateX(-50%);z-index:31;max-width:min(46rem,92vw);background:var(--color-surface);border:1px solid var(--color-outline);border-radius:var(--radius-md);padding:.35rem .8rem;font-weight:600;text-align:center}
 .newsbox{background:var(--color-surface);border:1px solid var(--color-primary);border-radius:var(--radius-md);padding:.4rem .8rem;margin:.4rem 0}
 .newsbox ul{margin:.25rem 0;padding-inline-start:1.2rem}
 /* החלוניות (זיהוי ידני, הגדרות, הארות) נפתחות בצד ולא מכסות את החוגה והמפה */
@@ -216,6 +221,8 @@ body.hascompass #bPray{display:inline-block}
  <svg viewBox="-120 -120 240 240" aria-hidden="true"><circle r="112" fill="none" stroke="var(--color-outline)" stroke-width="2"/>
   <g id="prayArrow"><path d="M0,-100 L26,-40 L9,-46 L9,92 L-9,92 L-9,-46 L-26,-40Z" fill="var(--color-primary)"/></g></svg>
  <p id="prayDeg"></p><p id="prayTxt"></p></div>
+<div id="mapFullBar" hidden><button id="fIn" aria-label="הגדל">+</button><button id="fOut" aria-label="הקטן">−</button><button id="fJup">ירושלים למעלה</button><button id="fN">צפון למעלה</button><button id="fX">✕ סגור מסך מלא</button></div>
+<div id="fTxt" hidden></div>
 <div id="printHead"></div>
 <main>
 <div id="news" class="newsbox" hidden><strong>מה חדש בגרסה <span id="newsVer"></span></strong>
@@ -246,7 +253,7 @@ body.hascompass #bPray{display:inline-block}
 <div class="row"><label class="grow">סיבוב ידני של החוגה<input id="rot" type="range" min="0" max="359" value="0"></label><button id="rotReset" title="החזר את החוגה למצב צפון למעלה">איפוס</button></div>
 </div>
 <div><select id="mapMode" aria-label="תצוגת מפה"><option value="street" selected>הרחובות סביבי</option><option value="near">הסביבה הקרובה</option><option value="far">עד ירושלים</option></select>
-<button id="zIn" aria-label="הגדל מפה">+</button><button id="zOut" aria-label="הקטן מפה">−</button><button id="zReset">איפוס תצוגה</button>
+<button id="zIn" aria-label="הגדל מפה">+</button><button id="zOut" aria-label="הקטן מפה">−</button><button id="zReset">איפוס תצוגה</button><button id="zFull" title="מפה על כל התוסף (Esc לסגירה)">⛶ מסך מלא</button>
 <svg id="map" viewBox="0 0 400 320" aria-label="מפה"></svg>
 </div>
 <div id="stPanel" hidden>
