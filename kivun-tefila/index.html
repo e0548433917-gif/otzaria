@@ -75,7 +75,9 @@ body.hascompass #bPray{display:inline-block}
 }
 
 .row.tight{gap:.3rem}
-#stRotRow{margin:.25rem 0 .1rem}
+#stRotRow{margin:.25rem 0 .1rem;justify-content:flex-end}
+#stTxt{text-align:start}
+
 .sep{flex:0 0 1px;align-self:stretch;background:var(--color-outline);margin:0 .2rem}.row.tight button{padding:.25rem .45rem}
 .foot{margin:.2rem 0}
 /* מפה במסך מלא, על כל שטח התוסף */
@@ -84,6 +86,7 @@ body.mapfull #map{position:fixed;inset:var(--bar-h,2.6rem) 0 0 0;width:100%;heig
 #mapFullBar[hidden],#fTxt[hidden]{display:none}
 #fTxt{position:fixed;bottom:1.6rem;left:50%;transform:translateX(-50%);z-index:31;max-width:min(46rem,92vw);background:var(--color-surface);border:1px solid var(--color-outline);border-radius:var(--radius-md);padding:.35rem .8rem;font-weight:600;text-align:center}
 .nocomp{font-size:.8rem;color:var(--color-on-surface-dim);text-align:center;margin:-.4rem 0 .4rem;border:1px dashed var(--color-outline);border-radius:var(--radius-sm);padding:.25rem .5rem}
+.setrow{display:flex;margin:.35rem 0}.setrow label{display:flex;gap:.5rem;align-items:center;width:100%;justify-content:space-between}.setrow select{min-width:12rem}
 .newsbox{background:var(--color-surface);border:1px solid var(--color-primary);border-radius:var(--radius-md);padding:.4rem .8rem;margin:.4rem 0}
 .newsbox ul{margin:.25rem 0;padding-inline-start:1.2rem}
 /* החלוניות (זיהוי ידני, הגדרות, הארות) נפתחות בצד ולא מכסות את החוגה והמפה */
@@ -125,10 +128,12 @@ body.mapfull #map{position:fixed;inset:var(--bar-h,2.6rem) 0 0 0;width:100%;heig
       <li>הדפדפן מציג טקסט ארוך. שומרים אותו כקובץ (Ctrl+S, או "שמירה בשם").</li>
       <li>מעבירים את הקובץ למחשב הזה אם צריך (למשל בדיסק און קי), ולוחצים כאן "טען קובץ". הקובץ נשמר בתוסף, ואין צורך לשמור עליו אחר כך.</li>
     </ol>
-    <label>רדיוס להורדה: <select id="stRad"><option value="700">700 מ' (קטן ומהיר)</option><option value="1500">1.5 ק"מ</option><option value="3000">3 ק"מ (שכונות סמוכות)</option></select></label>
-    <label>שמות רחובות בחו"ל: <select id="stLang"><option value="he">תעתיק לעברית</option><option value="orig">בשפת המקום (אנגלית וכו׳)</option></select></label>
+    <div class="setrow"><label>רדיוס להורדה: <select id="stRad"><option value="700">700 מ' (קטן ומהיר)</option><option value="1500">1.5 ק"מ</option><option value="3000">3 ק"מ (שכונות סמוכות)</option></select></label></div>
+    <div class="setrow"><label>שמות רחובות בחו"ל: <select id="stLang"><option value="he">תעתיק לעברית</option><option value="orig">בשפת המקום (אנגלית וכו׳)</option></select></label></div>
     <p><strong>טיפים:</strong> לחיצה ארוכה על מפת הרחובות מסמנת "אני עומד כאן" ומסובבת את המפה כך שירושלים למעלה. גרירה מזיזה את המפה, גלגלת מגדילה, ו-Shift + גלגלת מסובבת. בשדה "חיפוש רחוב" אפשר להקליד שם רחוב ולקבל הוראה לפיו.</p>
     <p id="stEmb"></p>
+    <h2 style="font-size:1.1rem;margin:.75rem 0 .25rem">מתוכנן בגרסאות הבאות</h2>
+    <ul id="planned"><li>14 אזורי נופש נוספים בארץ (בבנייה): בית שאן, נוף הגליל, כרמיאל, עכו, זכרון יעקב, באר שבע, ירוחם, דימונה, יסוד המעלה, גינוסר, אמירים, יבנאל, כפר חב״ד, בית לחם הגלילית.</li><li>רשימה מורחבת של אזורי נופש וצימרים, בארץ ובחו״ל.</li></ul>
     <p style="margin:.75rem 0 .25rem"><strong>אזורים שהורדת:</strong></p>
     <ul id="stList"></ul>
     <h2 style="font-size:1.1rem;margin:.75rem 0 .25rem">כל היכולות של התוסף</h2>
@@ -167,7 +172,14 @@ body.mapfull #map{position:fixed;inset:var(--bar-h,2.6rem) 0 0 0;width:100%;heig
       <li>חלונית "מה חדש" אחרי כל עדכון, וטיפים בהגדרות.</li></ul>
     </details>
     <h2 style="font-size:1.1rem;margin:.75rem 0 .25rem">מה חדש</h2>
-    <details open><summary><b>1.4.0</b></summary><ul>
+    <details open><summary><b>1.5.0</b></summary><ul>
+     <li>במחשב בלי מצפן מופיע הסבר מתחת לחוגה: היא מצוירת כשהצפון למעלה ואינה מצביעה בחדר, וההפניה היא להוראה לפי הרחוב או לזיהוי ידני.</li>
+     <li>שורת הכלים מתחת למפה בשורה אחת, לצד המפה: סיבוב, סמן את מקומי, בתי כנסת והקרוב.</li>
+     <li>חיפוש רחוב גם במסך מלא.</li>
+     <li>שמות בתי הכנסת בחו״ל בתעתיק עברי, כמו הרחובות.</li>
+     <li>מיקודי חו״ל לפי קהילה הושלמו (כ-20,000), ובארץ 580 מיקודים.</li>
+     <li>בהגדרות: רדיוס ההורדה ושמות הרחובות בשורות מסודרות; "מתוכנן" מעל רשימת האזורים שהורדו.</li></ul></details>
+    <details><summary><b>1.4.0</b></summary><ul>
      <li>חיפוש רחוב עבר לשורה העליונה, ליד המקומות השמורים: הרחוב שנמצא הופך למיקום הנוכחי, ושמו מתמלא אוטומטית כדי לשמור אותו.</li>
      <li>אזורי חו״ל ברדיוס 3.5 ק״מ (היה 2): הרבה יותר רחובות סביב הקהילה, ומיקום בשולי אזור מוצג עם הערה.</li>
      <li>מיקוד בחו״ל לפי קהילה, עם שמות הרחובות שבו; מיקוד שקיים בכמה מקומות מציג בחירה. השלמה אוטומטית תוך כדי הקלדה.</li>
@@ -206,8 +218,6 @@ body.mapfull #map{position:fixed;inset:var(--bar-h,2.6rem) 0 0 0;width:100%;heig
     <details><summary><b>1.1.0 ו-1.0.0</b></summary><ul>
      <li>מפת רחובות עם הורדה אחת לכל אזור; מצפן המכשיר מיד בפתיחה.</li>
      <li>חוגה, שתי שיטות חישוב, מפות הסביבה ועד ירושלים, וזיהוי ידני לפי שמש, צל, כוכב הצפון ומקום מוכר.</li></ul></details>
-    <h2 style="font-size:1.1rem;margin:.75rem 0 .25rem">מתוכנן בגרסאות הבאות</h2>
-    <ul id="planned"><li>רשימה מורחבת של אזורי נופש וצימרים, בארץ ובחו״ל.</li></ul>
     <p>הגרסה העדכנית תמיד בחנות התוספים של אוצריא, וגם כאן: <button id="dlLink">דף ההורדה של כיוון תפילה</button></p>
     <div class="row"><button id="newsAgain">הצג שוב את חלונית "מה חדש"</button><button id="setFb">יש לך הערה? שלח הארה</button></div>
     <p><small>נתוני הרחובות, בתי הכנסת והמיקודים: © OpenStreetMap contributors, ברישיון ODbL.</small></p>
@@ -236,12 +246,13 @@ body.mapfull #map{position:fixed;inset:var(--bar-h,2.6rem) 0 0 0;width:100%;heig
  <svg viewBox="-120 -120 240 240" aria-hidden="true"><circle r="112" fill="none" stroke="var(--color-outline)" stroke-width="2"/>
   <g id="prayArrow"><path d="M0,-100 L26,-40 L9,-46 L9,92 L-9,92 L-9,-46 L-26,-40Z" fill="var(--color-primary)"/></g></svg>
  <p id="prayDeg"></p><p id="prayTxt"></p></div>
-<div id="mapFullBar" hidden><button id="fIn" aria-label="הגדל">+</button><button id="fOut" aria-label="הקטן">−</button><button id="fJup">ירושלים למעלה</button><button id="fN">צפון למעלה</button><button id="fX">✕ סגור מסך מלא</button></div>
+<div id="mapFullBar" hidden><input id="fQ" list="stNames" placeholder="חיפוש רחוב" aria-label="חיפוש רחוב" style="width:10em"><button id="fGo">מצא</button><button id="fIn" aria-label="הגדל">+</button><button id="fOut" aria-label="הקטן">−</button><button id="fJup">ירושלים למעלה</button><button id="fN">צפון למעלה</button><button id="fX">✕ סגור מסך מלא</button></div>
 <div id="fTxt" hidden></div>
 <div id="printHead"></div>
 <main>
 <div id="news" class="newsbox" hidden><strong>מה חדש בגרסה <span id="newsVer"></span></strong>
- <ul><li><b>חיפוש רחוב</b> בשורה העליונה: הרחוב הופך למיקום, ואפשר לשמור אותו.</li>
+ <ul><li>במחשב בלי מצפן: הסבר מתחת לחוגה, והפניה <b>להוראה לפי הרחוב</b>.</li>
+ <li>חיפוש רחוב גם <b>במסך מלא</b>; שורת הכלים בשורה אחת ליד המפה.</li><li><b>חיפוש רחוב</b> בשורה העליונה: הרחוב הופך למיקום, ואפשר לשמור אותו.</li>
  <li><b>אזורי חו״ל מורחבים</b> (3.5 ק״מ), ו<b>מיקוד</b> לפי קהילה עם שמות רחובות והשלמה אוטומטית.</li>
  <li>לחיצה על רחוב מציגה גם את המיקוד שלו.</li>
  <li>הפירוט המלא, וכל היכולות: בכפתור "הגדרות".</li></ul>
@@ -272,9 +283,8 @@ body.mapfull #map{position:fixed;inset:var(--bar-h,2.6rem) 0 0 0;width:100%;heig
 <svg id="map" viewBox="0 0 400 320" aria-label="מפה"></svg>
 </div>
 <div id="stPanel" hidden>
- <div class="row tight" id="stRotRow"><span title="אפשר גם Shift + גלגלת על המפה">סיבוב:</span><button id="stRL" title="סובב נגד כיוון השעון" aria-label="סובב 15 מעלות נגד כיוון השעון">⟲</button><button id="stRR" title="סובב עם כיוון השעון" aria-label="סובב 15 מעלות עם כיוון השעון">⟳</button><button id="stR90">90°</button><button id="stJup">ירושלים למעלה</button><button id="stN">צפון למעלה</button><button id="stHere" title="סמן במפה את המקום שבו אתה עומד">סמן את מקומי</button></div>
+ <div class="row tight" id="stRotRow"><button id="stRL" title="סובב נגד כיוון השעון" aria-label="סובב 15 מעלות נגד כיוון השעון">⟲</button><button id="stRR" title="סובב עם כיוון השעון" aria-label="סובב 15 מעלות עם כיוון השעון">⟳</button><button id="stR90">90°</button><button id="stJup">ירושלים למעלה</button><button id="stN">צפון למעלה</button><button id="stHere" title="סמן במפה את המקום שבו אתה עומד">סמן את מקומי</button><span class="sep"></span><label><input type="checkbox" id="stSyn" checked> ✡</label><button id="stSynNear" title="בית הכנסת הקרוב">הקרוב</button></div>
  <p id="stTxt" style="font-weight:600;margin:.4rem 0"></p>
- <div class="row"><label><input type="checkbox" id="stSyn" checked> בתי כנסת ✡</label><button id="stSynNear">הקרוב</button></div>
  <div id="stNone" hidden>
   <p id="stNearBox" hidden><span id="stNearTxt"></span><button id="stNearGo">עבור אליו (בלי אינטרנט)</button></p>
   <div class="row"><button id="stDl">הורד את האזור (פעם אחת, עם אינטרנט)</button><button id="stBrw">פתח בדפדפן</button><button id="stImp">טען קובץ</button></div>
@@ -286,7 +296,7 @@ body.mapfull #map{position:fixed;inset:var(--bar-h,2.6rem) 0 0 0;width:100%;heig
 <p class="foot"><small><span id="stHint" hidden>גרירה מזיזה, לחיצה בוחרת רחוב, לחיצה ארוכה: "אני עומד כאן". · </span>החישוב אל הר הבית לפי השיטה שנבחרה. בשאלה מעשית יש להתייעץ עם רב.</small></p>
 </main>
 <script src="world.js"></script>
-<script>const VER="1.4.0"</script>
+<script>const VER="1.5.0"</script>
 <script>
 const J=[31.7781,35.2359],R=Math.PI/180,O=window.Otzaria;
 const C=[["ירושלים – גאולה",31.7885,35.2188],["ירושלים – רמות",31.8156,35.1955],["ירושלים – הר נוף",31.7858,35.1742],["ירושלים – רמת שלמה",31.8111,35.2175],["ירושלים – בית וגן",31.7641,35.1867],["ירושלים – נווה יעקב",31.8395,35.242],["ירושלים – גבעת שאול",31.79,35.193],["ירושלים – סנהדריה",31.8,35.224],["ירושלים – קרית משה",31.7848,35.2003],["בני ברק",32.0874,34.8324],["בית שמש",31.7462,34.9887],["רמת בית שמש",31.71,34.98],["מודיעין עילית",31.9324,35.0433],["ביתר עילית",31.7019,35.1073],["אלעד",32.0501,34.9522],["אשדוד",31.7977,34.653],["פתח תקווה",32.0878,34.886],["צפת",32.9646,35.5025],["טבריה",32.7939,35.5329],["חיפה",32.8191,34.9984],["רכסים",32.751,35.1014],["עמנואל",32.161,35.137],["נתיבות",31.4214,34.5884],["ערד",31.2612,35.2146],["קרית גת",31.6094,34.7712],["כוכב יעקב",31.8814,35.2453],["חריש",32.463,35.044],["טלזסטון",31.805,35.102],["אופקים",31.314,34.62],["קרית אתא",32.806,35.106],["ברוקלין – בורו פארק",40.634,-73.9968],["ברוקלין – וויליאמסבורג",40.7146,-73.9535],["לייקווד",40.0941,-74.215],["מונסי",41.118,-74.0594],["קרית יואל",41.342,-74.1679],["בולטימור",39.36,-76.7],["שיקגו",42.0,-87.7],["לוס אנג'לס",34.0792,-118.3523],["טורונטו",43.73,-79.43],["מונטריאול",45.5186,-73.6069],["מקסיקו סיטי",19.4335,-99.1909],["בואנוס איירס",-34.6092,-58.406],["מונטווידאו",-34.909,-56.15],["לונדון – סטמפורד היל",51.5707,-0.069],["מנצ'סטר",53.5143,-2.2593],["גייטסהד",54.9617,-1.6044],["אנטוורפן",51.21,4.42],["פריז",48.8589,2.32],["ציריך",47.3744,8.541],["שטרסבורג",48.5846,7.7507],["וינה",48.2006,16.4269],["פראג",50.09,14.419],["מוסקבה",55.75,37.62],["יוהנסבורג",-26.14,28.1008],["מלבורן",-37.8708,145.0218],["מירון",32.98,35.44],["ספסופה",33.002,35.432],["ראש פינה",32.969,35.542],["קצרין",32.99,35.69],["נהריה",33.008,35.095],["ים המלח – עין בוקק",31.2,35.362],["אילת",29.556,34.952],["הקטסקילס – סאות' פולסבורג",41.72,-74.635],["נתניה – קרית צאנז",32.327,34.864],["רחובות",31.8928,34.8113],["אשקלון",31.6688,34.5743],["קרית מלאכי",31.73,34.744],["ירושלים – רוממה",31.792,35.208],["גבעת זאב",31.864,35.17],["ברוקלין – פלטבוש",40.625,-73.96],["ברוקלין – קראון הייטס",40.669,-73.942],["פאר רוקוויי",40.605,-73.755],["פסאיק",40.857,-74.128],["קליבלנד",41.49,-81.54],["לונדון – גולדרס גרין",51.572,-0.194],["סרסל",48.995,2.38],["סידני",-33.891,151.26],["חספין",32.846,35.79],["עין גב",32.78,35.64],["מעלות",33.016,35.272],["שלומי",33.075,35.145],["מטולה",33.28,35.58],["נווה אטי\"ב",33.267,35.738],["עין גדי",31.46,35.39],["מצפה רמון",30.61,34.8],["ארוזה (שווייץ)",46.778,9.678],["דאבוס",46.8,9.836],["לוגאנו",46.005,8.952],["מיאמי ביץ'",25.79,-80.13],["דיל (ניו ג'רזי)",40.252,-73.998],["מונטיצ'לו (הקטסקילס)",41.655,-74.69]];

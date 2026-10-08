@@ -9,7 +9,7 @@
 /* ---- בתי כנסת: לחיצה על ✡, ובית הכנסת הקרוב ---- */
 function synText(s) {
   const d = Math.round(dist(pos, [s[1], s[2]]) * 1000), b = bearing(pos, [s[1], s[2]]);
-  return `✡ ${s[0] || "בית כנסת"}: ${d >= 1000 ? (d / 1000).toFixed(1) + ' ק"מ' : d + " מ'"} ממך, לכיוון ${nm(b)}.`;
+  return `✡ ${stNm(s[0]) || "בית כנסת"}: ${d >= 1000 ? (d / 1000).toFixed(1) + ' ק"מ' : d + " מ'"} ממך, לכיוון ${nm(b)}.`;
 }
 function synHit(ev) {
   if (!ST.area || !ST.showSyn || !(ST.area.s || []).length) return null;
@@ -169,6 +169,8 @@ setInterval(() => { if (document.body.classList.contains("mapfull")) { const t =
 addEventListener("resize", () => { if (document.body.classList.contains("mapfull")) { mapVB(); if (pos) map() } });
 $("zFull").onclick = () => mapFull(!document.body.classList.contains("mapfull"));
 $("fX").onclick = () => mapFull(false);
+const fFind = () => { $("stQ").value = $("fQ").value; stFind() };
+$("fGo").onclick = fFind; $("fQ").onkeydown = e => { if (e.key === "Enter") fFind() };
 $("fIn").onclick = () => $("zIn").click(); $("fOut").onclick = () => $("zOut").click();
 $("fJup").onclick = () => { if ($("mapMode").value === "street") $("stJup").click() };
 $("fN").onclick = () => { if ($("mapMode").value === "street") $("stN").click() };
