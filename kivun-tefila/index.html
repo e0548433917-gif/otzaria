@@ -117,9 +117,10 @@ small{color:var(--color-on-surface-dim)}
  <p id="stTxt" style="font-weight:600;margin:.4rem 0"></p>
  <div class="row"><input id="stQ" list="stNames" placeholder="חיפוש רחוב" aria-label="חיפוש רחוב" class="grow" style="min-width:8em"><datalist id="stNames"></datalist><button id="stGo">מצא</button>
   <label><input type="checkbox" id="stSyn" checked> בתי כנסת ✡</label></div>
- <div class="row"><span>סיבוב המפה:</span><button id="stRL" title="סובב נגד כיוון השעון" aria-label="סובב 15 מעלות נגד כיוון השעון">⟲</button><button id="stRR" title="סובב עם כיוון השעון" aria-label="סובב 15 מעלות עם כיוון השעון">⟳</button><button id="stR90">90°</button><button id="stJup">ירושלים למעלה</button><button id="stN">צפון למעלה</button><small>או Shift + גלגלת</small></div>
- <div class="row"><button id="stHere">סמן את מקומי במפה</button><small>גרירה מזיזה את המפה, לחיצה בוחרת רחוב.</small></div>
+ <div class="row"><span title="אפשר גם Shift + גלגלת על המפה">סיבוב המפה:</span><button id="stRL" title="סובב נגד כיוון השעון" aria-label="סובב 15 מעלות נגד כיוון השעון">⟲</button><button id="stRR" title="סובב עם כיוון השעון" aria-label="סובב 15 מעלות עם כיוון השעון">⟳</button><button id="stR90">90°</button><button id="stJup">ירושלים למעלה</button><button id="stN">צפון למעלה</button></div>
+ <div class="row"><button id="stHere">סמן את מקומי במפה</button><small>גרירה מזיזה את המפה, לחיצה בוחרת רחוב, לחיצה ארוכה: "אני עומד כאן" וירושלים למעלה.</small></div>
  <div id="stNone" hidden>
+  <p id="stNearBox" hidden><span id="stNearTxt"></span><button id="stNearGo">עבור אליו (בלי אינטרנט)</button></p>
   <div class="row"><button id="stDl">הורד את האזור (פעם אחת, עם אינטרנט)</button><button id="stBrw">פתח בדפדפן</button><button id="stImp">טען קובץ</button></div>
   <p id="stUrlBox" hidden><small>שמור את הדף שנפתח (Ctrl+S) וטען אותו בכפתור "טען קובץ". הכתובת, להעתקה לדפדפן או למחשב אחר:</small> <button id="stCopy" type="button">העתק כתובת</button><br><small id="stUrl" style="word-break:break-all;user-select:all"></small></p>
  </div>
@@ -129,7 +130,7 @@ small{color:var(--color-on-surface-dim)}
 <p><small>החישוב אל הר הבית לפי השיטה שנבחרה. בשאלה מעשית יש להתייעץ עם רב.</small></p>
 </main>
 <script src="world.js"></script>
-<script>const VER="1.2.2"</script>
+<script>const VER="1.2.3"</script>
 <script>
 const J=[31.7781,35.2359],R=Math.PI/180,O=window.Otzaria;
 const C=[["ירושלים – גאולה",31.7885,35.2188],["ירושלים – רמות",31.8156,35.1955],["ירושלים – הר נוף",31.7858,35.1742],["ירושלים – רמת שלמה",31.8111,35.2175],["ירושלים – בית וגן",31.7641,35.1867],

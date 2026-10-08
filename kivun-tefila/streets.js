@@ -111,7 +111,7 @@ function stRot(x,y,r){const c=Math.cos(r*R),s=Math.sin(r*R);return[x*c+y*s,-x*s+
 function stXY(v,la,lo){const[x,y]=stRot((lo-pos[1])*v.kx-v.cx,(la-pos[0])*v.ky-v.cy,ST.rot);return[200+x*200/v.hw,160-y*160/v.hh]}
 async function streetMap(){const svg=$("map"),panel=$("stPanel");panel.hidden=false;const cov=stCover();
  if(!cov){ST.area=null;svg.innerHTML=`<text x="200" y="150" text-anchor="middle" font-size="14" fill="var(--color-on-surface)">אין עדיין מפת רחובות לאזור הזה</text><text x="200" y="174" text-anchor="middle" font-size="12" fill="var(--color-on-surface-dim)">אפשר להוריד אותה פעם אחת בכפתור שמתחת</text>`;
-  $("stNone").hidden=false;$("stTxt").textContent="";return}
+  $("stNone").hidden=false;$("stTxt").textContent="";stNear();return}
  $("stNone").hidden=true;
  if(!ST.area||ST.area.k!==cov.k){ST.area=await stReadArea(cov.k);ST.sel=null;if(!ST.area){svg.innerHTML="";$("stTxt").textContent=EMB.some(a=>a.k===cov.k)?"לא ניתן לטעון את נתוני האזור המובנים.":"קובץ האזור חסר. הורד אותו שוב.";return}stNames()}
  const v=stView(),b=bear(),P=(la,lo)=>stXY(v,la,lo),f=n=>n.toFixed(1);let lines="",labels="",hl="";
@@ -159,6 +159,10 @@ function stFind(){const q=$("stQ").value.trim();if(!q||!ST.area)return;const nq=
  const[kx,ky]=stM();let best=null;for(const[[,,g],i]of ws)for(let k=0;k+3<g.length;k+=2){const L=Math.hypot((g[k+2]-g[k])*ky,(g[k+3]-g[k+1])*kx);if(!best||L>best[0])best=[L,i,k]}
  const g=ST.area.w[best[1]][2],k=best[2],mla=(g[k]+g[k+2])/2,mlo=(g[k+1]+g[k+3])/2;ST.sel={i:best[1],k};ST.pan=[(mlo-pos[1])*kx,(mla-pos[0])*ky];
  const far=Math.max(Math.abs(ST.pan[0]),Math.abs(ST.pan[1]));if(far>300/zoom)zoom=Math.max(.25,300/(far*1.2));streetMap()}
+/* כשאין מפה למיקום: הצעה לעבור לאזור המובנה הקרוב (עד 60 ק"מ) */
+function stNear(){const b=$("stNearBox");if(!b)return;let n=null;for(const a of EMB){const d=dist(pos,[a.lat,a.lon]);if(!n||d<n[1])n=[a,d]}
+ if(!n||n[1]>60){b.hidden=true;return}b.hidden=false;$("stNearTxt").textContent=`האזור המובנה הקרוב: ${n[0].name} (${n[1]<10?n[1].toFixed(1):Math.round(n[1])} ק"מ מכאן). `;
+ $("stNearGo").onclick=()=>{const i=C.findIndex(c=>c[0]===n[0].name);if(i>=0){$("city").value=String(i);$("city").onchange()}else{setPos([n[0].lat,n[0].lon],n[0].name,null,false,true)}}}
 function zoomKeep(fn){const z=zoom;fn();zoom=z;map()}
 
 /* ---- הגדרות: האזורים השמורים והסבר לעבודה בלי אינטרנט ---- */
@@ -180,10 +184,15 @@ function stSettings(){const l=$("stList");if(!l)return;l.replaceChildren();
  $("stRad").onchange=()=>{ST.radius=+$("stRad").value;try{O&&O.call("storage.set",{key:"kivun-st-radius",value:ST.radius}).catch(()=>{})}catch(e){}};
  $("bSet").onclick=()=>{const o=$("set").hidden;pop("bHelp","help",false);pop("bFb","fb",false);pop("bSet","set",o)};
  const svg=$("map");let drag=null,moved=false;
- svg.addEventListener("pointerdown",e=>{if($("mapMode").value!=="street"||!ST.area)return;drag=[e.clientX,e.clientY,ST.pan[0],ST.pan[1]];moved=false});
+ let lp=null;const lpStop=()=>{clearTimeout(lp);lp=null};
+ svg.addEventListener("pointerdown",e=>{if($("mapMode").value!=="street"||!ST.area)return;drag=[e.clientX,e.clientY,ST.pan[0],ST.pan[1]];moved=false;
+  /* לחיצה ארוכה: "אני עומד כאן" — מסמן את המקום ומסובב את המפה כך שירושלים למעלה */
+  lpStop();const ev={clientX:e.clientX,clientY:e.clientY};lp=setTimeout(()=>{lp=null;if(moved||!drag)return;drag=null;ST.setHere=true;stClick(ev);ST.rot=((360-bear())%360+360)%360;streetMap();
+   $("stTxt").textContent="סומן המקום שלך, והמפה סובבה כך שירושלים למעלה. "+$("stTxt").textContent},650)});
+ svg.addEventListener("contextmenu",e=>{if($("mapMode").value==="street")e.preventDefault()});
  svg.addEventListener("pointermove",e=>{if(!drag)return;const r=svg.getBoundingClientRect(),v=stView(),dx=(e.clientX-drag[0])*400/r.width,dy=(e.clientY-drag[1])*320/r.height;
-  if(Math.hypot(dx,dy)>4)moved=true;if(moved){const[wx,wy]=stRot(dx*v.hw/200,-dy*v.hh/160,-ST.rot);ST.pan=[drag[2]-wx,drag[3]-wy];streetMap()}});
- addEventListener("pointerup",e=>{if(drag&&!moved&&e.target&&svg.contains(e.target))stClick(e);drag=null});
+  if(Math.hypot(dx,dy)>4){moved=true;lpStop()}if(moved){const[wx,wy]=stRot(dx*v.hw/200,-dy*v.hh/160,-ST.rot);ST.pan=[drag[2]-wx,drag[3]-wy];streetMap()}});
+ addEventListener("pointerup",e=>{lpStop();if(drag&&!moved&&e.target&&svg.contains(e.target))stClick(e);drag=null});
  const zr=$("zReset").onclick;$("zReset").onclick=()=>{ST.pan=[0,0];ST.rot=0;zr()};
  const rot=d=>{ST.rot=((ST.rot+d)%360+360)%360;streetMap()};
  $("stRL").onclick=()=>rot(-15);$("stRR").onclick=()=>rot(15);$("stR90").onclick=()=>rot(90);
