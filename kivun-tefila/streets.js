@@ -2,7 +2,7 @@
    אזור שהורד פעם אחת נשמר בתיקייה הפרטית של התוסף ועובד מאז בלי אינטרנט.
    בלי רשת באוצריא אפשר לפתוח את אותה כתובת בדפדפן, לשמור את הקובץ ולטעון אותו כאן. */
 const OVP=["https://overpass-api.de/api/interpreter","https://overpass.kumi.systems/api/interpreter"];
-const ST={idx:[],area:null,sel:null,pan:[0,0],setHere:false,radius:1500,showSyn:true,lang:"he"};
+const ST={idx:[],area:null,sel:null,pan:[0,0],setHere:false,radius:1500,showSyn:true,lang:"he",rot:0};
 const EMB=typeof EMB_STREETS!=="undefined"?EMB_STREETS:[];
 /* כל אזור מובנה נמצא בקובץ משלו (st-NN.js) ונטען רק כשצריך. הקואורדינטות שמורות כהפרשים במאה-אלפיות המעלה. */
 const EMB_DATA={};function EMB_PUT(a){EMB_DATA[a.k]=a}
@@ -106,7 +106,9 @@ const stNm=n=>ST.lang==="orig"?n:trName(n);
 /* ---- ציור ---- */
 const stM=()=>[111320*Math.cos(pos[0]*R),110540];
 function stView(){const hw=300/zoom,[kx,ky]=stM();return{hw,hh:hw*.8,kx,ky,cx:ST.pan[0],cy:ST.pan[1]}}
-function stXY(v,la,lo){const x=(lo-pos[1])*v.kx-v.cx,y=(la-pos[0])*v.ky-v.cy;return[200+x*200/v.hw,160-y*160/v.hh]}
+/* סיבוב המפה: ST.rot מעלות בכיוון השעון סביב מרכז התצוגה */
+function stRot(x,y,r){const c=Math.cos(r*R),s=Math.sin(r*R);return[x*c+y*s,-x*s+y*c]}
+function stXY(v,la,lo){const[x,y]=stRot((lo-pos[1])*v.kx-v.cx,(la-pos[0])*v.ky-v.cy,ST.rot);return[200+x*200/v.hw,160-y*160/v.hh]}
 async function streetMap(){const svg=$("map"),panel=$("stPanel");panel.hidden=false;const cov=stCover();
  if(!cov){ST.area=null;svg.innerHTML=`<text x="200" y="150" text-anchor="middle" font-size="14" fill="var(--color-on-surface)">אין עדיין מפת רחובות לאזור הזה</text><text x="200" y="174" text-anchor="middle" font-size="12" fill="var(--color-on-surface-dim)">אפשר להוריד אותה פעם אחת בכפתור שמתחת</text>`;
   $("stNone").hidden=false;$("stTxt").textContent="";return}
@@ -126,11 +128,12 @@ async function streetMap(){const svg=$("map"),panel=$("stPanel");panel.hidden=fa
  let syn="";if(ST.showSyn)for(const[sn,la,lo]of ST.area.s||[]){const p=P(la,lo);if(p[0]<-10||p[0]>410||p[1]<-10||p[1]>330)continue;
   syn+=`<g><title>${esc(sn||"בית כנסת")}</title><text x="${f(p[0])}" y="${f(p[1]+5)}" text-anchor="middle" font-size="14" fill="var(--color-primary)" paint-order="stroke" stroke="var(--color-surface)" stroke-width="3">✡</text>`
    +(zoom>=2&&sn?`<text x="${f(p[0])}" y="${f(p[1]+18)}" text-anchor="middle" font-size="10" fill="var(--color-primary)" paint-order="stroke" stroke="var(--color-surface)" stroke-width="3">${esc(sn)}</text>`:"")+"</g>"}
- const a=P(pos[0],pos[1]),L=150,e=[a[0]+Math.sin(b*R)*L,a[1]-Math.cos(b*R)*L];
+ const a=P(pos[0],pos[1]),L=150,br=b+ST.rot,e=[a[0]+Math.sin(br*R)*L,a[1]-Math.cos(br*R)*L];
  svg.innerHTML=lines+hl+labels+syn+`<line x1="${f(a[0])}" y1="${f(a[1])}" x2="${f(e[0])}" y2="${f(e[1])}" stroke="var(--color-primary)" stroke-width="3" stroke-dasharray="8 4"/><circle cx="${f(e[0])}" cy="${f(e[1])}" r="6" fill="var(--color-primary)"/>`
   +`<text x="${f(e[0])}" y="${f(e[1]-9)}" text-anchor="middle" font-size="12" fill="var(--color-on-surface)" paint-order="stroke" stroke="var(--color-surface)" stroke-width="3">לירושלים</text>`
   +`<circle cx="${f(a[0])}" cy="${f(a[1])}" r="6" fill="var(--color-on-surface)" stroke="var(--color-surface)" stroke-width="2"/>`
-  +`<text x="392" y="18" direction="rtl" text-anchor="start" font-size="12" fill="var(--color-on-surface-dim)">↑ צפון · ${Math.round(v.hw*2)} מ' לרוחב</text>`
+  +`<g transform="translate(380,30) rotate(${f(ST.rot)})"><path d="M0,-12 L6,7 L0,3 L-6,7Z" fill="var(--color-on-surface)" stroke="var(--color-surface)" stroke-width="1.5"/><text y="-15" text-anchor="middle" font-size="11" fill="var(--color-on-surface)" paint-order="stroke" stroke="var(--color-surface)" stroke-width="3">צ</text></g>`
+  +`<text x="362" y="18" direction="rtl" text-anchor="start" font-size="12" fill="var(--color-on-surface-dim)">${Math.round(v.hw*2)} מ' לרוחב</text>`
   +`<text x="8" y="312" direction="ltr" text-anchor="start" font-size="10" fill="var(--color-on-surface-dim)">© OpenStreetMap contributors · ${esc(ST.area.d||"")}</text>`;
  stText()}
 /* ההוראה: לאורך איזה רחוב לעמוד, ובכמה מעלות להסתובב ממנו */
@@ -141,7 +144,7 @@ function stText(){const t=$("stTxt");if(!ST.sel){t.textContent=ST.setHere?"לח�
  t.textContent=`עמוד במקביל ל${n}, כשפניך לאורך הרחוב לכיוון ${nm(sd)}, ${turnS}`+(Math.abs(Math.abs(d)-90)<8?` (כמעט ניצב לרחוב: פנים אל הבתים שבצד ה${nm(b)} שלו.)`:"")}
 function stClick(ev){if(!ST.area||!pos)return;const svg=$("map"),pt=svg.createSVGPoint();pt.x=ev.clientX;pt.y=ev.clientY;
  const c=pt.matrixTransform(svg.getScreenCTM().inverse()),v=stView();
- if(ST.setHere){const x=(c.x-200)*v.hw/200+v.cx,y=(160-c.y)*v.hh/160+v.cy,[kx,ky]=stM(),np=[pos[0]+y/ky,pos[1]+x/kx];
+ if(ST.setHere){const[rx,ry]=stRot((c.x-200)*v.hw/200,(160-c.y)*v.hh/160,-ST.rot),x=rx+v.cx,y=ry+v.cy,[kx,ky]=stM(),np=[pos[0]+y/ky,pos[1]+x/kx];
   ST.setHere=false;$("stHere").classList.remove("on");ST.pan=[0,0];zoomKeep(()=>setPos(np,"נקודה שסומנה במפת הרחובות",null,false));
   mode="m:"+np[0].toFixed(6)+","+np[1].toFixed(6);save(mode);return}
  let best=null;ST.area.w.forEach(([,,g],i)=>{for(let k=0;k+3<g.length;k+=2){const q=stXY(v,g[k],g[k+1]),p=stXY(v,g[k+2],g[k+3]),dx=p[0]-q[0],dy=p[1]-q[1],
@@ -179,7 +182,12 @@ function stSettings(){const l=$("stList");if(!l)return;l.replaceChildren();
  const svg=$("map");let drag=null,moved=false;
  svg.addEventListener("pointerdown",e=>{if($("mapMode").value!=="street"||!ST.area)return;drag=[e.clientX,e.clientY,ST.pan[0],ST.pan[1]];moved=false});
  svg.addEventListener("pointermove",e=>{if(!drag)return;const r=svg.getBoundingClientRect(),v=stView(),dx=(e.clientX-drag[0])*400/r.width,dy=(e.clientY-drag[1])*320/r.height;
-  if(Math.hypot(dx,dy)>4)moved=true;if(moved){ST.pan=[drag[2]-dx*v.hw/200,drag[3]+dy*v.hh/160];streetMap()}});
+  if(Math.hypot(dx,dy)>4)moved=true;if(moved){const[wx,wy]=stRot(dx*v.hw/200,-dy*v.hh/160,-ST.rot);ST.pan=[drag[2]-wx,drag[3]-wy];streetMap()}});
  addEventListener("pointerup",e=>{if(drag&&!moved&&e.target&&svg.contains(e.target))stClick(e);drag=null});
- const zr=$("zReset").onclick;$("zReset").onclick=()=>{ST.pan=[0,0];zr()};
+ const zr=$("zReset").onclick;$("zReset").onclick=()=>{ST.pan=[0,0];ST.rot=0;zr()};
+ const rot=d=>{ST.rot=((ST.rot+d)%360+360)%360;streetMap()};
+ $("stRL").onclick=()=>rot(-15);$("stRR").onclick=()=>rot(15);$("stR90").onclick=()=>rot(90);
+ $("stJup").onclick=()=>{ST.rot=((360-bear())%360+360)%360;streetMap()};
+ $("stN").onclick=()=>{ST.rot=0;streetMap()};
+ svg.addEventListener("wheel",e=>{if(e.shiftKey&&$("mapMode").value==="street"&&ST.area){e.stopImmediatePropagation();e.preventDefault();rot(e.deltaY<0?-10:10)}},{capture:true,passive:false});
  stLoadIdx();if(O)O.on("plugin.boot",()=>stLoadIdx())})();

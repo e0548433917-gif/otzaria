@@ -41,6 +41,10 @@ input.c{width:6em}
 #map{width:100%;max-height:48vh;height:auto;border:1px solid var(--color-outline);background:color-mix(in srgb,var(--color-primary) 8%,var(--color-surface));border-radius:var(--radius-md)}
 .land{fill:color-mix(in srgb,var(--color-primary) 22%,var(--color-surface));stroke:color-mix(in srgb,var(--color-primary) 55%,var(--color-surface));stroke-width:1}
 small{color:var(--color-on-surface-dim)}
+/* "איך לזהות ידנית" נפתח כחלונית צד ולא מכסה את החוגה והמפה */
+#help.pop{top:var(--bar-h,2.6rem);bottom:0;inset-inline-start:auto;inset-inline-end:0;margin:0;width:min(22rem,92vw);max-width:none;max-height:none;border-radius:0;border-width:0 1px 0 0;border-inline-start:1px solid var(--color-outline);box-shadow:0 0 12px rgba(0,0,0,.12);z-index:4}
+@media (min-width:60rem){body.side main{margin-inline-end:22.5rem;margin-inline-start:auto}}
+
 </style>
 </head>
 <body>
@@ -113,6 +117,7 @@ small{color:var(--color-on-surface-dim)}
  <p id="stTxt" style="font-weight:600;margin:.4rem 0"></p>
  <div class="row"><input id="stQ" list="stNames" placeholder="חיפוש רחוב" aria-label="חיפוש רחוב" class="grow" style="min-width:8em"><datalist id="stNames"></datalist><button id="stGo">מצא</button>
   <label><input type="checkbox" id="stSyn" checked> בתי כנסת ✡</label></div>
+ <div class="row"><span>סיבוב המפה:</span><button id="stRL" title="סובב נגד כיוון השעון" aria-label="סובב 15 מעלות נגד כיוון השעון">⟲</button><button id="stRR" title="סובב עם כיוון השעון" aria-label="סובב 15 מעלות עם כיוון השעון">⟳</button><button id="stR90">90°</button><button id="stJup">ירושלים למעלה</button><button id="stN">צפון למעלה</button><small>או Shift + גלגלת</small></div>
  <div class="row"><button id="stHere">סמן את מקומי במפה</button><small>גרירה מזיזה את המפה, לחיצה בוחרת רחוב.</small></div>
  <div id="stNone" hidden>
   <div class="row"><button id="stDl">הורד את האזור (פעם אחת, עם אינטרנט)</button><button id="stBrw">פתח בדפדפן</button><button id="stImp">טען קובץ</button></div>
@@ -124,7 +129,7 @@ small{color:var(--color-on-surface-dim)}
 <p><small>החישוב אל הר הבית לפי השיטה שנבחרה. בשאלה מעשית יש להתייעץ עם רב.</small></p>
 </main>
 <script src="world.js"></script>
-<script>const VER="1.2.1"</script>
+<script>const VER="1.2.2"</script>
 <script>
 const J=[31.7781,35.2359],R=Math.PI/180,O=window.Otzaria;
 const C=[["ירושלים – גאולה",31.7885,35.2188],["ירושלים – רמות",31.8156,35.1955],["ירושלים – הר נוף",31.7858,35.1742],["ירושלים – רמת שלמה",31.8111,35.2175],["ירושלים – בית וגן",31.7641,35.1867],
@@ -252,7 +257,7 @@ const Z=f=>{zoom=Math.max(.25,Math.min(60,zoom*f));if(pos)map()};
 $("zIn").onclick=()=>Z(1.5);$("zOut").onclick=()=>Z(1/1.5);$("zReset").onclick=()=>{zoom=1;if(pos)map()};
 $("map").addEventListener("wheel",e=>{e.preventDefault();Z(e.deltaY<0?1.25:.8)},{passive:false});
 $("rotReset").onclick=()=>{manual=null;$("rot").value=0;if(pos)draw();else $("rose").removeAttribute("transform")};
-function pop(btn,id,show){const h=$(id);h.hidden=!show;$(btn).setAttribute("aria-expanded",String(show));$(btn).classList.toggle("on",show)}
+function pop(btn,id,show){const h=$(id);h.hidden=!show;$(btn).setAttribute("aria-expanded",String(show));$(btn).classList.toggle("on",show);if(id==="help")document.body.classList.toggle("side",show)}
 $("bHelp").onclick=()=>{const o=$("help").hidden;pop("bFb","fb",false);pop("bSet","set",false);pop("bHelp","help",o)};
 $("bFb").onclick=()=>{const o=$("fb").hidden;pop("bHelp","help",false);pop("bSet","set",false);pop("bFb","fb",o);if(o)$("fbText").focus()};
 addEventListener("keydown",e=>{if(e.key==="Escape"){pop("bHelp","help",false);pop("bFb","fb",false);pop("bSet","set",false)}});
@@ -302,6 +307,7 @@ $("plSave").onclick=()=>{if(!pos){$("txt").textContent="בחר קודם מיקו
 $("plDel").onclick=()=>{const i=+$("pl").value;if($("pl").value==="")return;places.splice(i,1);plStore();$("pl").value="";plFill()};
 if(!O)plLoad();
 $("bManT").onclick=()=>{const o=$("manBox").hidden;$("manBox").hidden=!o;$("bManT").setAttribute("aria-expanded",String(o));$("bManT").classList.toggle("on",o);if(o)$("lat").focus()};
+{const setH=()=>document.documentElement.style.setProperty("--bar-h",$("bar").offsetHeight+"px");setH();addEventListener("resize",setH)}
 startCompass()</script>
 </body>
 </html>
