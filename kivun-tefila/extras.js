@@ -95,6 +95,17 @@ function pcLoad() {
     s.onload = () => res(PC); s.onerror = () => res(null); document.head.append(s);
   });
 }
+function pcGoTo(raw, e) {
+  const st = (e[3] || []).length ? " (" + e[3].slice(0, 2).join(", ") + ")" : "";
+  $("city").value = ""; setPos([e[0], e[1]], "מיקוד " + raw + ", " + e[2] + st, null, false);
+  mode = "m:" + e[0] + "," + e[1]; save(mode); $("pcPick").replaceChildren();
+}
+function pcChoose(raw, L) {
+  const box = $("pcPick"); box.replaceChildren();
+  if (L.length === 1) { pcGoTo(raw, L[0]); return }
+  const t = document.createElement("small"); t.textContent = "המיקוד נמצא בכמה מקומות, בחר: "; box.append(t);
+  for (const e of L) { const b = document.createElement("button"); b.textContent = e[2] + ((e[3] || []).length ? " — " + e[3].slice(0, 3).join(", ") : ""); b.onclick = () => pcGoTo(raw, e); box.append(b) }
+}
 async function pcFind() {
   const raw = ($("pc").value || "").trim().toUpperCase(), z = raw.replace(/[^0-9A-Z]/g, ""), t = $("txt");
   if (z.length < 3) { t.textContent = "יש להזין מיקוד (בארץ 7 ספרות; בחו\u05f4ל כפי שהוא, למשל 11219 או N16 6XS)."; return }
@@ -102,6 +113,11 @@ async function pcFind() {
   if (!d) { t.textContent = "טבלת המיקודים אינה זמינה בגרסה זו."; return }
   let p = null, lbl = "מיקוד " + raw;
   if (/^\d{7}$/.test(z)) { p = d.f[z]; if (!p && d.p[z.slice(0, 5)]) { p = d.p[z.slice(0, 5)]; lbl += " (משוער לפי האזור)" } }
+  /* חו"ל לפי אזור (y): אותו מיקוד יכול להופיע בכמה מקומות — מציגים בחירה, עם שמות הרחובות */
+  if (!p && d.y) {
+    let L = d.y[z]; if (!L && raw.includes(" ")) L = d.y[raw.split(/\s+/)[0]];
+    if (L && L.length) { pcChoose(raw, L); return }
+  }
   if (!p && d.x) { p = d.x[z]; if (!p && raw.includes(" ")) { p = d.x[raw.split(/\s+/)[0]]; if (p) lbl += " (משוער לפי האזור)" } }
   if (!p) { t.textContent = `המיקוד ${raw} לא נמצא בטבלה. נסה קואורדינטות או בחירת עיר.`; return }
   $("city").value = ""; setPos([p[0], p[1]], lbl, null, false);

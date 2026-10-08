@@ -74,7 +74,9 @@ body.hascompass #bPray{display:inline-block}
  body{background:var(--color-surface)}
 }
 
-.row.tight{gap:.3rem}.row.tight button{padding:.25rem .45rem}
+.row.tight{gap:.3rem}
+#stRotRow{margin:.25rem 0 .1rem}
+.sep{flex:0 0 1px;align-self:stretch;background:var(--color-outline);margin:0 .2rem}.row.tight button{padding:.25rem .45rem}
 .foot{margin:.2rem 0}
 /* מפה במסך מלא, על כל שטח התוסף */
 body.mapfull #map{position:fixed;inset:var(--bar-h,2.6rem) 0 0 0;width:100%;height:calc(100vh - var(--bar-h,2.6rem));max-height:none;z-index:30;border-radius:0;border:0}
@@ -198,7 +200,7 @@ body.mapfull #map{position:fixed;inset:var(--bar-h,2.6rem) 0 0 0;width:100%;heig
      <li>מפת רחובות עם הורדה אחת לכל אזור; מצפן המכשיר מיד בפתיחה.</li>
      <li>חוגה, שתי שיטות חישוב, מפות הסביבה ועד ירושלים, וזיהוי ידני לפי שמש, צל, כוכב הצפון ומקום מוכר.</li></ul></details>
     <h2 style="font-size:1.1rem;margin:.75rem 0 .25rem">מתוכנן בגרסאות הבאות</h2>
-    <ul id="planned"><li>השלמת טבלת המיקודים בארץ (בגרסה זו: חלק מהמרכז; הבנייה ממשיכה).</li><li>רשימה מורחבת של אזורי נופש וצימרים, בארץ ובחו״ל.</li></ul>
+    <ul id="planned"><li>רשימה מורחבת של אזורי נופש וצימרים, בארץ ובחו״ל.</li></ul>
     <p>הגרסה העדכנית תמיד בחנות התוספים של אוצריא, וגם כאן: <button id="dlLink">דף ההורדה של כיוון תפילה</button></p>
     <div class="row"><button id="newsAgain">הצג שוב את חלונית "מה חדש"</button><button id="setFb">יש לך הערה? שלח הארה</button></div>
     <p><small>נתוני הרחובות, בתי הכנסת והמיקודים: © OpenStreetMap contributors, ברישיון ODbL.</small></p>
@@ -221,7 +223,7 @@ body.mapfull #map{position:fixed;inset:var(--bar-h,2.6rem) 0 0 0;width:100%;heig
   <div id="manBox" class="strip" hidden><input id="lat" class="c" inputmode="decimal" placeholder="קו רוחב" aria-label="קו רוחב">
   <input id="lon" class="c" inputmode="decimal" placeholder="קו אורך" aria-label="קו אורך">
   <button id="bMan">חשב</button></div>
-  <div id="pcBox" class="strip" hidden><input id="pc" placeholder="מיקוד, למשל 5120000 או 11219" aria-label="מיקוד" maxlength="10" style="width:14em"><button id="pcGo">חפש</button><small id="pcNote"></small></div>
+  <div id="pcBox" class="strip" hidden><input id="pc" placeholder="מיקוד, למשל 5120000 או 11219" aria-label="מיקוד" maxlength="10" style="width:14em"><button id="pcGo">חפש</button><small id="pcNote"></small><span id="pcPick" class="row" style="margin:0"></span></div>
 
 <div id="pray" hidden><button id="prayX" aria-label="סגור את מצב התפילה">✕ סגור</button>
  <svg viewBox="-120 -120 240 240" aria-hidden="true"><circle r="112" fill="none" stroke="var(--color-outline)" stroke-width="2"/>
@@ -239,7 +241,8 @@ body.mapfull #map{position:fixed;inset:var(--bar-h,2.6rem) 0 0 0;width:100%;heig
  <button id="newsOk">הבנתי</button></div>
 <p id="loc"></p>
 <div class="row" id="plRow"><select id="pl" aria-label="מקומות שמורים"><option value="">מקומות שמורים…</option></select>
- <input id="plName" placeholder="שם: בית, בית הכנסת…" aria-label="שם למקום" style="width:11em"><button id="plSave">שמור מיקום זה</button><button id="plDel" hidden>מחק מהרשימה</button></div>
+ <input id="plName" placeholder="שם: בית, בית הכנסת…" aria-label="שם למקום" style="width:11em"><button id="plSave">שמור מיקום זה</button><button id="plDel" hidden>מחק מהרשימה</button>
+ <span class="sep"></span><input id="stQ" list="stNames" placeholder="חיפוש רחוב באזור" aria-label="חיפוש רחוב" style="width:12em"><datalist id="stNames"></datalist><button id="stGo">מצא</button></div>
 <div class="pair"><div>
 <svg id="dial" viewBox="-120 -120 240 240" aria-label="חוגת כיוון">
   <g id="rose">
@@ -261,10 +264,9 @@ body.mapfull #map{position:fixed;inset:var(--bar-h,2.6rem) 0 0 0;width:100%;heig
 <svg id="map" viewBox="0 0 400 320" aria-label="מפה"></svg>
 </div>
 <div id="stPanel" hidden>
+ <div class="row tight" id="stRotRow"><span title="אפשר גם Shift + גלגלת על המפה">סיבוב:</span><button id="stRL" title="סובב נגד כיוון השעון" aria-label="סובב 15 מעלות נגד כיוון השעון">⟲</button><button id="stRR" title="סובב עם כיוון השעון" aria-label="סובב 15 מעלות עם כיוון השעון">⟳</button><button id="stR90">90°</button><button id="stJup">ירושלים למעלה</button><button id="stN">צפון למעלה</button><button id="stHere" title="סמן במפה את המקום שבו אתה עומד">סמן את מקומי</button></div>
  <p id="stTxt" style="font-weight:600;margin:.4rem 0"></p>
- <div class="row"><input id="stQ" list="stNames" placeholder="חיפוש רחוב" aria-label="חיפוש רחוב" class="grow" style="min-width:8em"><datalist id="stNames"></datalist><button id="stGo">מצא</button>
-  <label><input type="checkbox" id="stSyn" checked> בתי כנסת ✡</label><button id="stSynNear">הקרוב</button></div>
- <div class="row tight"><span title="אפשר גם Shift + גלגלת על המפה">סיבוב:</span><button id="stRL" title="סובב נגד כיוון השעון" aria-label="סובב 15 מעלות נגד כיוון השעון">⟲</button><button id="stRR" title="סובב עם כיוון השעון" aria-label="סובב 15 מעלות עם כיוון השעון">⟳</button><button id="stR90">90°</button><button id="stJup">ירושלים למעלה</button><button id="stN">צפון למעלה</button><button id="stHere" title="סמן במפה את המקום שבו אתה עומד">סמן את מקומי</button></div>
+ <div class="row"><label><input type="checkbox" id="stSyn" checked> בתי כנסת ✡</label><button id="stSynNear">הקרוב</button></div>
  <div id="stNone" hidden>
   <p id="stNearBox" hidden><span id="stNearTxt"></span><button id="stNearGo">עבור אליו (בלי אינטרנט)</button></p>
   <div class="row"><button id="stDl">הורד את האזור (פעם אחת, עם אינטרנט)</button><button id="stBrw">פתח בדפדפן</button><button id="stImp">טען קובץ</button></div>

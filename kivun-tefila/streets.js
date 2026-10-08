@@ -28,7 +28,10 @@ async function stReadArea(k){const e=EMB.find(a=>a.k===k);if(e)return stLoadEmb(
 async function stDelete(k){try{await fsCall("fs.deleteEntry",{path:"streets/"+k+".json"})}catch(e){}try{localStorage.removeItem("kivun-st-"+k)}catch(e){}
  ST.idx=ST.idx.filter(x=>x.k!==k);if(ST.area&&ST.area.k===k)ST.area=null;await stSaveIdx();stSettings();if(pos)map()}
 /* האזור השמור שמכסה את המיקום (בשוליים של 150 מ' מהקצה) */
-function stCover(){if(!pos)return null;let b=null;for(const a of ST.idx.concat(EMB)){const m=dist(pos,[a.lat,a.lon])*1000;if(m<=a.r-150&&(!b||m<b[1]))b=[a,m]}return b&&b[0]}
+/* האזור השמור שמכסה את המיקום. קודם אזור שהמיקום בתוכו; אם אין, אזור שהמיקום בשוליו (עד 1.5 ק"מ מחוץ לו) — מוצג עם הערה */
+function stCover(){if(!pos)return null;let b=null,e=null;for(const a of ST.idx.concat(EMB)){const m=dist(pos,[a.lat,a.lon])*1000;
+ if(m<=a.r-150){if(!b||m<b[1])b=[a,m]}else if(m<=a.r+1500){if(!e||m-a.r<e[1])e=[a,m-a.r]}}
+ ST.part=!b&&!!e;return b?b[0]:e?e[0]:null}
 
 /* ---- נתונים ---- */
 function stQuery(lat,lon,r){const a=`(around:${r},${lat.toFixed(5)},${lon.toFixed(5)})`;
@@ -113,6 +116,7 @@ async function streetMap(){const svg=$("map"),panel=$("stPanel");panel.hidden=fa
  if(!cov){ST.area=null;svg.innerHTML=`<text x="200" y="150" text-anchor="middle" font-size="14" fill="var(--color-on-surface)">אין עדיין מפת רחובות לאזור הזה</text><text x="200" y="174" text-anchor="middle" font-size="12" fill="var(--color-on-surface-dim)">אפשר להוריד אותה פעם אחת בכפתור שמתחת</text>`;
   $("stNone").hidden=false;$("stTxt").textContent="";stNear();return}
  $("stNone").hidden=true;
+ {const m=$("stMsg");if(ST.part){m.dataset.part="1";m.textContent=`המיקום בשולי האזור המובנה "${cov.name||""}", ולכן חלק מהרחובות סביבך עשויים לחסור. אפשר להוריד את האזור המדויק בכפתור שבהגדרות.`}else if(m.dataset.part){m.textContent="";delete m.dataset.part}}
  if(!ST.area||ST.area.k!==cov.k){ST.area=await stReadArea(cov.k);ST.sel=null;if(!ST.area){svg.innerHTML="";$("stTxt").textContent=EMB.some(a=>a.k===cov.k)?"לא ניתן לטעון את נתוני האזור המובנים.":"קובץ האזור חסר. הורד אותו שוב.";return}stNames()}
  const v=stView(),b=bear(),P=(la,lo)=>stXY(v,la,lo),f=n=>n.toFixed(1);let lines="",labels="",hl="";
  for(let i=0;i<ST.area.w.length;i++){const[nmS,hw,g]=ST.area.w[i];let d="",best=null,bx=[1e9,-1e9,1e9,-1e9];
@@ -157,8 +161,10 @@ function stFind(){const q=$("stQ").value.trim();if(!q||!ST.area)return;const nq=
  const Q=nq(q);const nm2=x=>[nq(x[0]),nq(stNm(x[0]))];let ws=ST.area.w.map((x,i)=>[x,i]).filter(([x])=>nm2(x).some(v=>v===Q));if(!ws.length)ws=ST.area.w.map((x,i)=>[x,i]).filter(([x])=>nm2(x).some(v=>v.toLowerCase().includes(Q.toLowerCase())));
  if(!ws.length){$("stTxt").textContent=`לא נמצא רחוב בשם "${q}" באזור הזה.`;return}
  const[kx,ky]=stM();let best=null;for(const[[,,g],i]of ws)for(let k=0;k+3<g.length;k+=2){const L=Math.hypot((g[k+2]-g[k])*ky,(g[k+3]-g[k+1])*kx);if(!best||L>best[0])best=[L,i,k]}
- const g=ST.area.w[best[1]][2],k=best[2],mla=(g[k]+g[k+2])/2,mlo=(g[k+1]+g[k+3])/2;ST.sel={i:best[1],k};ST.pan=[(mlo-pos[1])*kx,(mla-pos[0])*ky];
- const far=Math.max(Math.abs(ST.pan[0]),Math.abs(ST.pan[1]));if(far>300/zoom)zoom=Math.max(.25,300/(far*1.2));streetMap()}
+ const g=ST.area.w[best[1]][2],k=best[2],mla=+((g[k]+g[k+2])/2).toFixed(6),mlo=+((g[k+1]+g[k+3])/2).toFixed(6),area=ST.area,sel={i:best[1],k},stName=stNm(area.w[best[1]][0]);
+ /* הרחוב שנמצא הופך למיקום הנוכחי — כך אפשר לשמור אותו כמקום שמור */
+ $("city").value="";ST.pan=[0,0];zoomKeep(()=>setPos([mla,mlo],stName+(area.name?", "+area.name:""),null,false));
+ mode="m:"+mla+","+mlo;save(mode);ST.area=area;ST.sel=sel;$("plName").value=stName;streetMap()}
 /* כשאין מפה למיקום: הצעה לעבור לאזור המובנה הקרוב (עד 60 ק"מ) */
 function stNear(){const b=$("stNearBox");if(!b)return;let n=null;for(const a of EMB){const d=dist(pos,[a.lat,a.lon]);if(!n||d<n[1])n=[a,d]}
  if(!n||n[1]>60){b.hidden=true;return}b.hidden=false;$("stNearTxt").textContent=`האזור המובנה הקרוב: ${n[0].name} (${n[1]<10?n[1].toFixed(1):Math.round(n[1])} ק"מ מכאן). `;
