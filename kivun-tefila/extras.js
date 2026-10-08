@@ -141,7 +141,7 @@ $("bHal").onclick = () => pop("bHal", "hal", $("hal").hidden);
 $("pcGo").onclick = pcFind;
 $("pc").onkeydown = e => { if (e.key === "Enter") pcFind() };
 $("mapMode").addEventListener("change", () => { ST.synSel = null });
-/* בלי טבלת מיקודים בחבילה, שדה המיקוד מוסתר */
-function pcCheck() { pcLoad().then(d => { if (!d) { $("pc").hidden = true; $("pcGo").hidden = true } }) }
+/* הסבר קצר ליד שדה המיקוד, לפי מה שיש בחבילה */
+function pcCheck() { pcLoad().then(d => { $("pcNote").textContent = d ? "בארץ: 7 ספרות. בחו\u05f4ל: כפי שהוא, בריכוזי הקהילה." : "טבלת המיקודים בבנייה ותצורף בגרסה 1.3.0." }) }
 function extrasBoot() { viewRestore(); pcCheck() }
 if (!O) extrasBoot();

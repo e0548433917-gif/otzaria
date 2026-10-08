@@ -28,7 +28,8 @@ input.c{width:7em}
 #big{font-size:2rem;text-align:center;margin:0}
 #txt{text-align:center;margin:.25rem 0 .75rem}
 #loc{color:var(--color-on-surface-dim);font-size:.9rem;margin:.25rem 0}
-#manBox{display:inline-flex;gap:.3rem}#manBox[hidden]{display:none}
+/* מיקום ידני: נפתח בשורה נפרדת מתחת לסרגל העליון */
+#manBox,#pcBox{flex-basis:100%;display:flex;flex-wrap:wrap;gap:.3rem;align-items:center;padding:.3rem 0 .1rem;border-top:1px solid var(--color-outline);margin-top:.2rem}#manBox[hidden],#pcBox[hidden]{display:none}
 #bar{position:sticky;top:0;z-index:5;display:flex;gap:.3rem;align-items:center;flex-wrap:wrap;background:var(--color-surface);border-bottom:1px solid var(--color-outline);padding:.3rem .6rem}
 #bar>*{flex:0 0 auto}
 #bar strong{font-size:1.05rem;margin-inline-end:.15rem}
@@ -89,9 +90,11 @@ body.hascompass #bPray{display:inline-block}
   <button id="bOn">מיקום אוטומטי</button>
   <select id="city" aria-label="בחירת עיר"></select>
   <button id="bManT" aria-expanded="false" aria-controls="manBox">מיקום ידני</button>
+  <button id="bPcT" aria-expanded="false" aria-controls="pcBox">מיקוד</button>
+  <span id="pcBox" hidden><input id="pc" placeholder="מיקוד, למשל 5120000 או 11219" aria-label="מיקוד" maxlength="10" style="width:14em"><button id="pcGo">חפש</button><small id="pcNote"></small></span>
   <span id="manBox" hidden><input id="lat" class="c" inputmode="decimal" placeholder="קו רוחב" aria-label="קו רוחב">
   <input id="lon" class="c" inputmode="decimal" placeholder="קו אורך" aria-label="קו אורך">
-  <button id="bMan">חשב</button><input id="pc" class="c" placeholder="או מיקוד" aria-label="מיקוד" maxlength="8"><button id="pcGo">לפי מיקוד</button></span>
+  <button id="bMan">חשב</button></span>
   <select id="meth" aria-label="שיטת חישוב"><option value="gc">הקו הקצר על הכדור</option><option value="rh">כיוון קבוע על המפה</option></select>
   <button id="bSid" hidden>פתח סידורון</button>
   <button id="bHal" aria-expanded="false" aria-controls="hal">הלכות</button>
@@ -140,7 +143,7 @@ body.hascompass #bPray{display:inline-block}
      <p><b>מפות</b></p><ul>
       <li>שלוש תצוגות: הרחובות סביבי, הסביבה הקרובה, ועד ירושלים.</li>
       <li>מפת רחובות עם שמות, הקו לירושלים, והוראה כמו "עמוד במקביל לרחוב, והסתובב 23° ימינה".</li>
-      <li>55 ריכוזי קהילה מובנים בתוסף, עובדים בלי אינטרנט מההתקנה; כל מקום אחר אחרי הורדה אחת.</li>
+      <li>63 ריכוזי קהילה מובנים בתוסף, עובדים בלי אינטרנט מההתקנה; כל מקום אחר אחרי הורדה אחת.</li>
       <li>בלי רשת באוצריא: פתיחה בדפדפן (הכתובת מועתקת ללוח), שמירה כקובץ, וטעינה לתוסף.</li>
       <li>הצעה לעבור לאזור המובנה הקרוב כשאין מפה למיקום.</li>
       <li>זום, גרירה, סיבוב המפה, "ירושלים למעלה" ו"צפון למעלה".</li>
@@ -159,7 +162,13 @@ body.hascompass #bPray{display:inline-block}
       <li>חלונית "מה חדש" אחרי כל עדכון, וטיפים בהגדרות.</li></ul>
     </details>
     <h2 style="font-size:1.1rem;margin:.75rem 0 .25rem">מה חדש</h2>
-    <details open><summary><b>1.2.8</b></summary><ul>
+    <details open><summary><b>1.2.9</b></summary><ul>
+     <li>8 אזורי נופש מובנים (בלי אינטרנט): מירון, ספסופה, ראש פינה, קצרין, נהריה, עין בוקק, אילת, הקטסקילס. סך הכל 63 אזורים ו-1,170 בתי כנסת.</li>
+     <li>כפתורי "הלכות" ו"הדפס" עברו לשורה העליונה; "הקרוב" (בית הכנסת הקרוב) ליד תיבת בתי הכנסת.</li>
+     <li>המצפן למעלה, ושורות הכלים נפרסות לכל הרוחב מתחת למפה ולמצפן; הכל נכנס במסך 13.3 אינץ׳.</li>
+     <li>"מיקום ידני" ו"מיקוד" נפתחים בשורה נפרדת מתחת לסרגל העליון.</li>
+     <li>תיקון: העיר הנבחרת נשמרת לפי שמה, כך שהוספת אזורים לרשימה לא משנה את הבחירה השמורה.</li></ul></details>
+    <details><summary><b>1.2.8</b></summary><ul>
      <li>10 אזורים מובנים חדשים (בלי אינטרנט): נווה יעקב, גבעת שאול, סנהדריה, קרית משה, חריש, טלזסטון, אופקים, קרית אתא, מונטווידאו, פראג. סך הכל 55 אזורים ו-1,131 בתי כנסת.</li>
      <li>בתי כנסת: לחיצה על ✡ במפה מציגה שם, מרחק וכיוון, וכפתור "✡ בית הכנסת הקרוב".</li>
      <li>הדפסת דף כיוון למקום מסוים (מלון, צימר, בית כנסת חדש).</li>
@@ -181,7 +190,7 @@ body.hascompass #bPray{display:inline-block}
      <li>מפת רחובות עם הורדה אחת לכל אזור; מצפן המכשיר מיד בפתיחה.</li>
      <li>חוגה, שתי שיטות חישוב, מפות הסביבה ועד ירושלים, וזיהוי ידני לפי שמש, צל, כוכב הצפון ומקום מוכר.</li></ul></details>
     <h2 style="font-size:1.1rem;margin:.75rem 0 .25rem">מתוכנן בגרסאות הבאות</h2>
-    <ul id="planned"><li>אזורים מובנים נוספים: נתניה – קרית צאנז, רחובות, אשקלון, קרית מלאכי, ירושלים – רוממה, גבעת זאב, ברוקלין – פלטבוש, ברוקלין – קראון הייטס, פאר רוקוויי, פסאיק, קליבלנד, לונדון – גולדרס גרין, סרסל, סידני.</li><li>אזורי נופש: מירון, ספסופה, ראש פינה, קצרין, נהריה, ים המלח – עין בוקק, אילת, הקטסקילס – סאות' פולסבורג.</li><li>חיפוש לפי מיקוד בארץ.</li><li>חיפוש לפי מיקוד בריכוזי הקהילה בחו״ל.</li></ul>
+    <ul id="planned"><li>אזורים מובנים נוספים: נתניה – קרית צאנז, רחובות, אשקלון, קרית מלאכי, ירושלים – רוממה, גבעת זאב, ברוקלין – פלטבוש, ברוקלין – קראון הייטס, פאר רוקוויי, פסאיק, קליבלנד, לונדון – גולדרס גרין, סרסל, סידני.</li><li>רשימה מורחבת של אזורי נופש וצימרים, בארץ ובחו״ל.</li><li>חיפוש לפי מיקוד בארץ.</li><li>חיפוש לפי מיקוד בריכוזי הקהילה בחו״ל.</li></ul>
     <p>הגרסה העדכנית תמיד בחנות התוספים של אוצריא, וגם כאן: <button id="dlLink">דף ההורדה של כיוון תפילה</button></p>
     <div class="row"><button id="newsAgain">הצג שוב את חלונית "מה חדש"</button><button id="setFb">יש לך הערה? שלח הארה</button></div>
     <p><small>נתוני הרחובות, בתי הכנסת והמיקודים: © OpenStreetMap contributors, ברישיון ODbL.</small></p>
@@ -208,7 +217,8 @@ body.hascompass #bPray{display:inline-block}
 <div id="printHead"></div>
 <main>
 <div id="news" class="newsbox" hidden><strong>מה חדש בגרסה <span id="newsVer"></span></strong>
- <ul><li><b>10 אזורים מובנים חדשים</b> (55 בסך הכל), <b>בית הכנסת הקרוב</b> ולחיצה על ✡, <b>הדפסת דף כיוון</b>.</li>
+ <ul><li><b>אזורי נופש</b> מובנים: מירון, ספסופה, ראש פינה, קצרין, נהריה, עין בוקק, אילת, הקטסקילס.</li>
+ <li>"הלכות" ו"הדפס" בשורה העליונה; "מיקוד" ליד "מיקום ידני".</li><li><b>10 אזורים מובנים חדשים</b> (55 בסך הכל), <b>בית הכנסת הקרוב</b> ולחיצה על ✡, <b>הדפסת דף כיוון</b>.</li>
  <li><b>הלכות כיוון התפילה</b> עם מראי מקומות שנפתחים בספריית אוצריא (כפתור "הלכות" למעלה).</li>
  <li>כיוונים גם באנגלית (N, S, E, W); בטלפון: <b>מצב תפילה</b>.</li>
  <li><b>לחיצה ארוכה על מפת הרחובות</b>: "אני עומד כאן", והמפה מסתובבת כך שירושלים למעלה.</li>
@@ -254,10 +264,10 @@ body.hascompass #bPray{display:inline-block}
 <p><small>החישוב אל הר הבית לפי השיטה שנבחרה. בשאלה מעשית יש להתייעץ עם רב.</small></p>
 </main>
 <script src="world.js"></script>
-<script>const VER="1.2.8"</script>
+<script>const VER="1.2.9"</script>
 <script>
 const J=[31.7781,35.2359],R=Math.PI/180,O=window.Otzaria;
-const C=[["ירושלים – גאולה",31.7885,35.2188],["ירושלים – רמות",31.8156,35.1955],["ירושלים – הר נוף",31.7858,35.1742],["ירושלים – רמת שלמה",31.8111,35.2175],["ירושלים – בית וגן",31.7641,35.1867],["ירושלים – נווה יעקב",31.8395,35.242],["ירושלים – גבעת שאול",31.79,35.193],["ירושלים – סנהדריה",31.8,35.224],["ירושלים – קרית משה",31.7848,35.2003],["בני ברק",32.0874,34.8324],["בית שמש",31.7462,34.9887],["רמת בית שמש",31.71,34.98],["מודיעין עילית",31.9324,35.0433],["ביתר עילית",31.7019,35.1073],["אלעד",32.0501,34.9522],["אשדוד",31.7977,34.653],["פתח תקווה",32.0878,34.886],["צפת",32.9646,35.5025],["טבריה",32.7939,35.5329],["חיפה",32.8191,34.9984],["רכסים",32.751,35.1014],["עמנואל",32.161,35.137],["נתיבות",31.4214,34.5884],["ערד",31.2612,35.2146],["קרית גת",31.6094,34.7712],["כוכב יעקב",31.8814,35.2453],["חריש",32.463,35.044],["טלזסטון",31.805,35.102],["אופקים",31.314,34.62],["קרית אתא",32.806,35.106],["ברוקלין – בורו פארק",40.634,-73.9968],["ברוקלין – וויליאמסבורג",40.7146,-73.9535],["לייקווד",40.0941,-74.215],["מונסי",41.118,-74.0594],["קרית יואל",41.342,-74.1679],["בולטימור",39.36,-76.7],["שיקגו",42.0,-87.7],["לוס אנג'לס",34.0792,-118.3523],["טורונטו",43.73,-79.43],["מונטריאול",45.5186,-73.6069],["מקסיקו סיטי",19.4335,-99.1909],["בואנוס איירס",-34.6092,-58.406],["מונטווידאו",-34.909,-56.15],["לונדון – סטמפורד היל",51.5707,-0.069],["מנצ'סטר",53.5143,-2.2593],["גייטסהד",54.9617,-1.6044],["אנטוורפן",51.21,4.42],["פריז",48.8589,2.32],["ציריך",47.3744,8.541],["שטרסבורג",48.5846,7.7507],["וינה",48.2006,16.4269],["פראג",50.09,14.419],["מוסקבה",55.75,37.62],["יוהנסבורג",-26.14,28.1008],["מלבורן",-37.8708,145.0218]];
+const C=[["ירושלים – גאולה",31.7885,35.2188],["ירושלים – רמות",31.8156,35.1955],["ירושלים – הר נוף",31.7858,35.1742],["ירושלים – רמת שלמה",31.8111,35.2175],["ירושלים – בית וגן",31.7641,35.1867],["ירושלים – נווה יעקב",31.8395,35.242],["ירושלים – גבעת שאול",31.79,35.193],["ירושלים – סנהדריה",31.8,35.224],["ירושלים – קרית משה",31.7848,35.2003],["בני ברק",32.0874,34.8324],["בית שמש",31.7462,34.9887],["רמת בית שמש",31.71,34.98],["מודיעין עילית",31.9324,35.0433],["ביתר עילית",31.7019,35.1073],["אלעד",32.0501,34.9522],["אשדוד",31.7977,34.653],["פתח תקווה",32.0878,34.886],["צפת",32.9646,35.5025],["טבריה",32.7939,35.5329],["חיפה",32.8191,34.9984],["רכסים",32.751,35.1014],["עמנואל",32.161,35.137],["נתיבות",31.4214,34.5884],["ערד",31.2612,35.2146],["קרית גת",31.6094,34.7712],["כוכב יעקב",31.8814,35.2453],["חריש",32.463,35.044],["טלזסטון",31.805,35.102],["אופקים",31.314,34.62],["קרית אתא",32.806,35.106],["ברוקלין – בורו פארק",40.634,-73.9968],["ברוקלין – וויליאמסבורג",40.7146,-73.9535],["לייקווד",40.0941,-74.215],["מונסי",41.118,-74.0594],["קרית יואל",41.342,-74.1679],["בולטימור",39.36,-76.7],["שיקגו",42.0,-87.7],["לוס אנג'לס",34.0792,-118.3523],["טורונטו",43.73,-79.43],["מונטריאול",45.5186,-73.6069],["מקסיקו סיטי",19.4335,-99.1909],["בואנוס איירס",-34.6092,-58.406],["מונטווידאו",-34.909,-56.15],["לונדון – סטמפורד היל",51.5707,-0.069],["מנצ'סטר",53.5143,-2.2593],["גייטסהד",54.9617,-1.6044],["אנטוורפן",51.21,4.42],["פריז",48.8589,2.32],["ציריך",47.3744,8.541],["שטרסבורג",48.5846,7.7507],["וינה",48.2006,16.4269],["פראג",50.09,14.419],["מוסקבה",55.75,37.62],["יוהנסבורג",-26.14,28.1008],["מלבורן",-37.8708,145.0218],["מירון",32.98,35.44],["ספסופה",33.002,35.432],["ראש פינה",32.969,35.542],["קצרין",32.99,35.69],["נהריה",33.008,35.095],["ים המלח – עין בוקק",31.2,35.362],["אילת",29.556,34.952],["הקטסקילס – סאות' פולסבורג",41.72,-74.635]];
 const $=id=>document.getElementById(id);
 let pos=null,heading=null,manual=null,isCity=false,zoom=1,calCities=[],calName=null,mode=null,src="",acc=null,place="";
 const esc=x=>String(x).replace(/[&<>"']/g,c=>"&#"+c.charCodeAt(0)+";");
@@ -358,7 +368,7 @@ function setPos(p,s,a,auto,city){pos=p;src=s;acc=a;place="";isCity=!!city;zoom=1
 /* ---- אירועים ---- */
 function save(v){try{O?O.call("storage.set",{key:"kivun-city",value:v}).catch(()=>{}):localStorage.setItem("kivun-city",v)}catch(e){}}
 function useCal(){const c=calCity();if(!c)return false;$("city").value="cal";setPos([c.lat,c.lng],"לוח השנה: "+c.name,null,false,true);return true}
-$("city").onchange=()=>{const v=$("city").value;if(v==="")return;mode=v;save(v);
+$("city").onchange=()=>{const v=$("city").value;if(v==="")return;mode=/^\d+$/.test(v)&&C[+v]?"c:"+C[+v][0]:v;save(mode);
  if(v==="cal")return useCal();
  if(v.startsWith("o:")){const c=calCities.find(k=>k.name===v.slice(2));if(c)setPos([c.lat,c.lng],c.name,null,false,true);return}
  const c=C[+v];if(c)setPos([c[1],c[2]],c[0],null,false,true)};
@@ -399,7 +409,12 @@ let compassOn=false;function startCompass(){if(compassOn)return;compassOn=true;c
 function applyTheme(t){if(!t)return;const c=t.colorScheme||{},r=document.documentElement,m={primary:c.primary,"on-primary":c.onPrimary,surface:c.surface,"on-surface":c.onSurface,"surface-container-highest":c.surfaceContainerHighest,outline:c.outline,bg:c.surface};
  if(t.mode)r.dataset.theme=t.mode==="dark"?"dark":"light";for(const k in m)if(m[k])r.style.setProperty("--color-"+k,m[k]);
  if(t.typography&&t.typography.fontFamily)r.style.setProperty("--font-main",`"${t.typography.fontFamily}",Arial,sans-serif`)}
-function restore(v){if(v==null||v==="")v=calCity()?"cal":null;if(v==null)return;mode=String(v);
+/* עד 1.2.4 העיר נשמרה לפי מקומה ברשימה; הסדר הישן נשמר כאן כדי לתרגם בחירות ישנות לשם */
+const OLD_C=["ירושלים – גאולה","ירושלים – רמות","ירושלים – הר נוף","ירושלים – רמת שלמה","ירושלים – בית וגן","בני ברק","בית שמש","רמת בית שמש","מודיעין עילית","ביתר עילית","אלעד","אשדוד","פתח תקווה","צפת","טבריה","חיפה","רכסים","עמנואל","נתיבות","ערד","קרית גת","כוכב יעקב","ברוקלין – בורו פארק","ברוקלין – וויליאמסבורג","לייקווד","מונסי","קרית יואל","בולטימור","שיקגו","לוס אנג'לס","טורונטו","מונטריאול","מקסיקו סיטי","בואנוס איירס","לונדון – סטמפורד היל","מנצ'סטר","גייטסהד","אנטוורפן","פריז","ציריך","שטרסבורג","וינה","מוסקבה","יוהנסבורג","מלבורן"];
+function restore(v){if(v==null||v==="")v=calCity()?"cal":null;if(v==null)return;
+ if(typeof v==="number"||/^\d+$/.test(String(v))){const n=OLD_C[+v];v=n?"c:"+n:null;if(v==null)return}
+ if(typeof v==="string"&&v.startsWith("c:")){const i=C.findIndex(c=>c[0]===v.slice(2));if(i<0)return;mode=v;$("city").value=String(i);setPos([C[i][1],C[i][2]],C[i][0],null,false,true);return}
+ mode=String(v);
  if(v==="cal"||(typeof v==="string"&&v.startsWith("o:"))){$("city").value=v;if($("city").value===v)return $("city").onchange();return}
  if(typeof v==="string"&&v.startsWith("m:")){const[a,b]=v.slice(2).split(",").map(Number);$("lat").value=a;$("lon").value=b;return $("bMan").onclick()}
  if(v!=null&&v!==""&&C[+v]){$("city").value=String(v);$("city").onchange()}}
@@ -430,7 +445,9 @@ $("plSave").onclick=()=>{if(!pos){$("txt").textContent="בחר קודם מיקו
  places=places.filter(p=>p.n!==n);places.push({n,lat,lon});plStore();$("plName").value="";plFill();$("pl").value=String(places.length-1);$("plDel").hidden=false};
 $("plDel").onclick=()=>{const i=+$("pl").value;if($("pl").value==="")return;places.splice(i,1);plStore();$("pl").value="";plFill()};
 if(!O)plLoad();
-$("bManT").onclick=()=>{const o=$("manBox").hidden;$("manBox").hidden=!o;$("bManT").setAttribute("aria-expanded",String(o));$("bManT").classList.toggle("on",o);if(o)$("lat").focus()};
+function barBox(id,btn,o){$(id).hidden=!o;$(btn).setAttribute("aria-expanded",String(o));$(btn).classList.toggle("on",o)}
+$("bPcT").onclick=()=>{const o=$("pcBox").hidden;barBox("manBox","bManT",false);barBox("pcBox","bPcT",o);document.documentElement.style.setProperty("--bar-h",$("bar").offsetHeight+"px");if(o)$("pc").focus()};
+$("bManT").onclick=()=>{const o=$("manBox").hidden;barBox("pcBox","bPcT",false);$("manBox").hidden=!o;$("bManT").setAttribute("aria-expanded",String(o));$("bManT").classList.toggle("on",o);document.documentElement.style.setProperty("--bar-h",$("bar").offsetHeight+"px");if(o)$("lat").focus()};
 {const setH=()=>document.documentElement.style.setProperty("--bar-h",$("bar").offsetHeight+"px");setH();addEventListener("resize",setH)}
 /* "מה חדש": מוצג פעם אחת אחרי כל עדכון גרסה */
 async function newsCheck(){let seen=null;try{seen=O?dat(await O.call("storage.get",{key:"kivun-seen-ver"})):localStorage.getItem("kivun-seen-ver")}catch(e){}
