@@ -41,6 +41,8 @@ input.c{width:6em}
 #map{width:100%;max-height:48vh;height:auto;border:1px solid var(--color-outline);background:color-mix(in srgb,var(--color-primary) 8%,var(--color-surface));border-radius:var(--radius-md)}
 .land{fill:color-mix(in srgb,var(--color-primary) 22%,var(--color-surface));stroke:color-mix(in srgb,var(--color-primary) 55%,var(--color-surface));stroke-width:1}
 small{color:var(--color-on-surface-dim)}
+.newsbox{background:var(--color-surface);border:1px solid var(--color-primary);border-radius:var(--radius-md);padding:.4rem .8rem;margin:.4rem 0}
+.newsbox ul{margin:.25rem 0;padding-inline-start:1.2rem}
 /* "איך לזהות ידנית" נפתח כחלונית צד ולא מכסה את החוגה והמפה */
 #help.pop{top:var(--bar-h,2.6rem);bottom:0;inset-inline-start:auto;inset-inline-end:0;margin:0;width:min(22rem,92vw);max-width:none;max-height:none;border-radius:0;border-width:0 1px 0 0;border-inline-start:1px solid var(--color-outline);box-shadow:0 0 12px color-mix(in srgb,var(--color-on-surface) 15%,transparent);z-index:4}
 @media (min-width:60rem){body.side main{margin-inline-end:22.5rem;margin-inline-start:auto}}
@@ -79,6 +81,7 @@ small{color:var(--color-on-surface-dim)}
     </ol>
     <label>רדיוס להורדה: <select id="stRad"><option value="700">700 מ' (קטן ומהיר)</option><option value="1500">1.5 ק"מ</option><option value="3000">3 ק"מ (שכונות סמוכות)</option></select></label>
     <label>שמות רחובות בחו"ל: <select id="stLang"><option value="he">תעתיק לעברית</option><option value="orig">בשפת המקום (אנגלית וכו׳)</option></select></label>
+    <p><strong>טיפים:</strong> לחיצה ארוכה על מפת הרחובות מסמנת "אני עומד כאן" ומסובבת את המפה כך שירושלים למעלה. גרירה מזיזה את המפה, גלגלת מגדילה, ו-Shift + גלגלת מסובבת. בשדה "חיפוש רחוב" אפשר להקליד שם רחוב ולקבל הוראה לפיו.</p>
     <p id="stEmb"></p>
     <p style="margin:.75rem 0 .25rem"><strong>אזורים שהורדת:</strong></p>
     <ul id="stList"></ul>
@@ -91,6 +94,12 @@ small{color:var(--color-on-surface-dim)}
   </div>
 </header>
 <main>
+<div id="news" class="newsbox" hidden><strong>מה חדש בגרסה <span id="newsVer"></span></strong>
+ <ul><li><b>לחיצה ארוכה על מפת הרחובות</b>: "אני עומד כאן", והמפה מסתובבת כך שירושלים למעלה.</li>
+ <li><b>סיבוב המפה</b>: הכפתורים מתחת למפה, או Shift + גלגלת.</li>
+ <li><b>חיפוש רחוב</b>, <b>מקומות שמורים</b> ו<b>בתי כנסת ✡</b>, הכל גם בלי אינטרנט.</li>
+ <li>שמות רחובות בחו"ל בעברית (אפשר לשנות ב"הגדרות").</li></ul>
+ <button id="newsOk">הבנתי</button></div>
 <p id="loc"></p>
 <div class="row" id="plRow"><select id="pl" aria-label="מקומות שמורים"><option value="">מקומות שמורים…</option></select>
  <input id="plName" placeholder="שם: בית, בית הכנסת…" aria-label="שם למקום" style="width:11em"><button id="plSave">שמור מיקום זה</button><button id="plDel" hidden>מחק מהרשימה</button></div>
@@ -117,8 +126,8 @@ small{color:var(--color-on-surface-dim)}
  <p id="stTxt" style="font-weight:600;margin:.4rem 0"></p>
  <div class="row"><input id="stQ" list="stNames" placeholder="חיפוש רחוב" aria-label="חיפוש רחוב" class="grow" style="min-width:8em"><datalist id="stNames"></datalist><button id="stGo">מצא</button>
   <label><input type="checkbox" id="stSyn" checked> בתי כנסת ✡</label></div>
- <div class="row"><span title="אפשר גם Shift + גלגלת על המפה">סיבוב המפה:</span><button id="stRL" title="סובב נגד כיוון השעון" aria-label="סובב 15 מעלות נגד כיוון השעון">⟲</button><button id="stRR" title="סובב עם כיוון השעון" aria-label="סובב 15 מעלות עם כיוון השעון">⟳</button><button id="stR90">90°</button><button id="stJup">ירושלים למעלה</button><button id="stN">צפון למעלה</button></div>
- <div class="row"><button id="stHere">סמן את מקומי במפה</button><small>גרירה מזיזה את המפה, לחיצה בוחרת רחוב, לחיצה ארוכה: "אני עומד כאן" וירושלים למעלה.</small></div>
+ <div class="row"><span title="אפשר גם Shift + גלגלת על המפה">סיבוב המפה:</span><button id="stRL" title="סובב נגד כיוון השעון" aria-label="סובב 15 מעלות נגד כיוון השעון">⟲</button><button id="stRR" title="סובב עם כיוון השעון" aria-label="סובב 15 מעלות עם כיוון השעון">⟳</button><button id="stR90">90°</button><button id="stJup">ירושלים למעלה</button><button id="stN">צפון למעלה</button><button id="stHere">סמן את מקומי במפה</button></div>
+ <div class="row"><small>גרירה מזיזה את המפה, לחיצה בוחרת רחוב, לחיצה ארוכה: "אני עומד כאן" וירושלים למעלה.</small></div>
  <div id="stNone" hidden>
   <p id="stNearBox" hidden><span id="stNearTxt"></span><button id="stNearGo">עבור אליו (בלי אינטרנט)</button></p>
   <div class="row"><button id="stDl">הורד את האזור (פעם אחת, עם אינטרנט)</button><button id="stBrw">פתח בדפדפן</button><button id="stImp">טען קובץ</button></div>
@@ -130,7 +139,7 @@ small{color:var(--color-on-surface-dim)}
 <p><small>החישוב אל הר הבית לפי השיטה שנבחרה. בשאלה מעשית יש להתייעץ עם רב.</small></p>
 </main>
 <script src="world.js"></script>
-<script>const VER="1.2.3"</script>
+<script>const VER="1.2.4"</script>
 <script>
 const J=[31.7781,35.2359],R=Math.PI/180,O=window.Otzaria;
 const C=[["ירושלים – גאולה",31.7885,35.2188],["ירושלים – רמות",31.8156,35.1955],["ירושלים – הר נוף",31.7858,35.1742],["ירושלים – רמת שלמה",31.8111,35.2175],["ירושלים – בית וגן",31.7641,35.1867],
@@ -287,7 +296,7 @@ async function loadCal(){try{const l=dat(await O.call("calendar.getCities"));if(
  buildSel()}
 async function sidLink(){try{const l=dat(await O.call("plugin.listInstalled"))||[],sd=l.find(x=>/siduron/i.test(x.pluginId||""));
  if(sd){$("bSid").hidden=false;$("bSid").onclick=()=>O.call("plugin.openOther",{pluginId:sd.pluginId}).catch(()=>{})}}catch(e){}}
-if(O){O.on("plugin.boot",async p=>{applyTheme(p&&p.theme);await loadCal();let v=null;try{v=dat(await O.call("storage.get",{key:"kivun-city"}))}catch(e){}restore(v);sidLink();if(typeof plLoad==="function")plLoad()});
+if(O){O.on("plugin.boot",async p=>{applyTheme(p&&p.theme);await loadCal();let v=null;try{v=dat(await O.call("storage.get",{key:"kivun-city"}))}catch(e){}restore(v);sidLink();if(typeof plLoad==="function")plLoad();if(typeof newsCheck==="function")newsCheck()});
  O.on("calendar.city_changed",p=>{if(p&&p.city){calName=p.city;buildSel();if(mode==="cal"||mode==null)useCal()}});
  O.on("theme.changed",applyTheme);O.call("app.getTheme").then(r=>r&&applyTheme(r.data)).catch(()=>{})}
 else try{restore(localStorage.getItem("kivun-city"))}catch(e){}
@@ -309,6 +318,11 @@ $("plDel").onclick=()=>{const i=+$("pl").value;if($("pl").value==="")return;plac
 if(!O)plLoad();
 $("bManT").onclick=()=>{const o=$("manBox").hidden;$("manBox").hidden=!o;$("bManT").setAttribute("aria-expanded",String(o));$("bManT").classList.toggle("on",o);if(o)$("lat").focus()};
 {const setH=()=>document.documentElement.style.setProperty("--bar-h",$("bar").offsetHeight+"px");setH();addEventListener("resize",setH)}
+/* "מה חדש": מוצג פעם אחת אחרי כל עדכון גרסה */
+async function newsCheck(){let seen=null;try{seen=O?dat(await O.call("storage.get",{key:"kivun-seen-ver"})):localStorage.getItem("kivun-seen-ver")}catch(e){}
+ if(seen===VER)return;$("newsVer").textContent=VER;$("news").hidden=false}
+$("newsOk").onclick=()=>{$("news").hidden=true;try{O?O.call("storage.set",{key:"kivun-seen-ver",value:VER}).catch(()=>{}):localStorage.setItem("kivun-seen-ver",VER)}catch(e){}};
+if(!O)newsCheck();
 startCompass()</script>
 </body>
 </html>
