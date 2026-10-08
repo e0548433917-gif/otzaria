@@ -100,7 +100,7 @@ small{color:var(--color-on-surface-dim)}
 <p id="txt">בחר עיר, הזן קואורדינטות או לחץ על מיקום אוטומטי</p>
 <div class="row"><label class="grow">סיבוב ידני של החוגה<input id="rot" type="range" min="0" max="359" value="0"></label><button id="rotReset" title="החזר את החוגה למצב צפון למעלה">איפוס</button></div>
 </div>
-<div><select id="mapMode" aria-label="תצוגת מפה"><option value="near">הסביבה הקרובה</option><option value="far">עד ירושלים</option><option value="street">הרחובות סביבי</option></select>
+<div><select id="mapMode" aria-label="תצוגת מפה"><option value="street" selected>הרחובות סביבי</option><option value="near">הסביבה הקרובה</option><option value="far">עד ירושלים</option></select>
 <button id="zIn" aria-label="הגדל מפה">+</button><button id="zOut" aria-label="הקטן מפה">−</button><button id="zReset">איפוס תצוגה</button>
 <svg id="map" viewBox="0 0 400 320" aria-label="מפה"></svg>
 <div id="stPanel" hidden>
