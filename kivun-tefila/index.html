@@ -61,8 +61,8 @@ small{color:var(--color-on-surface-dim)}
 
 .newsbox{background:var(--color-surface);border:1px solid var(--color-primary);border-radius:var(--radius-md);padding:.4rem .8rem;margin:.4rem 0}
 .newsbox ul{margin:.25rem 0;padding-inline-start:1.2rem}
-/* "איך לזהות ידנית" נפתח כחלונית צד ולא מכסה את החוגה והמפה */
-#help.pop{top:var(--bar-h,2.6rem);bottom:0;inset-inline-start:auto;inset-inline-end:0;margin:0;width:min(22rem,92vw);max-width:none;max-height:none;border-radius:0;border-width:0 1px 0 0;border-inline-start:1px solid var(--color-outline);box-shadow:0 0 12px color-mix(in srgb,var(--color-on-surface) 15%,transparent);z-index:4}
+/* החלוניות (זיהוי ידני, הגדרות, הארות) נפתחות בצד ולא מכסות את החוגה והמפה */
+#help.pop,#set.pop,#fb.pop{top:var(--bar-h,2.6rem);bottom:0;inset-inline-start:auto;inset-inline-end:0;margin:0;width:min(22rem,92vw);max-width:none;max-height:none;border-radius:0;border-width:0 1px 0 0;border-inline-start:1px solid var(--color-outline);box-shadow:0 0 12px color-mix(in srgb,var(--color-on-surface) 15%,transparent);z-index:4}
 @media (min-width:60rem){body.side main{margin-inline-end:22.5rem;margin-inline-start:auto}}
 
 </style>
@@ -292,7 +292,7 @@ const Z=f=>{zoom=Math.max(.25,Math.min(60,zoom*f));if(pos)map()};
 $("zIn").onclick=()=>Z(1.5);$("zOut").onclick=()=>Z(1/1.5);$("zReset").onclick=()=>{zoom=1;if(pos)map()};
 $("map").addEventListener("wheel",e=>{e.preventDefault();Z(e.deltaY<0?1.25:.8)},{passive:false});
 $("rotReset").onclick=()=>{manual=null;$("rot").value=0;if(pos)draw();else $("rose").removeAttribute("transform")};
-function pop(btn,id,show){const h=$(id);h.hidden=!show;$(btn).setAttribute("aria-expanded",String(show));$(btn).classList.toggle("on",show);if(id==="help")document.body.classList.toggle("side",show)}
+function pop(btn,id,show){const h=$(id);h.hidden=!show;$(btn).setAttribute("aria-expanded",String(show));$(btn).classList.toggle("on",show);if(["help","set","fb"].includes(id))document.body.classList.toggle("side",show)}
 $("bHelp").onclick=()=>{const o=$("help").hidden;pop("bFb","fb",false);pop("bSet","set",false);pop("bHelp","help",o)};
 $("bFb").onclick=()=>{const o=$("fb").hidden;pop("bHelp","help",false);pop("bSet","set",false);pop("bFb","fb",o);if(o)$("fbText").focus()};
 addEventListener("keydown",e=>{if(e.key==="Escape"){pop("bHelp","help",false);pop("bFb","fb",false);pop("bSet","set",false)}});
