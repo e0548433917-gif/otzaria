@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>כיוון תפילה</title>
+<style>
+:root{--color-primary:#A9812F;--color-on-primary:#ffffff;--color-surface:#ffffff;--color-on-surface:#2a2016;--color-on-surface-dim:#6b6250;--color-surface-container-highest:#f1ece0;--color-outline:#d8cfb8;--color-bg:#faf7f0;--radius-sm:8px;--radius-md:12px;--font-main:'Heebo',Arial,sans-serif}
+:root[data-theme="dark"]{--color-primary:#d8ab52;--color-on-primary:#1a1610;--color-surface:#201c17;--color-on-surface:#f0e9dc;--color-on-surface-dim:#c3b8a3;--color-surface-container-highest:#1d1914;--color-outline:#4a4032;--color-bg:#16130f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--color-bg);color:var(--color-on-surface);font-family:var(--font-main);font-size:1rem;line-height:1.6}
+main{max-width:56rem;margin:auto;padding:1rem}
+h1{font-size:1.5rem;margin:0 0 .5rem}
+.row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin:.5rem 0}
+button,select,input{font:inherit;padding:.35rem .6rem;border:1px solid var(--color-outline);background:var(--color-surface);color:var(--color-on-surface);border-radius:var(--radius-sm)}
+button{cursor:pointer}
+button.on{background:var(--color-primary);color:var(--color-on-primary);border-color:var(--color-primary)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--color-primary)}
+input.c{width:7em}
+#dial{display:block;margin:.5rem auto;width:100%;max-width:17rem;height:auto}
+.pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:1rem;align-items:center}
+@media (max-width:40rem){.pair{grid-template-columns:minmax(0,1fr)}}
+#rot{width:100%}
+.grow{flex:1}
+#satUrl{word-break:break-all;font-size:.85rem;color:var(--color-on-surface-dim)}
+#big{font-size:2.4rem;text-align:center;margin:0}
+#txt{text-align:center;margin:.25rem 0 .75rem}
+#loc{color:var(--color-on-surface-dim);font-size:.9rem;margin:.25rem 0}
+#bar{position:sticky;top:0;z-index:5;display:flex;gap:.4rem;align-items:center;flex-wrap:nowrap;overflow-x:auto;background:var(--color-surface);border-bottom:1px solid var(--color-outline);padding:.4rem .75rem}
+#bar>*{flex:0 0 auto}
+#bar strong{font-size:1.1rem;margin-inline-end:.25rem}
+.pop{position:fixed;top:3.2rem;inset-inline:.75rem;margin:auto;max-width:44rem;max-height:75vh;overflow:auto;background:var(--color-surface);border:1px solid var(--color-outline);border-radius:var(--radius-md);padding:.5rem 1rem;white-space:normal}
+#fbText{display:block;width:100%;margin:.5rem 0;font:inherit;color:var(--color-on-surface);background:var(--color-surface);border:1px solid var(--color-outline);border-radius:var(--radius-sm);padding:.4rem}
+#ways{padding-inline-start:1.25rem;margin:.25rem 0}
+#ways li{margin:.5rem 0}
+#ways .off{color:var(--color-on-surface-dim)}
+#map{width:100%;height:auto;border:1px solid var(--color-outline);background:color-mix(in srgb,var(--color-primary) 8%,var(--color-surface));border-radius:var(--radius-md)}
+.land{fill:color-mix(in srgb,var(--color-primary) 22%,var(--color-surface));stroke:color-mix(in srgb,var(--color-primary) 55%,var(--color-surface));stroke-width:1}
+small{color:var(--color-on-surface-dim)}
+</style>
+</head>
+<body>
+<header id="bar">
+  <strong>כיוון תפילה</strong>
+  <button id="bOn">מיקום אוטומטי</button>
+  <select id="city" aria-label="בחירת עיר"></select>
+  <input id="lat" class="c" inputmode="decimal" placeholder="קו רוחב" aria-label="קו רוחב">
+  <input id="lon" class="c" inputmode="decimal" placeholder="קו אורך" aria-label="קו אורך">
+  <button id="bMan">חשב</button>
+  <select id="meth" aria-label="שיטת חישוב"><option value="gc">הקו הקצר על הכדור</option><option value="rh">כיוון קבוע על המפה</option></select>
+  <button id="bSid" hidden>פתח סידורון</button>
+  <button id="bHelp" aria-expanded="false" aria-controls="help">איך לזהות ידנית</button>
+  <button id="bSet" aria-expanded="false" aria-controls="set">הגדרות</button>
+  <button id="bFb" aria-expanded="false" aria-controls="fb">הארות</button>
+  <div id="fb" class="pop" hidden>
+    <label>סוג: <select id="fbType"><option value="bug">תקלה</option><option value="content">טעות בכיוון או בעיר</option><option value="other">הצעה או אחר</option></select></label>
+    <textarea id="fbText" rows="5" placeholder="מה כדאי לתקן או להוסיף?" aria-label="תוכן ההארה"></textarea>
+    <button id="fbSend">שלח</button> <span id="fbMsg"></span>
+  </div>
+  <div id="set" class="pop" hidden>
+    <h2 style="font-size:1.1rem;margin:.25rem 0">מפת רחובות — גם בלי אינטרנט</h2>
+    <p>בתצוגת "הרחובות סביבי" רואים את הרחובות סביבך עם שמותיהם, ואת הקו לירושלים. לוחצים על הרחוב שלידך, ומקבלים הוראה כמו "עמוד במקביל לרחוב, כשפניך לכיוון צפון, והסתובב 23° ימינה". כך אפשר לכוון בלי מצפן, במחשב או בטלפון.</p>
+    <p><strong>פעם אחת צריך אינטרנט, ואחר כך לא.</strong> כשבוחרים מיקום, לוחצים "הורד את האזור". הרחובות שברדיוס שנבחר נשמרים במחשב, ומאותו רגע האזור עובד בלי אינטרנט בכלל. אפשר לשמור כמה אזורים (בית, ישיבה, הורים).</p>
+    <p><strong>כשאוצריא לא מצליחה להוריד</strong> (אין בה גישה לרשת, או במחשב שאין בו אינטרנט):</p>
+    <ol>
+      <li>בוחרים את המיקום (עיר, קואורדינטות או נקודה במפה) ולוחצים "פתח בדפדפן". אפשר גם להעתיק את הכתובת שמוצגת ולפתוח אותה בכל מחשב אחר שיש בו אינטרנט.</li>
+      <li>הדפדפן מציג טקסט ארוך. שומרים אותו כקובץ (Ctrl+S, או "שמירה בשם").</li>
+      <li>מעבירים את הקובץ למחשב הזה אם צריך (למשל בדיסק און קי), ולוחצים כאן "טען קובץ". הקובץ נשמר בתוסף, ואין צורך לשמור עליו אחר כך.</li>
+    </ol>
+    <label>רדיוס להורדה: <select id="stRad"><option value="700">700 מ' (קטן ומהיר)</option><option value="1500">1.5 ק"מ</option><option value="3000">3 ק"מ (שכונות סמוכות)</option></select></label>
+    <p style="margin:.75rem 0 .25rem"><strong>אזורים שמורים:</strong></p>
+    <ul id="stList"></ul>
+    <p><small>נתוני הרחובות: © OpenStreetMap contributors, ברישיון ODbL.</small></p>
+  </div>
+  <div id="help" class="pop" hidden>
+    <ul id="ways"><li>בחר מיקום כדי לקבל הוראות מדויקות.</li></ul>
+    <button id="bSat" hidden>פתח מפת לוויין (דורש אינטרנט)</button>
+    <p id="satUrl"></p>
+  </div>
+</header>
+<main>
+<p id="loc"></p>
+<div class="pair"><div>
+<svg id="dial" viewBox="-120 -120 240 240" aria-label="חוגת כיוון">
+  <g id="rose">
+    <circle r="110" fill="var(--color-surface)" stroke="var(--color-outline)"/>
+    <text y="-90" text-anchor="middle" font-size="18" fill="var(--color-on-surface)">צ</text>
+    <text y="102" text-anchor="middle" font-size="18" fill="var(--color-on-surface-dim)">ד</text>
+    <text x="96" y="6" text-anchor="middle" font-size="18" fill="var(--color-on-surface-dim)">מז</text>
+    <text x="-96" y="6" text-anchor="middle" font-size="18" fill="var(--color-on-surface-dim)">מע</text>
+    <g id="sun" style="display:none"><circle cy="-75" r="9" fill="var(--color-primary)"/></g>
+    <g id="needle"><path d="M0,-95 L10,0 L0,10 L-10,0 Z" fill="var(--color-on-surface)"/><circle r="5" fill="var(--color-primary)"/></g>
+  </g>
+</svg>
+<p id="big">—</p>
+<p id="txt">בחר עיר, הזן קואורדינטות או לחץ על מיקום אוטומטי</p>
+<div class="row"><label class="grow">סיבוב ידני של החוגה<input id="rot" type="range" min="0" max="359" value="0"></label><button id="rotReset" title="החזר את החוגה למצב צפון למעלה">איפוס</button></div>
+</div>
+<div><select id="mapMode" aria-label="תצוגת מפה"><option value="near">הסביבה הקרובה</option><option value="far">עד ירושלים</option><option value="street">הרחובות סביבי</option></select>
+<button id="zIn" aria-label="הגדל מפה">+</button><button id="zOut" aria-label="הקטן מפה">−</button><button id="zReset">איפוס תצוגה</button>
+<svg id="map" viewBox="0 0 400 320" aria-label="מפה"></svg>
+<div id="stPanel" hidden>
+ <p id="stTxt" style="font-weight:600;margin:.4rem 0"></p>
+ <div class="row"><button id="stHere">סמן את מקומי במפה</button><small>גרירה מזיזה את המפה, לחיצה בוחרת רחוב.</small></div>
+ <div id="stNone" hidden>
+  <div class="row"><button id="stDl">הורד את האזור (פעם אחת, עם אינטרנט)</button><button id="stBrw">פתח בדפדפן</button><button id="stImp">טען קובץ</button></div>
+  <p id="stUrlBox" hidden><small>שמור את הדף שנפתח (Ctrl+S) וטען אותו בכפתור "טען קובץ". הכתובת, להעתקה למחשב אחר:</small><br><small id="stUrl" style="word-break:break-all;user-select:all"></small></p>
+ </div>
+ <p id="stMsg" style="margin:.25rem 0"></p>
+</div></div>
+</div>
+<p><small>החישוב אל הר הבית לפי השיטה שנבחרה. בשאלה מעשית יש להתייעץ עם רב.</small></p>
+</main>
+<script src="world.js"></script>
+<script>const VER="1.1.0"</script>
+<script>
+const J=[31.7781,35.2359],R=Math.PI/180,O=window.Otzaria;
+const C=[["ירושלים – גאולה",31.7885,35.2188],["ירושלים – רמות",31.8156,35.1955],["ירושלים – הר נוף",31.7858,35.1742],["ירושלים – רמת שלמה",31.8111,35.2175],["ירושלים – בית וגן",31.7641,35.1867],
+["בני ברק",32.0874,34.8324],["בית שמש",31.7462,34.9887],["רמת בית שמש",31.71,34.98],["מודיעין עילית",31.9324,35.0433],["ביתר עילית",31.7019,35.1073],["אלעד",32.0501,34.9522],["אשדוד",31.7977,34.653],["פתח תקווה",32.0878,34.886],["צפת",32.9646,35.5025],["טבריה",32.7939,35.5329],["חיפה",32.8191,34.9984],["רכסים",32.751,35.1014],["עמנואל",32.161,35.137],["נתיבות",31.4214,34.5884],["ערד",31.2612,35.2146],["קרית גת",31.6094,34.7712],["כוכב יעקב",31.8814,35.2453],
+["ברוקלין – בורו פארק",40.634,-73.9968],["ברוקלין – וויליאמסבורג",40.7146,-73.9535],["לייקווד",40.0941,-74.215],["מונסי",41.118,-74.0594],["קרית יואל",41.342,-74.1679],["בולטימור",39.36,-76.7],["שיקגו",42.0,-87.7],["לוס אנג'לס",34.0792,-118.3523],["טורונטו",43.73,-79.43],["מונטריאול",45.5186,-73.6069],["מקסיקו סיטי",19.4335,-99.1909],["בואנוס איירס",-34.6092,-58.406],
+["לונדון – סטמפורד היל",51.5707,-0.069],["מנצ'סטר",53.5143,-2.2593],["גייטסהד",54.9617,-1.6044],["אנטוורפן",51.21,4.42],["פריז",48.8589,2.32],["ציריך",47.3744,8.541],["שטרסבורג",48.5846,7.7507],["וינה",48.2006,16.4269],["מוסקבה",55.75,37.62],["יוהנסבורג",-26.14,28.1008],["מלבורן",-37.8708,145.0218]];
+const $=id=>document.getElementById(id);
+let pos=null,heading=null,manual=null,isCity=false,zoom=1,calCities=[],calName=null,mode=null,src="",acc=null,place="";
+const esc=x=>String(x).replace(/[&<>"']/g,c=>"&#"+c.charCodeAt(0)+";");
+function calCity(){return calCities.find(c=>c.name===calName)}
+function buildSel(){const cur=$("city").value,cc=calCity();
+ $("city").innerHTML='<option value="">— בחר עיר —</option>'+(cc?`<option value="cal">לפי לוח השנה: ${esc(cc.name)}</option>`:"")
+  +'<optgroup label="ריכוזים">'+C.map((c,i)=>`<option value="${i}">${esc(c[0])}</option>`).join("")+"</optgroup>"
+  +(calCities.length?'<optgroup label="ערי לוח השנה של אוצריא">'+calCities.map(c=>`<option value="o:${esc(c.name)}">${esc(c.name)}${c.country?" ("+esc(c.country)+")":""}</option>`).join("")+"</optgroup>":"");
+ if([...$("city").options].some(o=>o.value===cur))$("city").value=cur}
+buildSel();
+
+/* ---- חישובים ---- */
+function bearing(a,b){const p1=a[0]*R,p2=b[0]*R,dl=(b[1]-a[1])*R;
+ return(Math.atan2(Math.sin(dl)*Math.cos(p2),Math.cos(p1)*Math.sin(p2)-Math.sin(p1)*Math.cos(p2)*Math.cos(dl))/R+360)%360}
+function rhumb(a,b){let dl=(b[1]-a[1])*R;if(Math.abs(dl)>Math.PI)dl-=Math.sign(dl)*2*Math.PI;
+ const dp=Math.log(Math.tan(Math.PI/4+b[0]*R/2)/Math.tan(Math.PI/4+a[0]*R/2));return(Math.atan2(dl,dp)/R+360)%360}
+function dist(a,b){return 2*6371*Math.asin(Math.sqrt(Math.sin((b[0]-a[0])*R/2)**2+Math.cos(a[0]*R)*Math.cos(b[0]*R)*Math.sin((b[1]-a[1])*R/2)**2))}
+function gc(a,b,f){const[p1,l1,p2,l2]=[a[0]*R,a[1]*R,b[0]*R,b[1]*R],d=dist(a,b)/6371;if(!d)return a;
+ const A=Math.sin((1-f)*d)/Math.sin(d),B=Math.sin(f*d)/Math.sin(d),
+ x=A*Math.cos(p1)*Math.cos(l1)+B*Math.cos(p2)*Math.cos(l2),y=A*Math.cos(p1)*Math.sin(l1)+B*Math.cos(p2)*Math.sin(l2),z=A*Math.sin(p1)+B*Math.sin(p2);
+ return[Math.atan2(z,Math.hypot(x,y))/R,Math.atan2(y,x)/R]}
+function sun(lat,lon,t=new Date()){const d=t/864e5-10957.5,g=(357.529+.98560028*d)*R,q=280.459+.98564736*d,
+ L=(q+1.915*Math.sin(g)+.02*Math.sin(2*g))*R,e=(23.439-3.6e-7*d)*R,ra=Math.atan2(Math.cos(e)*Math.sin(L),Math.cos(L)),
+ dec=Math.asin(Math.sin(e)*Math.sin(L)),H=(280.46061837+360.98564736629*d+lon)*R-ra,la=lat*R,
+ alt=Math.asin(Math.sin(la)*Math.sin(dec)+Math.cos(la)*Math.cos(dec)*Math.cos(H)),
+ az=(Math.atan2(-Math.sin(H),Math.tan(dec)*Math.cos(la)-Math.sin(la)*Math.cos(H))/R+360)%360;return{az,alt:alt/R}}
+const meth=()=>$("meth").value,bear=()=>meth()==="rh"?rhumb(pos,J):bearing(pos,J);
+const NAMES=["צפון","צפון-מזרח","מזרח","דרום-מזרח","דרום","דרום-מערב","מערב","צפון-מערב"],nm=b=>NAMES[Math.round(b/45)%8];
+const turn=x=>{x=((x+540)%360)-180;return Math.abs(x)<5?"זה הכיוון":`הסתובב ${Math.round(Math.abs(x))}° ${x>0?"ימינה":"שמאלה"}`};
+function near(){let m=null;C.forEach(c=>{const d=dist(pos,[c[1],c[2]]);if(!m||d<m[1])m=[c[0],d]});return m}
+
+/* ---- תצוגה ---- */
+function locText(){const f=x=>x.toFixed(4),n=near();
+ let t=`${src}: ${f(pos[0])}°, ${f(pos[1])}°`;
+ if(acc)t+=` (דיוק כ-${acc<1000?Math.round(acc)+" מ'":Math.round(acc/1000)+' ק"מ'})`;
+ if(place)t+=` — ${place}`;
+ else if(n&&!isCity)t+=n[1]<15?` — באזור ${n[0]}`:` — העיר הקרובה מהרשימה: ${n[0]} (${Math.round(n[1])} ק"מ)`;
+ $("loc").textContent=t+`. מרחק מירושלים: ${Math.round(dist(pos,J)).toLocaleString("he")} ק"מ`}
+function ways(b){const s=sun(pos[0],pos[1]),D=decl(),rf=refText(b),day=s.alt>0,night=s.alt<-6,mag=Math.round((b-D+360)%360),w=[];
+ const add=(t,x,on=true)=>w.push([t,x,on]);
+ if(heading!=null)add("מצפן המכשיר",`החוגה מסתובבת עם המכשיר וכבר מתוקנת לסטייה המגנטית (${D.toFixed(1)}°). החזק את המכשיר שטוח, הרחק ממתכת ומרמקולים, ועמוד בכיוון החץ.`);
+ add("מצפן רגיל",`החזק את המצפן שטוח, חכה שהמחט תתייצב. סובב את עצמך עד שהמחט מצביעה על צפון, ואז פנה ${mag}° בכיוון השעון. המספר כבר כולל תיקון לסטייה המגנטית במקומך.`);
+ add("מקום מוכר",rf?rf.replace("לפי מקום מוכר: ",""):"אין עיר מהרשימה בכיוון קרוב לכיוון ירושלים. אם אתה יודע לאיזה צד נמצא מקום מוכר, השווה לכיוון במפה ובחוגה.",!!rf);
+ add("לפי השמש",day?`השמש מסומנת בעיגול הזהוב שבחוגה. בלי להביט ישירות בשמש, עמוד כשהיא מולך. ${turn(b-s.az)}.${s.alt>75?" כרגע השמש כמעט מעל הראש, ולכן קשה לדעת לאיזה צד היא נוטה.":""}`:"זמין ביום בלבד.",day&&s.alt<=75);
+ add("לפי הצל",s.alt>3&&s.alt<=75?`עמוד כך שהצל שלך נופל ישר לפניך. ${turn(b-(s.az+180))}.`:"זמין ביום, כשהשמש לא גבוהה מדי.",s.alt>3&&s.alt<=75);
+ add("לפי כוכב הצפון",night&&pos[0]>5?`מצא את העגלה הגדולה (שבעה כוכבים בצורת מצקת). המשך את הקו שבין שני הכוכבים שבקצה ה"מצקת" כחמש פעמים את המרחק ביניהם, ותגיע לכוכב הצפון. עמוד מולו. ${turn(b)}.`:pos[0]<=5?"לא נראה בחצי הכדור הדרומי.":"זמין בלילה בלבד.",night&&pos[0]>5);
+ add("סיבוב ידני של החוגה",`הזז את המחוון שמתחת לחוגה עד ש${day?"העיגול הזהוב מכוון לשמש האמיתית":"האות צ מכוונת לצפון, למשל לכוכב הצפון"}. מאותו רגע החץ מצביע לירושלים.`);
+ add("לפי הרחוב",`בחר בתצוגת המפה "הרחובות סביבי" ולחץ על הרחוב שלידך. אחרי הורדה אחת האזור עובד גם בלי אינטרנט (ראה "הגדרות").`);
+ add("מפת לוויין",`דורש אינטרנט. במפה הצפון למעלה, והכיוון הוא ${Math.round(b)}° בכיוון השעון מהצפון. התאם אותו לרחוב או לבניין שאתה מזהה סביבך.`);
+ $("ways").replaceChildren(...w.map(([t,x,on])=>{const li=document.createElement("li"),h=document.createElement("strong");h.textContent=t+": ";li.append(h,x);if(!on)li.className="off";return li}));
+ $("bSat").hidden=false;$("sun").style.display=day&&heading==null?"":"none";$("sun").setAttribute("transform",`rotate(${s.az})`)}
+function draw(){if(!pos)return;locText();const b=bear();
+ $("big").textContent=Math.round(b)+"°";
+ $("txt").textContent=dist(pos,J)<2?"המיקום קרוב מאוד להר הבית, והכיוון משתנה בכל צעד. בחר שכונה מהרשימה או הזן קואורדינטות מדויקות.":`פנים לכיוון ${nm(b)} (${Math.round(b)}° מהצפון)`;
+ const hd=heading!=null?heading+decl():manual;hd!=null?$("rose").setAttribute("transform",`rotate(${-hd})`):$("rose").removeAttribute("transform");
+ $("needle").setAttribute("transform",`rotate(${b})`);ways(b);map()}
+const LM=[["ים המלח",31.5,35.5,0],["מנהטן",40.758,-73.985,0]];
+function seaPt(){return pos[0]>31.2&&pos[0]<33.1&&pos[1]>34.2&&pos[1]<35.7?[["הים",pos[0],34.45+(pos[0]-31.5)*.385-.15]]:[]}
+function refs(){return C.map(c=>[c[0],c[1],c[2]]).concat(calCities.filter(c=>!C.some(k=>k[0]===c.name)).map(c=>[c.name,c.lat,c.lng]),LM.map(l=>[l[0],l[1],l[2]]),seaPt()).filter(c=>{const d=dist(pos,[c[1],c[2]]);return d>2&&d<150&&!(c[0].startsWith("ירושלים")&&dist(pos,J)>15)})}
+function refText(b){let best=null;for(const c of refs()){const x=((bearing(pos,[c[1],c[2]])-b+540)%360)-180;if(!best||Math.abs(x)<Math.abs(best[1]))best=[c[0],x]}
+ if(!best||Math.abs(best[1])>30)return"";const x=-best[1];
+ return Math.abs(x)<5?`לפי מקום מוכר: ירושלים בערך בכיוון ${best[0]}.`:`לפי מקום מוכר: פנה לכיוון ${best[0]} והסתובב עוד ${Math.round(Math.abs(x))}° ${x>0?"ימינה":"שמאלה"}.`}
+function decl(){if(typeof DECL_GRID==="undefined"||!pos)return 0;const la=Math.max(-85,Math.min(85,pos[0])),lo=pos[1],
+ i=(la+85)/5,j=(lo+180)/5,i0=Math.min(Math.floor(i),33),j0=Math.min(Math.floor(j),71),fi=i-i0,fj=j-j0,G=DECL_GRID;
+ return((G[i0][j0]*(1-fj)+G[i0][j0+1]*fj)*(1-fi)+(G[i0+1][j0]*(1-fj)+G[i0+1][j0+1]*fj)*fi)/10}
+function map(){const b=bear(),near=$("mapMode").value==="near";let pts=[],x0,x1,y0,y1,dots=[],arrow=null;
+ if(near){const ds=refs().map(c=>dist(pos,[c[1],c[2]])).sort((a,b)=>a-b),rk=Math.max(12,Math.min(120,(ds[3]||40)*1.15)),
+  dla=rk/111,dlo=rk/(111*Math.cos(pos[0]*R));y0=pos[0]-dla;y1=pos[0]+dla;x0=pos[1]-dlo;x1=pos[1]+dlo;
+  dots=refs().filter(c=>c[1]>y0&&c[1]<y1&&c[2]>x0&&c[2]<x1);if(J[0]>y0&&J[0]<y1&&J[1]>x0&&J[1]<x1)dots.push(["הר הבית",J[0],J[1],1]);
+  arrow=[pos[0]+Math.cos(b*R)*dla*.85,pos[1]+Math.sin(b*R)*dlo*.85]}
+ else{for(let i=0;i<=48;i++){const f=i/48;pts.push(meth()==="rh"?[pos[0]+(J[0]-pos[0])*f,pos[1]+(J[1]-pos[1])*f]:gc(pos,J,f))}
+  const xs=pts.map(p=>p[1]),ys=pts.map(p=>p[0]);x0=Math.min(...xs);x1=Math.max(...xs);y0=Math.min(...ys);y1=Math.max(...ys);
+  const pad=Math.max(.15,(x1-x0)*.15,(y1-y0)*.15);x0-=pad;x1+=pad;y0-=pad;y1+=pad}
+ {const cx=near?pos[1]:(x0+x1)/2,cy=near?pos[0]:(y0+y1)/2,hw=(x1-x0)/2/zoom,hh=(y1-y0)/2/zoom;x0=cx-hw;x1=cx+hw;y0=cy-hh;y1=cy+hh}
+ const s=Math.min(380/(x1-x0),300/(y1-y0)),ox=200-(x1-x0)*s/2,oy=160-(y1-y0)*s/2,
+  P=p=>[ox+(p[1]-x0)*s,oy+(y1-p[0])*s].map(v=>v.toFixed(1)),a=P(pos),
+  M=`matrix(${s},0,0,${s},${ox-x0*s},${oy+y1*s})`,small=(x1-x0)<45&&typeof REGION_PATH!=="undefined";
+ let h=typeof WORLD_PATH!=="undefined"?`<g transform="${M}"><path class="land" vector-effect="non-scaling-stroke" d="${WORLD_PATH}"/>${small?`<path class="land" vector-effect="non-scaling-stroke" d="${REGION_PATH}"/>`:""}</g>`:"";
+ const T=(p,t,c)=>`<text x="${p[0]}" y="${p[1]-8}" text-anchor="middle" font-size="12" fill="var(--color-${c})">${t}</text>`;
+ if(near){const e=P(arrow);h+=`<line x1="${a[0]}" y1="${a[1]}" x2="${e[0]}" y2="${e[1]}" stroke="var(--color-primary)" stroke-width="3"/><circle cx="${e[0]}" cy="${e[1]}" r="6" fill="var(--color-primary)"/>`+T(e,"לירושלים","on-surface");
+  for(const d of dots){const q=P([d[1],d[2]]);h+=`<circle cx="${q[0]}" cy="${q[1]}" r="3.5" fill="var(--color-on-surface-dim)"/>`+T(q,d[0],"on-surface-dim")}}
+ else{const j=P(J);h+=`<polyline points="${pts.map(P).join(" ")}" fill="none" stroke="var(--color-primary)" stroke-width="2.5" stroke-dasharray="6 4"/><circle cx="${j[0]}" cy="${j[1]}" r="6" fill="var(--color-primary)"/>`+T(j,"ירושלים","on-surface")}
+ $("map").innerHTML=h+`<circle cx="${a[0]}" cy="${a[1]}" r="5" fill="var(--color-on-surface)"/>`+T(a,"אתה","on-surface")+`<text x="390" y="18" text-anchor="end" font-size="12" fill="var(--color-on-surface-dim)">↑ צפון</text>`}
+
+/* ---- רשת: דרך אוצריא, ובגיבוי fetch ---- */
+async function getJ(url){
+ if(O)try{let ch=O.call("network.fetchStream",{url,timeoutMs:10000});if(ch&&ch.then&&!ch[Symbol.asyncIterator])ch=await ch;
+  let ok=false,body="";for await(const c of ch){if(c.type==="response"){ok=!!c.ok;if(!ok)break;continue}if(typeof c.body==="string")body+=c.body}
+  if(ok)return JSON.parse(body)}catch(e){}
+ const r=await fetch(url);if(!r.ok)throw 0;return r.json()}
+async function rev(){place="";try{const d=await getJ(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14&accept-language=he&lat=${pos[0]}&lon=${pos[1]}`);
+ const a=d.address||{};place=[a.suburb||a.neighbourhood,a.city||a.town||a.village,a.country].filter(Boolean).join(", ");locText()}catch(e){}}
+async function ipLoc(){try{const d=await getJ("https://get.geojs.io/v1/ip/geo.json");if(!isFinite(+d.latitude))throw 0;
+ setPos([+d.latitude,+d.longitude],"מיקום משוער לפי רשת",null,true);rev()}
+ catch(e){$("bOn").classList.remove("on");$("txt").textContent="לא ניתן לזהות מיקום כרגע. בחר עיר מהרשימה או הזן קואורדינטות."}}
+function setPos(p,s,a,auto,city){pos=p;src=s;acc=a;place="";isCity=!!city;zoom=1;if(auto)$("city").value="";$("bOn").classList.toggle("on",!!auto);draw()}
+
+/* ---- אירועים ---- */
+function save(v){try{O?O.call("storage.set",{key:"kivun-city",value:v}).catch(()=>{}):localStorage.setItem("kivun-city",v)}catch(e){}}
+function useCal(){const c=calCity();if(!c)return false;$("city").value="cal";setPos([c.lat,c.lng],"לוח השנה: "+c.name,null,false,true);return true}
+$("city").onchange=()=>{const v=$("city").value;if(v==="")return;mode=v;save(v);
+ if(v==="cal")return useCal();
+ if(v.startsWith("o:")){const c=calCities.find(k=>k.name===v.slice(2));if(c)setPos([c.lat,c.lng],c.name,null,false,true);return}
+ const c=C[+v];if(c)setPos([c[1],c[2]],c[0],null,false,true)};
+$("bMan").onclick=()=>{const a=parseFloat($("lat").value),b=parseFloat($("lon").value);
+ if(!(Math.abs(a)<=90&&Math.abs(b)<=180)){$("txt").textContent="יש להזין קו רוחב בין ‎-90 ל-90 וקו אורך בין ‎-180 ל-180.";return}
+ $("city").value="";setPos([a,b],"קואורדינטות ידניות",null,false);mode="m:"+a+","+b;save(mode)};
+$("meth").onchange=draw;$("mapMode").onchange=map;
+$("bOn").onclick=()=>{$("txt").textContent="מאתר מיקום…";
+ if(!navigator.geolocation)return ipLoc();
+ navigator.geolocation.getCurrentPosition(p=>{setPos([p.coords.latitude,p.coords.longitude],"מיקום מזוהה",p.coords.accuracy,true);startCompass();rev()},ipLoc,{timeout:8000})};
+$("bSat").onclick=()=>{if(!pos)return;const url=`https://www.google.com/maps/@${pos[0].toFixed(6)},${pos[1].toFixed(6)},19z/data=!3m1!1e3`;
+ $("satUrl").textContent="";
+ const fail=()=>{let w=null;try{w=window.open(url,"_blank")}catch(e){}if(!w)$("satUrl").textContent="המפה לא נפתחה. אפשר להעתיק את הכתובת לדפדפן: "+url};
+ (O?O.call("app.openUrl",{url}):Promise.reject()).then(r=>{if(r&&r.success===false)fail()}).catch(fail)};
+$("rot").oninput=()=>{manual=+$("rot").value;draw()};
+setInterval(()=>{if(pos)draw()},60000);
+const Z=f=>{zoom=Math.max(.25,Math.min(60,zoom*f));if(pos)map()};
+$("zIn").onclick=()=>Z(1.5);$("zOut").onclick=()=>Z(1/1.5);$("zReset").onclick=()=>{zoom=1;if(pos)map()};
+$("map").addEventListener("wheel",e=>{e.preventDefault();Z(e.deltaY<0?1.25:.8)},{passive:false});
+$("rotReset").onclick=()=>{manual=null;$("rot").value=0;if(pos)draw();else $("rose").removeAttribute("transform")};
+function pop(btn,id,show){const h=$(id);h.hidden=!show;$(btn).setAttribute("aria-expanded",String(show));$(btn).classList.toggle("on",show)}
+$("bHelp").onclick=()=>{const o=$("help").hidden;pop("bFb","fb",false);pop("bSet","set",false);pop("bHelp","help",o)};
+$("bFb").onclick=()=>{const o=$("fb").hidden;pop("bHelp","help",false);pop("bSet","set",false);pop("bFb","fb",o);if(o)$("fbText").focus()};
+addEventListener("keydown",e=>{if(e.key==="Escape"){pop("bHelp","help",false);pop("bFb","fb",false);pop("bSet","set",false)}});
+$("fbSend").onclick=async()=>{const t=$("fbText").value.trim(),m=$("fbMsg");if(!t){m.textContent="יש לכתוב את תוכן ההארה.";return}
+ if(!O){m.textContent="שליחת הארות זמינה רק מתוך אוצריא.";return}
+ $("fbSend").disabled=true;m.textContent="שולח…";let v=null;
+ try{const r=await O.call("feedback.report",{details:("כיוון תפילה "+VER+"\n\n"+t).slice(0,5000),reportType:$("fbType").value});v=r&&(r.data!==undefined?r.data:r)}catch(e){}
+ $("fbSend").disabled=false;
+ if(v==="sent"||v==="queued"){m.textContent=v==="sent"?"נשלח. תודה!":"נשמר ויישלח כשיהיה חיבור. תודה!";$("fbText").value=""}
+ else m.textContent=v==="cancelled"?"השליחה בוטלה.":"השליחה נכשלה. נסה שוב מאוחר יותר."};
+let compassOn=false;function startCompass(){if(compassOn)return;compassOn=true;const h=e=>{const v=e.webkitCompassHeading??(e.absolute&&e.alpha!=null?360-e.alpha:null);if(v!=null){heading=v;draw()}};
+ try{if(typeof DeviceOrientationEvent!=="undefined"&&DeviceOrientationEvent.requestPermission)DeviceOrientationEvent.requestPermission().then(r=>{if(r==="granted")addEventListener("deviceorientation",h);else compassOn=false}).catch(()=>{compassOn=false});
+ else{addEventListener("deviceorientationabsolute",h);addEventListener("deviceorientation",h)}}catch(e){}}
+
+/* ---- ערכת נושא ושחזור ---- */
+function applyTheme(t){if(!t)return;const c=t.colorScheme||{},r=document.documentElement,m={primary:c.primary,"on-primary":c.onPrimary,surface:c.surface,"on-surface":c.onSurface,"surface-container-highest":c.surfaceContainerHighest,outline:c.outline,bg:c.surface};
+ if(t.mode)r.dataset.theme=t.mode==="dark"?"dark":"light";for(const k in m)if(m[k])r.style.setProperty("--color-"+k,m[k]);
+ if(t.typography&&t.typography.fontFamily)r.style.setProperty("--font-main",`"${t.typography.fontFamily}",Arial,sans-serif`)}
+function restore(v){if(v==null||v==="")v=calCity()?"cal":null;if(v==null)return;mode=String(v);
+ if(v==="cal"||(typeof v==="string"&&v.startsWith("o:"))){$("city").value=v;if($("city").value===v)return $("city").onchange();return}
+ if(typeof v==="string"&&v.startsWith("m:")){const[a,b]=v.slice(2).split(",").map(Number);$("lat").value=a;$("lon").value=b;return $("bMan").onclick()}
+ if(v!=null&&v!==""&&C[+v]){$("city").value=String(v);$("city").onchange()}}
+const dat=r=>r&&(r.data!==undefined?r.data:r);
+async function loadCal(){try{const l=dat(await O.call("calendar.getCities"));if(Array.isArray(l))calCities=l.filter(c=>c&&c.name&&isFinite(c.lat)&&isFinite(c.lng))}catch(e){}
+ try{const n=dat(await O.call("settings.get",{key:"key-selected-city"}));if(typeof n==="string")calName=n}catch(e){}
+ buildSel()}
+async function sidLink(){try{const l=dat(await O.call("plugin.listInstalled"))||[],sd=l.find(x=>/siduron/i.test(x.pluginId||""));
+ if(sd){$("bSid").hidden=false;$("bSid").onclick=()=>O.call("plugin.openOther",{pluginId:sd.pluginId}).catch(()=>{})}}catch(e){}}
+if(O){O.on("plugin.boot",async p=>{applyTheme(p&&p.theme);await loadCal();let v=null;try{v=dat(await O.call("storage.get",{key:"kivun-city"}))}catch(e){}restore(v);sidLink()});
+ O.on("calendar.city_changed",p=>{if(p&&p.city){calName=p.city;buildSel();if(mode==="cal"||mode==null)useCal()}});
+ O.on("theme.changed",applyTheme);O.call("app.getTheme").then(r=>r&&applyTheme(r.data)).catch(()=>{})}
+else try{restore(localStorage.getItem("kivun-city"))}catch(e){}
+</script>
+<script src="streets.js"></script>
+<script>startCompass()</script>
+</body>
+</html>

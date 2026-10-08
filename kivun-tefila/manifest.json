@@ -1,0 +1,40 @@
+{
+  "id": "com.shiachrina.kivuntefila",
+  "name": "כיוון תפילה",
+  "version": "1.1.0",
+  "description": "הכיוון לירושלים לפי מיקום אוטומטי, עיר או קואורדינטות: חוגה, מצפן, מפת רחובות (גם בלי אינטרנט אחרי הורדה אחת), הכוונה לפי שמש, צל וכוכב הצפון.",
+  "author": "שיח רינה-עמודי שש",
+  "schemaVersion": 1,
+  "sdkVersion": "1.x",
+  "stability": "beta",
+  "minAppVersion": "0.9.98",
+  "entrypoint": "index.html",
+  "permissions": [
+    "network.access",
+    "app.open_url",
+    "plugin.storage.read",
+    "plugin.storage.write",
+    "calendar.read",
+    "settings.read",
+    "events.subscribe:calendar.city_changed",
+    "plugin.open_other",
+    "fs.user_files.read"
+  ],
+  "network": {
+    "enabled": true,
+    "allowlist": [
+      "https://get.geojs.io/v1/ip/geo.json",
+      "https://nominatim.openstreetmap.org/reverse",
+      "https://overpass-api.de/api/interpreter",
+      "https://overpass.kumi.systems/api/interpreter"
+    ]
+  },
+  "contributes": {
+    "toolTab": {
+      "title": "כיוון תפילה",
+      "order": 210,
+      "defaultPinned": false,
+      "iconName": "compass_northwest_24_regular"
+    }
+  }
+}
