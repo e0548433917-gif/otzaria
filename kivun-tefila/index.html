@@ -83,6 +83,7 @@ body.mapfull #map{position:fixed;inset:var(--bar-h,2.6rem) 0 0 0;width:100%;heig
 #mapFullBar{position:fixed;top:calc(var(--bar-h,2.6rem) + .5rem);inset-inline-end:.5rem;z-index:31;display:flex;gap:.3rem;flex-wrap:wrap}
 #mapFullBar[hidden],#fTxt[hidden]{display:none}
 #fTxt{position:fixed;bottom:1.6rem;left:50%;transform:translateX(-50%);z-index:31;max-width:min(46rem,92vw);background:var(--color-surface);border:1px solid var(--color-outline);border-radius:var(--radius-md);padding:.35rem .8rem;font-weight:600;text-align:center}
+.nocomp{font-size:.8rem;color:var(--color-on-surface-dim);text-align:center;margin:-.4rem 0 .4rem;border:1px dashed var(--color-outline);border-radius:var(--radius-sm);padding:.25rem .5rem}
 .newsbox{background:var(--color-surface);border:1px solid var(--color-primary);border-radius:var(--radius-md);padding:.4rem .8rem;margin:.4rem 0}
 .newsbox ul{margin:.25rem 0;padding-inline-start:1.2rem}
 /* החלוניות (זיהוי ידני, הגדרות, הארות) נפתחות בצד ולא מכסות את החוגה והמפה */
@@ -263,6 +264,7 @@ body.mapfull #map{position:fixed;inset:var(--bar-h,2.6rem) 0 0 0;width:100%;heig
 </svg>
 <p id="big">—</p>
 <p id="txt">בחר עיר, הזן קואורדינטות או לחץ על מיקום אוטומטי</p>
+<p id="noCompass" class="nocomp" hidden>במחשב אין מצפן: החוגה מצוירת כשהצפון למעלה, ואינה מצביעה בחדר שלך. כדי לדעת לאן לפנות — לחץ במפה על הרחוב שלידך ותקבל הוראה ביחס אליו, או השתמש ב"איך לזהות ידנית" (שמש, צל, מקום מוכר).</p>
 <div class="row"><label class="grow">סיבוב ידני של החוגה<input id="rot" type="range" min="0" max="359" value="0"></label><button id="rotReset" title="החזר את החוגה למצב צפון למעלה">איפוס</button></div>
 </div>
 <div><select id="mapMode" aria-label="תצוגת מפה"><option value="street" selected>הרחובות סביבי</option><option value="near">הסביבה הקרובה</option><option value="far">עד ירושלים</option></select>

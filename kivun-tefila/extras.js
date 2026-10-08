@@ -138,7 +138,9 @@ document.querySelectorAll("button.src").forEach(b => b.onclick = () => openSrc(b
 if (!O) document.querySelectorAll("button.src").forEach(b => b.disabled = true);
 
 /* ---- מצפן זמין: מציגים את מצב התפילה גם במכשיר שאינו מגע ---- */
-setInterval(() => { if (heading != null) document.body.classList.add("hascompass") }, 2000);
+/* בלי מצפן (מחשב): הסבר שהחוגה אינה מצביעה בחדר, והפניה לשיטות שעובדות במחשב */
+function compassNote() { if (heading != null) document.body.classList.add("hascompass"); $("noCompass").hidden = heading != null || manual != null || !pos }
+setInterval(compassNote, 1000);
 
 /* ---- הורדת האזור של המיקום הנוכחי מתוך ההגדרות ---- */
 $("setDl").onclick = () => { if (!pos) return; pop("bSet", "set", false); $("mapMode").value = "street"; map(); setTimeout(() => stDownload(), 300) };
