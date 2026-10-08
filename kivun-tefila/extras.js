@@ -136,5 +136,7 @@ $("stPrint").onclick = printSheet;
 $("pcGo").onclick = pcFind;
 $("pc").onkeydown = e => { if (e.key === "Enter") pcFind() };
 $("mapMode").addEventListener("change", () => { ST.synSel = null });
-function extrasBoot() { viewRestore() }
+/* בלי טבלת מיקודים בחבילה, שדה המיקוד מוסתר */
+function pcCheck() { pcLoad().then(d => { if (!d) { $("pc").hidden = true; $("pcGo").hidden = true } }) }
+function extrasBoot() { viewRestore(); pcCheck() }
 if (!O) extrasBoot();
