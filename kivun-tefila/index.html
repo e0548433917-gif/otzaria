@@ -71,10 +71,11 @@ body.hascompass #bPray{display:inline-block}
  body{background:var(--color-surface)}
 }
 
+.row.tight{gap:.3rem}.row.tight button{padding:.25rem .45rem}
 .newsbox{background:var(--color-surface);border:1px solid var(--color-primary);border-radius:var(--radius-md);padding:.4rem .8rem;margin:.4rem 0}
 .newsbox ul{margin:.25rem 0;padding-inline-start:1.2rem}
 /* החלוניות (זיהוי ידני, הגדרות, הארות) נפתחות בצד ולא מכסות את החוגה והמפה */
-#help.pop,#set.pop,#fb.pop{top:var(--bar-h,2.6rem);bottom:0;inset-inline-start:auto;inset-inline-end:0;margin:0;width:min(22rem,92vw);max-width:none;max-height:none;border-radius:0;border-width:0 1px 0 0;border-inline-start:1px solid var(--color-outline);box-shadow:0 0 12px color-mix(in srgb,var(--color-on-surface) 15%,transparent);z-index:4}
+#help.pop,#set.pop,#fb.pop,#hal.pop{top:var(--bar-h,2.6rem);bottom:0;inset-inline-start:auto;inset-inline-end:0;margin:0;width:min(22rem,92vw);max-width:none;max-height:none;border-radius:0;border-width:0 1px 0 0;border-inline-start:1px solid var(--color-outline);box-shadow:0 0 12px color-mix(in srgb,var(--color-on-surface) 15%,transparent);z-index:4}
 @media (min-width:60rem){body.side main{margin-inline-end:22.5rem;margin-inline-start:auto}}
 
 </style>
@@ -91,6 +92,8 @@ body.hascompass #bPray{display:inline-block}
   <button id="bMan">חשב</button><input id="pc" class="c" placeholder="או מיקוד" aria-label="מיקוד" maxlength="8"><button id="pcGo">לפי מיקוד</button></span>
   <select id="meth" aria-label="שיטת חישוב"><option value="gc">הקו הקצר על הכדור</option><option value="rh">כיוון קבוע על המפה</option></select>
   <button id="bSid" hidden>פתח סידורון</button>
+  <button id="bHal" aria-expanded="false" aria-controls="hal">הלכות</button>
+  <button id="bPrint" title="הדפסת דף כיוון למקום הנוכחי">הדפס</button>
   <button id="bPray" title="חץ גדול לירושלים בלבד">מצב תפילה</button>
   <button id="bHelp" aria-expanded="false" aria-controls="help">איך לזהות ידנית</button>
   <button id="bSet" aria-expanded="false" aria-controls="set">הגדרות</button>
@@ -118,13 +121,6 @@ body.hascompass #bPray{display:inline-block}
     <p id="stEmb"></p>
     <p style="margin:.75rem 0 .25rem"><strong>אזורים שהורדת:</strong></p>
     <ul id="stList"></ul>
-    <h2 style="font-size:1.1rem;margin:.75rem 0 .25rem">הלכות כיוון התפילה (מראי מקומות)</h2>
-    <ul class="hal">
-     <li>העומד בחוץ לארץ מכוון את לבו כנגד ארץ ישראל; בארץ ישראל כנגד ירושלים; בירושלים כנגד המקדש. <button class="src" data-q="ברכות" data-r="ל א">תלמוד בבלי, ברכות ל ע״א</button> <button class="src" data-q="שולחן ערוך אורח חיים" data-r="צד">שולחן ערוך, אורח חיים סימן צד</button> <button class="src" data-q="הלכות תפילה ונשיאת כפים" data-r="ה">רמב״ם, הלכות תפילה פרק ה</button></li>
-     <li>מי שאינו יכול לכוון את הרוחות, יכוון את לבו לאביו שבשמים. <button class="src" data-q="שולחן ערוך אורח חיים" data-r="צד">שולחן ערוך, שם</button></li>
-     <li><b>שתי שיטות החישוב בתוסף:</b> "הקו הקצר על הכדור" הוא הכיוון של הדרך הקצרה ביותר על פני כדור הארץ; "כיוון קבוע על המפה" הוא קו שזווית הכיוון שלו קבועה לאורך כל הדרך, כפי שהוא נראה על מפה שטוחה. בארץ ההבדל זניח; בחו״ל הוא עשוי להגיע לעשרות מעלות (למשל בצפון אמריקה), ויש בזה דיון בפוסקים.</li>
-    </ul>
-    <p><small>זהו סיכום לעיון בלבד, ואינו פסק הלכה. בשאלה מעשית יש להתייעץ עם רב. הלחיצה על מראה מקום פותחת אותו בספריית אוצריא.</small></p>
     <h2 style="font-size:1.1rem;margin:.75rem 0 .25rem">כל היכולות של התוסף</h2>
     <details class="feat"><summary>הצג את הרשימה המלאה</summary>
      <p><b>מיקום</b></p><ul>
@@ -188,6 +184,15 @@ body.hascompass #bPray{display:inline-block}
     <div class="row"><button id="newsAgain">הצג שוב את חלונית "מה חדש"</button><button id="setFb">יש לך הערה? שלח הארה</button></div>
     <p><small>נתוני הרחובות, בתי הכנסת והמיקודים: © OpenStreetMap contributors, ברישיון ODbL.</small></p>
   </div>
+  <div id="hal" class="pop" hidden>
+    <h2 style="font-size:1.1rem;margin:.25rem 0">הלכות כיוון התפילה (מראי מקומות)</h2>
+    <ul class="hal">
+     <li>העומד בחוץ לארץ מכוון את לבו כנגד ארץ ישראל; בארץ ישראל כנגד ירושלים; בירושלים כנגד המקדש. <button class="src" data-q="ברכות" data-r="ל א">תלמוד בבלי, ברכות ל ע״א</button> <button class="src" data-q="שולחן ערוך אורח חיים" data-r="צד">שולחן ערוך, אורח חיים סימן צד</button> <button class="src" data-q="הלכות תפילה ונשיאת כפים" data-r="ה">רמב״ם, הלכות תפילה פרק ה</button></li>
+     <li>מי שאינו יכול לכוון את הרוחות, יכוון את לבו לאביו שבשמים. <button class="src" data-q="שולחן ערוך אורח חיים" data-r="צד">שולחן ערוך, שם</button></li>
+     <li><b>שתי שיטות החישוב בתוסף:</b> "הקו הקצר על הכדור" הוא הכיוון של הדרך הקצרה ביותר על פני כדור הארץ; "כיוון קבוע על המפה" הוא קו שזווית הכיוון שלו קבועה לאורך כל הדרך, כפי שהוא נראה על מפה שטוחה. בארץ ההבדל זניח; בחו״ל הוא עשוי להגיע לעשרות מעלות (למשל בצפון אמריקה), ויש בזה דיון בפוסקים.</li>
+    </ul>
+    <p><small>זהו סיכום לעיון בלבד, ואינו פסק הלכה. בשאלה מעשית יש להתייעץ עם רב. הלחיצה על מראה מקום פותחת אותו בספריית אוצריא.</small></p>
+  </div>
   <div id="help" class="pop" hidden>
     <ul id="ways"><li>בחר מיקום כדי לקבל הוראות מדויקות.</li></ul>
     <button id="bSat" hidden>פתח מפת לוויין (דורש אינטרנט)</button>
@@ -202,7 +207,7 @@ body.hascompass #bPray{display:inline-block}
 <main>
 <div id="news" class="newsbox" hidden><strong>מה חדש בגרסה <span id="newsVer"></span></strong>
  <ul><li><b>10 אזורים מובנים חדשים</b> (55 בסך הכל), <b>בית הכנסת הקרוב</b> ולחיצה על ✡, <b>הדפסת דף כיוון</b>.</li>
- <li><b>הלכות כיוון התפילה</b> עם מראי מקומות שנפתחים בספריית אוצריא (בהגדרות).</li>
+ <li><b>הלכות כיוון התפילה</b> עם מראי מקומות שנפתחים בספריית אוצריא (כפתור "הלכות" למעלה).</li>
  <li>כיוונים גם באנגלית (N, S, E, W); בטלפון: <b>מצב תפילה</b>.</li>
  <li><b>לחיצה ארוכה על מפת הרחובות</b>: "אני עומד כאן", והמפה מסתובבת כך שירושלים למעלה.</li>
  <li>הפירוט המלא, וכל היכולות: בכפתור "הגדרות".</li></ul>
@@ -232,10 +237,9 @@ body.hascompass #bPray{display:inline-block}
 <div id="stPanel" hidden>
  <p id="stTxt" style="font-weight:600;margin:.4rem 0"></p>
  <div class="row"><input id="stQ" list="stNames" placeholder="חיפוש רחוב" aria-label="חיפוש רחוב" class="grow" style="min-width:8em"><datalist id="stNames"></datalist><button id="stGo">מצא</button>
-  <label><input type="checkbox" id="stSyn" checked> בתי כנסת ✡</label></div>
- <div class="row"><span title="אפשר גם Shift + גלגלת על המפה">סיבוב המפה:</span><button id="stRL" title="סובב נגד כיוון השעון" aria-label="סובב 15 מעלות נגד כיוון השעון">⟲</button><button id="stRR" title="סובב עם כיוון השעון" aria-label="סובב 15 מעלות עם כיוון השעון">⟳</button><button id="stR90">90°</button><button id="stJup">ירושלים למעלה</button><button id="stN">צפון למעלה</button><button id="stHere">סמן את מקומי במפה</button></div>
- <div class="row"><button id="stSynNear">✡ בית הכנסת הקרוב</button><button id="stPrint">הדפס דף כיוון</button></div>
- <div class="row"><small>גרירה מזיזה את המפה, לחיצה בוחרת רחוב, לחיצה ארוכה: "אני עומד כאן" וירושלים למעלה.</small></div>
+  <label><input type="checkbox" id="stSyn" checked> בתי כנסת ✡</label><button id="stSynNear">הקרוב</button></div>
+ <div class="row tight"><span title="אפשר גם Shift + גלגלת על המפה">סיבוב:</span><button id="stRL" title="סובב נגד כיוון השעון" aria-label="סובב 15 מעלות נגד כיוון השעון">⟲</button><button id="stRR" title="סובב עם כיוון השעון" aria-label="סובב 15 מעלות עם כיוון השעון">⟳</button><button id="stR90">90°</button><button id="stJup">ירושלים למעלה</button><button id="stN">צפון למעלה</button><button id="stHere" title="סמן במפה את המקום שבו אתה עומד">סמן את מקומי</button></div>
+ <div class="row"><small>גרירה מזיזה, לחיצה בוחרת רחוב, לחיצה ארוכה: "אני עומד כאן".</small></div>
  <div id="stNone" hidden>
   <p id="stNearBox" hidden><span id="stNearTxt"></span><button id="stNearGo">עבור אליו (בלי אינטרנט)</button></p>
   <div class="row"><button id="stDl">הורד את האזור (פעם אחת, עם אינטרנט)</button><button id="stBrw">פתח בדפדפן</button><button id="stImp">טען קובץ</button></div>
@@ -372,7 +376,8 @@ const Z=f=>{zoom=Math.max(.25,Math.min(60,zoom*f));if(pos)map()};
 $("zIn").onclick=()=>Z(1.5);$("zOut").onclick=()=>Z(1/1.5);$("zReset").onclick=()=>{zoom=1;if(pos)map()};
 $("map").addEventListener("wheel",e=>{e.preventDefault();Z(e.deltaY<0?1.25:.8)},{passive:false});
 $("rotReset").onclick=()=>{manual=null;$("rot").value=0;if(pos)draw();else $("rose").removeAttribute("transform")};
-function pop(btn,id,show){const h=$(id);h.hidden=!show;$(btn).setAttribute("aria-expanded",String(show));$(btn).classList.toggle("on",show);if(["help","set","fb"].includes(id))document.body.classList.toggle("side",show)}
+const PANELS={help:"bHelp",set:"bSet",fb:"bFb",hal:"bHal"};
+function pop(btn,id,show){if(show)for(const k in PANELS)if(k!==id&&!$(k).hidden){$(k).hidden=true;$(PANELS[k]).setAttribute("aria-expanded","false");$(PANELS[k]).classList.remove("on")}const h=$(id);h.hidden=!show;$(btn).setAttribute("aria-expanded",String(show));$(btn).classList.toggle("on",show);if(id in PANELS)document.body.classList.toggle("side",show)}
 $("bHelp").onclick=()=>{const o=$("help").hidden;pop("bFb","fb",false);pop("bSet","set",false);pop("bHelp","help",o)};
 $("bFb").onclick=()=>{const o=$("fb").hidden;pop("bHelp","help",false);pop("bSet","set",false);pop("bFb","fb",o);if(o)$("fbText").focus()};
 addEventListener("keydown",e=>{if(e.key==="Escape"){pop("bHelp","help",false);pop("bFb","fb",false);pop("bSet","set",false)}});
