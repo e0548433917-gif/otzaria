@@ -172,6 +172,45 @@ $("fJup").onclick = () => { if ($("mapMode").value === "street") $("stJup").clic
 $("fN").onclick = () => { if ($("mapMode").value === "street") $("stN").click() };
 addEventListener("keydown", e => { if (e.key === "Escape" && document.body.classList.contains("mapfull")) mapFull(false) });
 
+/* ---- מיקוד: השלמה תוך כדי הקלדה (קוד — קהילה — רחוב ראשי) ---- */
+let pcKeys = null;
+async function pcSuggest() {
+  const v = ($("pc").value || "").trim().toUpperCase().replace(/[^0-9A-Z]/g, ""), dl = $("pcList");
+  if (v.length < 3) { dl.replaceChildren(); return }
+  const d = await pcLoad(); if (!d) return;
+  if (!pcKeys) pcKeys = Object.keys(d.y || {}).concat(Object.keys(d.f || {}), Object.keys(d.x || {})).sort();
+  const out = [];
+  for (const k of pcKeys) {
+    if (!k.startsWith(v)) continue;
+    const ys = (d.y || {})[k];
+    if (ys) for (const e of ys) out.push([k, e[2] + ((e[3] || [])[0] ? " — " + e[3][0] : "")]);
+    else out.push([k, (d.f || {})[k] ? "ישראל" : ""]);
+    if (out.length >= 40) break;
+  }
+  dl.replaceChildren(...out.map(([k, l]) => { const o = document.createElement("option"); o.value = k; o.label = l; o.textContent = l; return o }));
+}
+$("pc").addEventListener("input", () => { clearTimeout(pcSuggest.t); pcSuggest.t = setTimeout(pcSuggest, 200) });
+
+/* ---- לחיצה על רחוב: מציגה גם את המיקוד הקרוב, כשהוא ידוע (חו"ל) ---- */
+let pcNear = null;
+async function pcNearIndex() {
+  if (pcNear) return pcNear; const d = await pcLoad(); pcNear = [];
+  if (d && d.y) for (const k in d.y) for (const e of d.y[k]) if (/^[0-9]+$/.test(k) || k.length > 4) pcNear.push([k, e[0], e[1], e[2]]);
+  return pcNear;
+}
+(function () {
+  const st = stText;
+  stText = function () {
+    st.apply(this, arguments);
+    if (!ST.sel || !ST.area) return;
+    const g = ST.area.w[ST.sel.i][2], k = ST.sel.k, la = (g[k] + g[k + 2]) / 2, lo = (g[k + 1] + g[k + 3]) / 2, t = $("stTxt"), base = t.textContent;
+    pcNearIndex().then(L => {
+      let b = null; for (const e of L) { const dd = dist([la, lo], [e[1], e[2]]); if (dd < .35 && (!b || dd < b[0])) b = [dd, e[0]] }
+      if (b && t.textContent === base) t.textContent = base + ` (מיקוד באזור: ${b[1]})`;
+    });
+  };
+})();
+
 /* ---- חיבור ---- */
 $("bPray").onclick = () => prayOpen(true);
 $("prayX").onclick = () => prayOpen(false);
