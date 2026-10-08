@@ -26,15 +26,19 @@ input.c{width:7em}
 #big{font-size:2rem;text-align:center;margin:0}
 #txt{text-align:center;margin:.25rem 0 .75rem}
 #loc{color:var(--color-on-surface-dim);font-size:.9rem;margin:.25rem 0}
-#bar{position:sticky;top:0;z-index:5;display:flex;gap:.4rem;align-items:center;flex-wrap:nowrap;overflow-x:auto;background:var(--color-surface);border-bottom:1px solid var(--color-outline);padding:.4rem .75rem}
+#manBox{display:inline-flex;gap:.3rem}#manBox[hidden]{display:none}
+#bar{position:sticky;top:0;z-index:5;display:flex;gap:.3rem;align-items:center;flex-wrap:wrap;background:var(--color-surface);border-bottom:1px solid var(--color-outline);padding:.3rem .6rem}
 #bar>*{flex:0 0 auto}
-#bar strong{font-size:1.1rem;margin-inline-end:.25rem}
+#bar strong{font-size:1.05rem;margin-inline-end:.15rem}
+#bar button,#bar select,#bar input{padding:.25rem .45rem}
+#bar select{max-width:11rem}
+input.c{width:6em}
 .pop{position:fixed;top:3.2rem;inset-inline:.75rem;margin:auto;max-width:44rem;max-height:70vh;overflow:auto;background:var(--color-surface);border:1px solid var(--color-outline);border-radius:var(--radius-md);padding:.5rem 1rem;white-space:normal}
 #fbText{display:block;width:100%;margin:.5rem 0;font:inherit;color:var(--color-on-surface);background:var(--color-surface);border:1px solid var(--color-outline);border-radius:var(--radius-sm);padding:.4rem}
 #ways{padding-inline-start:1.25rem;margin:.25rem 0}
 #ways li{margin:.5rem 0}
 #ways .off{color:var(--color-on-surface-dim)}
-#map{width:100%;max-height:52vh;height:auto;border:1px solid var(--color-outline);background:color-mix(in srgb,var(--color-primary) 8%,var(--color-surface));border-radius:var(--radius-md)}
+#map{width:100%;max-height:48vh;height:auto;border:1px solid var(--color-outline);background:color-mix(in srgb,var(--color-primary) 8%,var(--color-surface));border-radius:var(--radius-md)}
 .land{fill:color-mix(in srgb,var(--color-primary) 22%,var(--color-surface));stroke:color-mix(in srgb,var(--color-primary) 55%,var(--color-surface));stroke-width:1}
 small{color:var(--color-on-surface-dim)}
 </style>
@@ -44,9 +48,10 @@ small{color:var(--color-on-surface-dim)}
   <strong>כיוון תפילה</strong>
   <button id="bOn">מיקום אוטומטי</button>
   <select id="city" aria-label="בחירת עיר"></select>
-  <input id="lat" class="c" inputmode="decimal" placeholder="קו רוחב" aria-label="קו רוחב">
+  <button id="bManT" aria-expanded="false" aria-controls="manBox">מיקום ידני</button>
+  <span id="manBox" hidden><input id="lat" class="c" inputmode="decimal" placeholder="קו רוחב" aria-label="קו רוחב">
   <input id="lon" class="c" inputmode="decimal" placeholder="קו אורך" aria-label="קו אורך">
-  <button id="bMan">חשב</button>
+  <button id="bMan">חשב</button></span>
   <select id="meth" aria-label="שיטת חישוב"><option value="gc">הקו הקצר על הכדור</option><option value="rh">כיוון קבוע על המפה</option></select>
   <button id="bSid" hidden>פתח סידורון</button>
   <button id="bHelp" aria-expanded="false" aria-controls="help">איך לזהות ידנית</button>
@@ -69,6 +74,7 @@ small{color:var(--color-on-surface-dim)}
       <li>מעבירים את הקובץ למחשב הזה אם צריך (למשל בדיסק און קי), ולוחצים כאן "טען קובץ". הקובץ נשמר בתוסף, ואין צורך לשמור עליו אחר כך.</li>
     </ol>
     <label>רדיוס להורדה: <select id="stRad"><option value="700">700 מ' (קטן ומהיר)</option><option value="1500">1.5 ק"מ</option><option value="3000">3 ק"מ (שכונות סמוכות)</option></select></label>
+    <label>שמות רחובות בחו"ל: <select id="stLang"><option value="he">תעתיק לעברית</option><option value="orig">בשפת המקום (אנגלית וכו׳)</option></select></label>
     <p id="stEmb"></p>
     <p style="margin:.75rem 0 .25rem"><strong>אזורים שהורדת:</strong></p>
     <ul id="stList"></ul>
@@ -118,7 +124,7 @@ small{color:var(--color-on-surface-dim)}
 <p><small>החישוב אל הר הבית לפי השיטה שנבחרה. בשאלה מעשית יש להתייעץ עם רב.</small></p>
 </main>
 <script src="world.js"></script>
-<script>const VER="1.2.0"</script>
+<script>const VER="1.2.1"</script>
 <script>
 const J=[31.7781,35.2359],R=Math.PI/180,O=window.Otzaria;
 const C=[["ירושלים – גאולה",31.7885,35.2188],["ירושלים – רמות",31.8156,35.1955],["ירושלים – הר נוף",31.7858,35.1742],["ירושלים – רמת שלמה",31.8111,35.2175],["ירושלים – בית וגן",31.7641,35.1867],
@@ -295,6 +301,7 @@ $("plSave").onclick=()=>{if(!pos){$("txt").textContent="בחר קודם מיקו
  places=places.filter(p=>p.n!==n);places.push({n,lat,lon});plStore();$("plName").value="";plFill();$("pl").value=String(places.length-1);$("plDel").hidden=false};
 $("plDel").onclick=()=>{const i=+$("pl").value;if($("pl").value==="")return;places.splice(i,1);plStore();$("pl").value="";plFill()};
 if(!O)plLoad();
+$("bManT").onclick=()=>{const o=$("manBox").hidden;$("manBox").hidden=!o;$("bManT").setAttribute("aria-expanded",String(o));$("bManT").classList.toggle("on",o);if(o)$("lat").focus()};
 startCompass()</script>
 </body>
 </html>

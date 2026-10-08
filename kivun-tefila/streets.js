@@ -2,7 +2,7 @@
    אזור שהורד פעם אחת נשמר בתיקייה הפרטית של התוסף ועובד מאז בלי אינטרנט.
    בלי רשת באוצריא אפשר לפתוח את אותה כתובת בדפדפן, לשמור את הקובץ ולטעון אותו כאן. */
 const OVP=["https://overpass-api.de/api/interpreter","https://overpass.kumi.systems/api/interpreter"];
-const ST={idx:[],area:null,sel:null,pan:[0,0],setHere:false,radius:1500,showSyn:true};
+const ST={idx:[],area:null,sel:null,pan:[0,0],setHere:false,radius:1500,showSyn:true,lang:"he"};
 const EMB=typeof EMB_STREETS!=="undefined"?EMB_STREETS:[];
 /* כל אזור מובנה נמצא בקובץ משלו (st-NN.js) ונטען רק כשצריך. הקואורדינטות שמורות כהפרשים במאה-אלפיות המעלה. */
 const EMB_DATA={};function EMB_PUT(a){EMB_DATA[a.k]=a}
@@ -17,6 +17,7 @@ const fsCall=(m,a)=>O?O.call(m,a).then(dat):Promise.reject(0);
 async function stLoadIdx(){try{ST.idx=JSON.parse((await fsCall("fs.readFile",{path:"streets/index.json"})).content)||[]}catch(e){
  try{ST.idx=JSON.parse(localStorage.getItem("kivun-streets-idx")||"[]")}catch(e2){ST.idx=[]}}
  try{const r=dat(await O.call("storage.get",{key:"kivun-st-radius"}));if(+r)ST.radius=+r}catch(e){}
+ try{const l=O?dat(await O.call("storage.get",{key:"kivun-st-lang"})):localStorage.getItem("kivun-st-lang");if(l==="orig")ST.lang="orig"}catch(e){}
  stSettings()}
 async function stSaveIdx(){const s=JSON.stringify(ST.idx);try{await fsCall("fs.writeFile",{path:"streets/index.json",content:s})}catch(e){try{localStorage.setItem("kivun-streets-idx",s)}catch(e2){}}}
 async function stWriteArea(a){const s=JSON.stringify(a),p="streets/"+a.k+".json";
@@ -69,6 +70,39 @@ function stBrowser(){if(!pos)return;const url=stUrl(0,pos[0],pos[1],ST.radius);$
   let w=null;try{w=window.open(url,"_blank","noopener")}catch(e){}
   $("stMsg").textContent=ok?"הכתובת הועתקה. אם הדפדפן לא נפתח, הדבק אותה (Ctrl+V) בשורת הכתובת של הדפדפן.":"סמן את הכתובת שלמטה, העתק אותה (Ctrl+C) והדבק בדפדפן."})}
 
+/* ---- שמות רחובות בחו"ל: תעתיק לעברית (ניתן לכבות בהגדרות) ---- */
+const TR_TYPE={street:"רחוב",st:"רחוב",rue:"רחוב",calle:"רחוב","улица":"רחוב",straat:"רחוב",strasse:"רחוב",gasse:"רחוב",
+ avenue:"שדרת",ave:"שדרת",avenida:"שדרת",laan:"שדרת",allee:"שדרת",boulevard:"שדרות",blvd:"שדרות",bd:"שדרות","проспект":"שדרת",
+ road:"דרך",rd:"דרך",way:"דרך",drive:"דרך",parkway:"דרך",weg:"דרך",steenweg:"דרך","шоссе":"כביש",
+ lane:"סמטת",court:"חצר",close:"סמטת",mews:"סמטת","переулок":"סמטת",impasse:"סמטת",passage:"מעבר","проезд":"מעבר",
+ place:"כיכר",square:"כיכר",plaza:"כיכר",platz:"כיכר",plein:"כיכר","площадь":"כיכר",
+ bridge:"גשר",pont:"גשר",puente:"גשר",brug:"גשר",brucke:"גשר","мост":"גשר",quai:"רציף",kade:"רציף","набережная":"רציף",gardens:"גני",park:"פארק"};
+const TR_SUF=["steenweg","straat","strasse","gasse","platz","plein","brucke","brug","allee","laan","quai","kade","weg"];
+const TR_DROP=new Set(["de","la","le","les","des","du","del","van","der","den","of","the","el","von"]);
+const TR_CYR={"а":"a","б":"b","в":"v","г":"g","д":"d","е":"e","ё":"yo","ж":"zh","з":"z","и":"i","й":"y","к":"k","л":"l","м":"m","н":"n","о":"o","п":"p","р":"r","с":"s","т":"t","у":"u","ф":"f","х":"kh","ц":"ts","ч":"ch","ш":"sh","щ":"sh","ъ":"","ы":"y","ь":"","э":"e","ю":"yu","я":"ya"};
+const TR_FIN={"מ":"ם","נ":"ן","פ":"ף","צ":"ץ","כ":"ך"};
+const TR_MULTI=[["tsch","צ'"],["sch","ש"],["sh","ש"],["ch","צ'"],["th","ת"],["ph","פ"],["kh","ח"],["zh","ז'"],["ck","ק"],["qu","קו"],["tz","צ"],["ts","צ"],["oo","ו"],["ee","י"],["ou","ו"],["ei","יי"],["ai","יי"],["ay","יי"],["ey","יי"],["ie","י"],["ij","יי"],["oe","ו"],["ui","וי"],["au","או"],["ss","ס"],["ll","ל"],["tt","ט"],["nn","נ"],["mm","מ"],["rr","ר"],["pp","פ"],["ff","פ"],["dd","ד"],["bb","ב"],["gg","ג"],["zz","ז"]];
+const TR_ONE={b:"ב",d:"ד",f:"פ",g:"ג",h:"ה",j:"ג'",k:"ק",l:"ל",m:"מ",n:"נ",p:"פ",q:"ק",r:"ר",s:"ס",t:"ט",v:"ב",w:"ו",x:"קס",z:"ז"};
+function trWord(w){if(/^\d+(st|nd|rd|th)?$/.test(w))return w.replace(/\D/g,"");let o="",i=0;
+ while(i<w.length){const c=w[i],st=i===0,end=i===w.length-1;let m=TR_MULTI.find(([a])=>w.startsWith(a,i));
+  if(m){o+=(st&&"aeiou".includes(m[0][0])?"א":"")+m[1];i+=m[0].length;continue}
+  if(c==="a")o+=st?"א":end?"ה":"";else if(c==="e")o+=st?"א":"";else if(c==="i")o+=st?"אי":"י";
+  else if(c==="o"||c==="u")o+=st?"או":"ו";else if(c==="y")o+="י";else if(c==="c")o+="eiy".includes(w[i+1]||"#")?"ס":"ק";
+  else if(c==="h")o+=end?"":"ה";else o+=TR_ONE[c]||(/\d/.test(c)?c:"");i++}
+ return o.replace(/[מנפצכ]$/,x=>TR_FIN[x])}
+const TR_CACHE=new Map();
+function trName(n){if(!n||/[֐-׿]/.test(n)||!/[A-Za-zÀ-ÿЀ-ӿ]/.test(n))return n;if(TR_CACHE.has(n))return TR_CACHE.get(n);
+ let s=n.toLowerCase().replace(/[Ѐ-ӿ]/g,c=>TR_CYR[c]!=null?TR_CYR[c]:c);
+ const typ=[];const words=n.toLowerCase().split(/[\s\-]+/).filter(Boolean);
+ s=words.map(w=>{if(TR_TYPE[w]){typ.push(TR_TYPE[w]);return""}
+  let x=w.normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/ß/g,"ss").replace(/[Ѐ-ӿ]/g,c=>TR_CYR[c]!=null?TR_CYR[c]:c).replace(/^(d|l)'/,"").replace(/[^a-z0-9']/g,"");
+  if(TR_TYPE[x]){typ.push(TR_TYPE[x]);return""}
+  if(TR_DROP.has(x))return"";
+  for(const f of TR_SUF)if(x.length>f.length+2&&x.endsWith(f)){typ.push(TR_TYPE[f]||"רחוב");x=x.slice(0,-f.length);break}
+  return trWord(x.replace(/'/g,""))}).filter(Boolean).join(" ");
+ const r=((typ[0]?typ[0]+" ":"")+s).trim()||n;TR_CACHE.set(n,r);return r}
+const stNm=n=>ST.lang==="orig"?n:trName(n);
+
 /* ---- ציור ---- */
 const stM=()=>[111320*Math.cos(pos[0]*R),110540];
 function stView(){const hw=300/zoom,[kx,ky]=stM();return{hw,hh:hw*.8,kx,ky,cx:ST.pan[0],cy:ST.pan[1]}}
@@ -86,7 +120,7 @@ async function streetMap(){const svg=$("map"),panel=$("stPanel");panel.hidden=fa
   lines+=`<path d="${d}" fill="none" stroke="var(--color-on-surface-dim)" stroke-opacity=".75" stroke-width="${big?4:2.5}" stroke-linecap="round" stroke-linejoin="round"/>`;
   if(best&&best[0]>70&&nmS){let a=Math.atan2(best[2][1]-best[1][1],best[2][0]-best[1][0])/R;if(a>90)a-=180;if(a<-90)a+=180;
    const cl=x=>Math.max(15,Math.min(385,x)),mx=cl((best[1][0]+best[2][0])/2),my=Math.max(15,Math.min(300,(best[1][1]+best[2][1])/2));
-   labels+=`<text transform="translate(${f(mx)},${f(my)}) rotate(${f(a)})" y="-5" text-anchor="middle" font-size="11" fill="var(--color-on-surface)" paint-order="stroke" stroke="var(--color-surface)" stroke-width="3">${esc(nmS)}</text>`}}
+   labels+=`<text transform="translate(${f(mx)},${f(my)}) rotate(${f(a)})" y="-5" text-anchor="middle" font-size="11" fill="var(--color-on-surface)" paint-order="stroke" stroke="var(--color-surface)" stroke-width="3">${esc(stNm(nmS))}</text>`}}
  if(ST.sel){const g=ST.area.w[ST.sel.i][2],q=P(g[ST.sel.k],g[ST.sel.k+1]),p=P(g[ST.sel.k+2],g[ST.sel.k+3]);
   hl=`<line x1="${f(q[0])}" y1="${f(q[1])}" x2="${f(p[0])}" y2="${f(p[1])}" stroke="var(--color-primary)" stroke-width="7" stroke-linecap="round"/>`}
  let syn="";if(ST.showSyn)for(const[sn,la,lo]of ST.area.s||[]){const p=P(la,lo);if(p[0]<-10||p[0]>410||p[1]<-10||p[1]>330)continue;
@@ -102,7 +136,7 @@ async function streetMap(){const svg=$("map"),panel=$("stPanel");panel.hidden=fa
 /* ההוראה: לאורך איזה רחוב לעמוד, ובכמה מעלות להסתובב ממנו */
 function stText(){const t=$("stTxt");if(!ST.sel){t.textContent=ST.setHere?"לחץ במפה על המקום שבו אתה נמצא.":"לחץ במפה על הרחוב שלידך, ותקבל הוראה ביחס לכיוון שלו.";return}
  const g=ST.area.w[ST.sel.i][2],k=ST.sel.k,s=bearing([g[k],g[k+1]],[g[k+2],g[k+3]]),b=bear(),
-  d1=((b-s+540)%360)-180,d2=((b-s+360)%360)-180,[sd,d]=Math.abs(d1)<=Math.abs(d2)?[s,d1]:[(s+180)%360,d2],n=ST.area.w[ST.sel.i][0]||"הרחוב";
+  d1=((b-s+540)%360)-180,d2=((b-s+360)%360)-180,[sd,d]=Math.abs(d1)<=Math.abs(d2)?[s,d1]:[(s+180)%360,d2],n=stNm(ST.area.w[ST.sel.i][0])||"הרחוב";
  const turnS=Math.abs(d)<5?"וזה הכיוון.":`והסתובב ${Math.round(Math.abs(d))}° ${d>0?"ימינה":"שמאלה"}.`;
  t.textContent=`עמוד במקביל ל${n}, כשפניך לאורך הרחוב לכיוון ${nm(sd)}, ${turnS}`+(Math.abs(Math.abs(d)-90)<8?` (כמעט ניצב לרחוב: פנים אל הבתים שבצד ה${nm(b)} שלו.)`:"")}
 function stClick(ev){if(!ST.area||!pos)return;const svg=$("map"),pt=svg.createSVGPoint();pt.x=ev.clientX;pt.y=ev.clientY;
@@ -114,10 +148,10 @@ function stClick(ev){if(!ST.area||!pos)return;const svg=$("map"),pt=svg.createSV
   u=Math.max(0,Math.min(1,((c.x-q[0])*dx+(c.y-q[1])*dy)/(dx*dx+dy*dy||1))),dd=Math.hypot(q[0]+u*dx-c.x,q[1]+u*dy-c.y);if(!best||dd<best[0])best=[dd,i,k]}});
  if(best&&best[0]<14){ST.sel={i:best[1],k:best[2]};streetMap()}}
 /* חיפוש רחוב: מסמן את הקטע הארוך ביותר שלו, מזיז אליו את המפה ונותן הוראה */
-function stNames(){const d=$("stNames");if(!d||!ST.area)return;const n=[...new Set(ST.area.w.map(x=>x[0]).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"he"));
+function stNames(){const d=$("stNames");if(!d||!ST.area)return;const n=[...new Set(ST.area.w.map(x=>stNm(x[0])).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"he"));
  d.replaceChildren(...n.map(x=>{const o=document.createElement("option");o.value=x;return o}))}
 function stFind(){const q=$("stQ").value.trim();if(!q||!ST.area)return;const nq=x=>x.replace(/["'״׳\-]/g,"").replace(/\s+/g," ").trim();
- const Q=nq(q);let ws=ST.area.w.map((x,i)=>[x,i]).filter(([x])=>nq(x[0])===Q);if(!ws.length)ws=ST.area.w.map((x,i)=>[x,i]).filter(([x])=>nq(x[0]).includes(Q));
+ const Q=nq(q);const nm2=x=>[nq(x[0]),nq(stNm(x[0]))];let ws=ST.area.w.map((x,i)=>[x,i]).filter(([x])=>nm2(x).some(v=>v===Q));if(!ws.length)ws=ST.area.w.map((x,i)=>[x,i]).filter(([x])=>nm2(x).some(v=>v.toLowerCase().includes(Q.toLowerCase())));
  if(!ws.length){$("stTxt").textContent=`לא נמצא רחוב בשם "${q}" באזור הזה.`;return}
  const[kx,ky]=stM();let best=null;for(const[[,,g],i]of ws)for(let k=0;k+3<g.length;k+=2){const L=Math.hypot((g[k+2]-g[k])*ky,(g[k+3]-g[k+1])*kx);if(!best||L>best[0])best=[L,i,k]}
  const g=ST.area.w[best[1]][2],k=best[2],mla=(g[k]+g[k+2])/2,mlo=(g[k+1]+g[k+3])/2;ST.sel={i:best[1],k};ST.pan=[(mlo-pos[1])*kx,(mla-pos[0])*ky];
@@ -131,7 +165,7 @@ function stSettings(){const l=$("stList");if(!l)return;l.replaceChildren();
  for(const a of ST.idx){const li=document.createElement("li"),x=document.createElement("button");
   li.textContent=`${a.name||a.lat+", "+a.lon} — ${a.n} רחובות, ברדיוס ${a.r>=1000?(a.r/1000)+' ק"מ':a.r+" מ'"} (${a.d}) `;
   x.textContent="מחק";x.onclick=()=>stDelete(a.k);li.append(x);l.append(li)}
- $("stRad").value=String(ST.radius)}
+ $("stRad").value=String(ST.radius);if($("stLang"))$("stLang").value=ST.lang}
 
 /* ---- חיבור לממשק ---- */
 (function(){const prevMap=map;
@@ -139,6 +173,7 @@ function stSettings(){const l=$("stList");if(!l)return;l.replaceChildren();
  $("mapMode").onchange=()=>map(); $("stDl").onclick=stDownload;$("stImp").onclick=stImport;$("stBrw").onclick=stBrowser;$("stCopy").onclick=stCopy;
  $("stGo").onclick=stFind;$("stQ").onkeydown=e=>{if(e.key==="Enter")stFind()};$("stSyn").onchange=()=>{ST.showSyn=$("stSyn").checked;streetMap()};
  $("stHere").onclick=()=>{ST.setHere=!ST.setHere;$("stHere").classList.toggle("on",ST.setHere);stText()};
+ $("stLang").onchange=()=>{ST.lang=$("stLang").value;try{O?O.call("storage.set",{key:"kivun-st-lang",value:ST.lang}).catch(()=>{}):localStorage.setItem("kivun-st-lang",ST.lang)}catch(e){}if(ST.area){stNames();streetMap()}};
  $("stRad").onchange=()=>{ST.radius=+$("stRad").value;try{O&&O.call("storage.set",{key:"kivun-st-radius",value:ST.radius}).catch(()=>{})}catch(e){}};
  $("bSet").onclick=()=>{const o=$("set").hidden;pop("bHelp","help",false);pop("bFb","fb",false);pop("bSet","set",o)};
  const svg=$("map");let drag=null,moved=false;
