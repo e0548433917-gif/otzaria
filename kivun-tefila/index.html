@@ -28,8 +28,8 @@ input.c{width:7em}
 #big{font-size:2rem;text-align:center;margin:0}
 #txt{text-align:center;margin:.25rem 0 .75rem}
 #loc{color:var(--color-on-surface-dim);font-size:.9rem;margin:.25rem 0}
-/* מיקום ידני: נפתח בשורה נפרדת מתחת לסרגל העליון */
-#manBox,#pcBox{flex-basis:100%;display:flex;flex-wrap:wrap;gap:.3rem;align-items:center;padding:.3rem 0 .1rem;border-top:1px solid var(--color-outline);margin-top:.2rem}#manBox[hidden],#pcBox[hidden]{display:none}
+/* מיקום ידני ומיקוד: נפתחים ברצועה מתחת לסרגל העליון, לא בתוכו */
+.strip{display:flex;flex-wrap:wrap;gap:.3rem;align-items:center;padding:.35rem .75rem;background:var(--color-surface);border-bottom:1px solid var(--color-outline);position:sticky;top:var(--bar-h,2.6rem);z-index:4}#manBox[hidden],#pcBox[hidden]{display:none}
 #bar{position:sticky;top:0;z-index:5;display:flex;gap:.3rem;align-items:center;flex-wrap:wrap;background:var(--color-surface);border-bottom:1px solid var(--color-outline);padding:.3rem .6rem}
 #bar>*{flex:0 0 auto}
 #bar strong{font-size:1.05rem;margin-inline-end:.15rem}
@@ -91,10 +91,6 @@ body.hascompass #bPray{display:inline-block}
   <select id="city" aria-label="בחירת עיר"></select>
   <button id="bManT" aria-expanded="false" aria-controls="manBox">מיקום ידני</button>
   <button id="bPcT" aria-expanded="false" aria-controls="pcBox">מיקוד</button>
-  <span id="pcBox" hidden><input id="pc" placeholder="מיקוד, למשל 5120000 או 11219" aria-label="מיקוד" maxlength="10" style="width:14em"><button id="pcGo">חפש</button><small id="pcNote"></small></span>
-  <span id="manBox" hidden><input id="lat" class="c" inputmode="decimal" placeholder="קו רוחב" aria-label="קו רוחב">
-  <input id="lon" class="c" inputmode="decimal" placeholder="קו אורך" aria-label="קו אורך">
-  <button id="bMan">חשב</button></span>
   <select id="meth" aria-label="שיטת חישוב"><option value="gc">הקו הקצר על הכדור</option><option value="rh">כיוון קבוע על המפה</option></select>
   <button id="bSid" hidden>פתח סידורון</button>
   <button id="bHal" aria-expanded="false" aria-controls="hal">הלכות</button>
@@ -112,7 +108,7 @@ body.hascompass #bPray{display:inline-block}
     <div class="row"><button id="setDl">הורד את האזור של המיקום הנוכחי (פעם אחת, עם אינטרנט)</button></div>
     <h2 style="font-size:1.1rem;margin:.25rem 0">מפת רחובות — גם בלי אינטרנט</h2>
     <p>בתצוגת "הרחובות סביבי" רואים את הרחובות סביבך עם שמותיהם, ואת הקו לירושלים. לוחצים על הרחוב שלידך, ומקבלים הוראה כמו "עמוד במקביל לרחוב, כשפניך לכיוון צפון, והסתובב 23° ימינה". כך אפשר לכוון בלי מצפן, במחשב או בטלפון.</p>
-    <p><strong>ריכוזי הקהילה מובנים בתוסף</strong> (שכונות ירושלים, בני ברק, בית שמש, מודיעין עילית, ביתר, אלעד, ברוקלין, לייקווד, לונדון ועוד) ועובדים בלי אינטרנט כבר מההתקנה.</p>
+    <p><strong>ריכוזי הקהילה ואזורי הנופש מובנים בתוסף</strong> (שכונות ירושלים, בני ברק, בית שמש, מודיעין עילית, ביתר, אלעד, ברוקלין, לייקווד, לונדון ועוד; ומקומות נופש כמו מירון, צפת, טבריה, הגולן, ים המלח, אילת והקטסקילס) ועובדים בלי אינטרנט כבר מההתקנה.</p>
     <p><strong>לכל מקום אחר, פעם אחת צריך אינטרנט, ואחר כך לא.</strong> כשבוחרים מיקום, לוחצים "הורד את האזור". הרחובות שברדיוס שנבחר נשמרים במחשב, ומאותו רגע האזור עובד בלי אינטרנט בכלל. אפשר לשמור כמה אזורים (בית, ישיבה, הורים).</p>
     <p><strong>כשאוצריא לא מצליחה להוריד</strong> (אין בה גישה לרשת, או במחשב שאין בו אינטרנט):</p>
     <ol>
@@ -210,6 +206,11 @@ body.hascompass #bPray{display:inline-block}
     <p id="satUrl"></p>
   </div>
 </header>
+  <div id="manBox" class="strip" hidden><input id="lat" class="c" inputmode="decimal" placeholder="קו רוחב" aria-label="קו רוחב">
+  <input id="lon" class="c" inputmode="decimal" placeholder="קו אורך" aria-label="קו אורך">
+  <button id="bMan">חשב</button></div>
+  <div id="pcBox" class="strip" hidden><input id="pc" placeholder="מיקוד, למשל 5120000 או 11219" aria-label="מיקוד" maxlength="10" style="width:14em"><button id="pcGo">חפש</button><small id="pcNote"></small></div>
+
 <div id="pray" hidden><button id="prayX" aria-label="סגור את מצב התפילה">✕ סגור</button>
  <svg viewBox="-120 -120 240 240" aria-hidden="true"><circle r="112" fill="none" stroke="var(--color-outline)" stroke-width="2"/>
   <g id="prayArrow"><path d="M0,-100 L26,-40 L9,-46 L9,92 L-9,92 L-9,-46 L-26,-40Z" fill="var(--color-primary)"/></g></svg>
