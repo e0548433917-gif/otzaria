@@ -82,6 +82,8 @@ small{color:var(--color-on-surface-dim)}
 </header>
 <main>
 <p id="loc"></p>
+<div class="row" id="plRow"><select id="pl" aria-label="מקומות שמורים"><option value="">מקומות שמורים…</option></select>
+ <input id="plName" placeholder="שם: בית, בית הכנסת…" aria-label="שם למקום" style="width:11em"><button id="plSave">שמור מיקום זה</button><button id="plDel" hidden>מחק מהרשימה</button></div>
 <div class="pair"><div>
 <svg id="dial" viewBox="-120 -120 240 240" aria-label="חוגת כיוון">
   <g id="rose">
@@ -103,6 +105,8 @@ small{color:var(--color-on-surface-dim)}
 <svg id="map" viewBox="0 0 400 320" aria-label="מפה"></svg>
 <div id="stPanel" hidden>
  <p id="stTxt" style="font-weight:600;margin:.4rem 0"></p>
+ <div class="row"><input id="stQ" list="stNames" placeholder="חיפוש רחוב" aria-label="חיפוש רחוב" class="grow" style="min-width:8em"><datalist id="stNames"></datalist><button id="stGo">מצא</button>
+  <label><input type="checkbox" id="stSyn" checked> בתי כנסת ✡</label></div>
  <div class="row"><button id="stHere">סמן את מקומי במפה</button><small>גרירה מזיזה את המפה, לחיצה בוחרת רחוב.</small></div>
  <div id="stNone" hidden>
   <div class="row"><button id="stDl">הורד את האזור (פעם אחת, עם אינטרנט)</button><button id="stBrw">פתח בדפדפן</button><button id="stImp">טען קובץ</button></div>
@@ -271,13 +275,26 @@ async function loadCal(){try{const l=dat(await O.call("calendar.getCities"));if(
  buildSel()}
 async function sidLink(){try{const l=dat(await O.call("plugin.listInstalled"))||[],sd=l.find(x=>/siduron/i.test(x.pluginId||""));
  if(sd){$("bSid").hidden=false;$("bSid").onclick=()=>O.call("plugin.openOther",{pluginId:sd.pluginId}).catch(()=>{})}}catch(e){}}
-if(O){O.on("plugin.boot",async p=>{applyTheme(p&&p.theme);await loadCal();let v=null;try{v=dat(await O.call("storage.get",{key:"kivun-city"}))}catch(e){}restore(v);sidLink()});
+if(O){O.on("plugin.boot",async p=>{applyTheme(p&&p.theme);await loadCal();let v=null;try{v=dat(await O.call("storage.get",{key:"kivun-city"}))}catch(e){}restore(v);sidLink();if(typeof plLoad==="function")plLoad()});
  O.on("calendar.city_changed",p=>{if(p&&p.city){calName=p.city;buildSel();if(mode==="cal"||mode==null)useCal()}});
  O.on("theme.changed",applyTheme);O.call("app.getTheme").then(r=>r&&applyTheme(r.data)).catch(()=>{})}
 else try{restore(localStorage.getItem("kivun-city"))}catch(e){}
 </script>
 <script src="streets-data.js"></script>
 <script src="streets.js"></script>
-<script>startCompass()</script>
+<script>
+/* מקומות שמורים: שם + קואורדינטות, נשמרים באחסון התוסף */
+let places=[];
+async function plLoad(){try{const v=O?dat(await O.call("storage.get",{key:"kivun-places"})):localStorage.getItem("kivun-places");places=(typeof v==="string"?JSON.parse(v):v)||[]}catch(e){places=[]}plFill()}
+function plStore(){const v=JSON.stringify(places);try{O?O.call("storage.set",{key:"kivun-places",value:v}).catch(()=>{}):localStorage.setItem("kivun-places",v)}catch(e){}}
+function plFill(){const s=$("pl"),cur=s.value;s.replaceChildren(new Option("מקומות שמורים…",""),...places.map((p,i)=>new Option(p.n,String(i))));s.value=cur&&places[+cur]?cur:"";$("plDel").hidden=!s.value}
+$("pl").onchange=()=>{const p=places[+$("pl").value];$("plDel").hidden=!p;if(!p||$("pl").value==="")return;$("city").value="";
+ setPos([p.lat,p.lon],p.n,null,false);$("lat").value=p.lat;$("lon").value=p.lon;mode="m:"+p.lat+","+p.lon;save(mode)};
+$("plSave").onclick=()=>{if(!pos){$("txt").textContent="בחר קודם מיקום, ואז שמור אותו.";return}
+ const n=$("plName").value.trim()||place||src||"מקום שמור",lat=+pos[0].toFixed(6),lon=+pos[1].toFixed(6);
+ places=places.filter(p=>p.n!==n);places.push({n,lat,lon});plStore();$("plName").value="";plFill();$("pl").value=String(places.length-1);$("plDel").hidden=false};
+$("plDel").onclick=()=>{const i=+$("pl").value;if($("pl").value==="")return;places.splice(i,1);plStore();$("pl").value="";plFill()};
+if(!O)plLoad();
+startCompass()</script>
 </body>
 </html>

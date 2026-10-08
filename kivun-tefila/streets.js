@@ -2,8 +2,15 @@
    אזור שהורד פעם אחת נשמר בתיקייה הפרטית של התוסף ועובד מאז בלי אינטרנט.
    בלי רשת באוצריא אפשר לפתוח את אותה כתובת בדפדפן, לשמור את הקובץ ולטעון אותו כאן. */
 const OVP=["https://overpass-api.de/api/interpreter","https://overpass.kumi.systems/api/interpreter"];
-const ST={idx:[],area:null,sel:null,pan:[0,0],setHere:false,radius:1500};
+const ST={idx:[],area:null,sel:null,pan:[0,0],setHere:false,radius:1500,showSyn:true};
 const EMB=typeof EMB_STREETS!=="undefined"?EMB_STREETS:[];
+/* כל אזור מובנה נמצא בקובץ משלו (st-NN.js) ונטען רק כשצריך. הקואורדינטות שמורות כהפרשים במאה-אלפיות המעלה. */
+const EMB_DATA={};function EMB_PUT(a){EMB_DATA[a.k]=a}
+function stDecode(a){if(!a||a.z!==2)return a;const B=[Math.round(a.lat*1e5),Math.round(a.lon*1e5)];
+ a.w=a.w.map(([n,h,g])=>{const o=[];let x=B[0],y=B[1];for(let i=0;i<g.length;i+=2){x+=g[i];y+=g[i+1];o.push(x/1e5,y/1e5)}return[n,h,o]});
+ a.s=(a.s||[]).map(([n,dx,dy])=>[n,(B[0]+dx)/1e5,(B[1]+dy)/1e5]);a.z=0;return a}
+function stLoadEmb(e){if(e.w)return Promise.resolve(e);return new Promise(res=>{if(EMB_DATA[e.k])return res(stDecode(EMB_DATA[e.k]));
+ const sc=document.createElement("script");sc.src=e.f;sc.onload=()=>res(stDecode(EMB_DATA[e.k])||null);sc.onerror=()=>res(null);document.head.append(sc)})}
 const fsCall=(m,a)=>O?O.call(m,a).then(dat):Promise.reject(0);
 
 /* ---- אחסון ---- */
@@ -15,7 +22,7 @@ async function stSaveIdx(){const s=JSON.stringify(ST.idx);try{await fsCall("fs.w
 async function stWriteArea(a){const s=JSON.stringify(a),p="streets/"+a.k+".json";
  try{await fsCall("fs.writeFile",{path:p,content:s})}catch(e){try{localStorage.setItem("kivun-st-"+a.k,s)}catch(e2){throw new Error("אין מקום לשמירה")}}
  ST.idx=ST.idx.filter(x=>x.k!==a.k);ST.idx.push({k:a.k,lat:a.lat,lon:a.lon,r:a.r,d:a.d,n:a.w.length,name:a.name||""});await stSaveIdx();stSettings()}
-async function stReadArea(k){const e=EMB.find(a=>a.k===k);if(e)return e;try{return JSON.parse((await fsCall("fs.readFile",{path:"streets/"+k+".json"})).content)}catch(e){
+async function stReadArea(k){const e=EMB.find(a=>a.k===k);if(e)return stLoadEmb(e);try{return JSON.parse((await fsCall("fs.readFile",{path:"streets/"+k+".json"})).content)}catch(e){
  try{return JSON.parse(localStorage.getItem("kivun-st-"+k))}catch(e2){return null}}}
 async function stDelete(k){try{await fsCall("fs.deleteEntry",{path:"streets/"+k+".json"})}catch(e){}try{localStorage.removeItem("kivun-st-"+k)}catch(e){}
  ST.idx=ST.idx.filter(x=>x.k!==k);if(ST.area&&ST.area.k===k)ST.area=null;await stSaveIdx();stSettings();if(pos)map()}
@@ -23,16 +30,21 @@ async function stDelete(k){try{await fsCall("fs.deleteEntry",{path:"streets/"+k+
 function stCover(){if(!pos)return null;let b=null;for(const a of ST.idx.concat(EMB)){const m=dist(pos,[a.lat,a.lon])*1000;if(m<=a.r-150&&(!b||m<b[1]))b=[a,m]}return b&&b[0]}
 
 /* ---- נתונים ---- */
-function stQuery(lat,lon,r){return`[out:json][timeout:60];way["highway"]["name"](around:${r},${lat.toFixed(5)},${lon.toFixed(5)});out tags geom;`}
+function stQuery(lat,lon,r){const a=`(around:${r},${lat.toFixed(5)},${lon.toFixed(5)})`;
+ return`[out:json][timeout:60];(way["highway"]["name"]${a};nwr["amenity"="place_of_worship"]["religion"="jewish"]${a};);out tags geom;`}
 function stUrl(i,lat,lon,r){return OVP[i]+"?data="+encodeURIComponent(stQuery(lat,lon,r))}
 /* קבצי Overpass גולמיים, או קובץ שכבר נשמר מהתוסף */
 function stCompact(j,lat,lon,r){if(j&&Array.isArray(j.w))return j;
- const els=(j&&j.elements||[]).filter(e=>e.type==="way"&&Array.isArray(e.geometry)&&e.geometry.length>1);
+ const all=j&&j.elements||[],els=all.filter(e=>e.type==="way"&&(e.tags||{}).highway&&Array.isArray(e.geometry)&&e.geometry.length>1);
  if(!els.length)throw new Error("בקובץ אין רחובות");
  if(lat==null){let s=0,t=0,c=0;for(const e of els)for(const g of e.geometry){s+=g.lat;t+=g.lon;c++}lat=s/c;lon=t/c;
   r=0;for(const e of els)for(const g of e.geometry)r=Math.max(r,dist([lat,lon],[g.lat,g.lon])*1000);r=Math.round(r)}
  const w=els.map(e=>{const t=e.tags||{};return[t["name:he"]||t.name||"",t.highway||"",e.geometry.flatMap(g=>[+g.lat.toFixed(6),+g.lon.toFixed(6)])]});
- return{v:1,k:lat.toFixed(3)+"_"+lon.toFixed(3)+"_"+r,lat:+lat.toFixed(5),lon:+lon.toFixed(5),r,d:new Date().toISOString().slice(0,10),w}}
+ const sy=[];for(const e of all){const t=e.tags||{};if(t.amenity!=="place_of_worship")continue;let p=null;
+  if(e.lat!=null)p=[e.lat,e.lon];else if(e.bounds)p=[(e.bounds.minlat+e.bounds.maxlat)/2,(e.bounds.minlon+e.bounds.maxlon)/2];
+  else if(Array.isArray(e.geometry)&&e.geometry.length){let a=0,b=0;for(const g of e.geometry){a+=g.lat;b+=g.lon}p=[a/e.geometry.length,b/e.geometry.length]}
+  if(p)sy.push([t["name:he"]||t.name||"",+p[0].toFixed(5),+p[1].toFixed(5)])}
+ return{v:1,s:sy,k:lat.toFixed(3)+"_"+lon.toFixed(3)+"_"+r,lat:+lat.toFixed(5),lon:+lon.toFixed(5),r,d:new Date().toISOString().slice(0,10),w}}
 async function stDownload(){if(!pos)return;const m=$("stMsg");m.textContent="מוריד את רחובות האזור…";$("stDl").disabled=true;let j=null,err="";
  for(let i=0;i<OVP.length&&!j;i++){try{j=await getJ(stUrl(i,pos[0],pos[1],ST.radius))}catch(e){err=e}}
  $("stDl").disabled=false;
@@ -46,12 +58,16 @@ async function stImport(){const m=$("stMsg");let txt=null;
  try{const a=stCompact(JSON.parse(txt));await stWriteArea(a);ST.area=a;m.textContent=`נטענו ${a.w.length} רחובות ונשמרו לשימוש בלי אינטרנט.`;
   if(!pos||dist(pos,[a.lat,a.lon])*1000>a.r)setPos([a.lat,a.lon],"מרכז אזור הרחובות שנטען",null,false);else map()}
  catch(e){m.textContent="הקובץ אינו קובץ רחובות תקין. ודא ששמרת את כל הטקסט שהדפדפן הציג."}}
-function stCopy(){const t=$("stUrl").textContent;if(!t)return;const ok=()=>$("stCopy").textContent="הועתק ✓";
- const legacy=()=>{try{const r=document.createRange();r.selectNodeContents($("stUrl"));const g=getSelection();g.removeAllRanges();g.addRange(r);if(document.execCommand("copy"))ok()}catch(e){}};
- try{navigator.clipboard.writeText(t).then(ok,legacy)}catch(e){legacy()}}
-function stBrowser(){if(!pos)return;const url=stUrl(0,pos[0],pos[1],ST.radius);$("stUrl").textContent=url;$("stUrlBox").hidden=false;$("stCopy").textContent="העתק כתובת";
- const fail=()=>{let w=null;try{w=window.open(url,"_blank")}catch(e){}if(!w)$("stMsg").textContent="הדפדפן לא נפתח מכאן. העתק את הכתובת (כפתור \"העתק כתובת\") והדבק אותה בדפדפן."};
- (O?O.call("app.openUrl",{url}):Promise.reject()).then(r=>{if(r&&(r.success===false||(r.data&&r.data.opened===false)))fail()}).catch(fail)}
+/* העתקה ללוח: קודם ממשק הלוח, ואם אינו זמין — העתקה דרך שדה זמני */
+function copyText(t){const legacy=()=>{try{const a=document.createElement("textarea");a.value=t;a.setAttribute("readonly","");a.style.position="fixed";a.style.opacity="0";
+  document.body.append(a);a.select();const ok=document.execCommand("copy");a.remove();return ok}catch(e){return false}};
+ try{if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(t).then(()=>true,legacy)}catch(e){}return Promise.resolve(legacy())}
+function stCopy(){const t=$("stUrl").textContent;if(t)copyText(t).then(ok=>$("stCopy").textContent=ok?"הועתק ✓":"סמן והעתק ידנית")}
+/* "פתח בדפדפן": מעתיק את הכתובת ללוח ומנסה לפתוח אותה בדפדפן החיצוני */
+function stBrowser(){if(!pos)return;const url=stUrl(0,pos[0],pos[1],ST.radius);$("stUrl").textContent=url;$("stUrlBox").hidden=false;
+ copyText(url).then(ok=>{$("stCopy").textContent=ok?"הועתק ✓":"העתק כתובת";
+  let w=null;try{w=window.open(url,"_blank","noopener")}catch(e){}
+  $("stMsg").textContent=ok?"הכתובת הועתקה. אם הדפדפן לא נפתח, הדבק אותה (Ctrl+V) בשורת הכתובת של הדפדפן.":"סמן את הכתובת שלמטה, העתק אותה (Ctrl+C) והדבק בדפדפן."})}
 
 /* ---- ציור ---- */
 const stM=()=>[111320*Math.cos(pos[0]*R),110540];
@@ -61,7 +77,7 @@ async function streetMap(){const svg=$("map"),panel=$("stPanel");panel.hidden=fa
  if(!cov){ST.area=null;svg.innerHTML=`<text x="200" y="150" text-anchor="middle" font-size="14" fill="var(--color-on-surface)">אין עדיין מפת רחובות לאזור הזה</text><text x="200" y="174" text-anchor="middle" font-size="12" fill="var(--color-on-surface-dim)">אפשר להוריד אותה פעם אחת בכפתור שמתחת</text>`;
   $("stNone").hidden=false;$("stTxt").textContent="";return}
  $("stNone").hidden=true;
- if(!ST.area||ST.area.k!==cov.k){ST.area=await stReadArea(cov.k);ST.sel=null;if(!ST.area){svg.innerHTML="";$("stTxt").textContent="קובץ האזור חסר. הורד אותו שוב.";return}}
+ if(!ST.area||ST.area.k!==cov.k){ST.area=await stReadArea(cov.k);ST.sel=null;if(!ST.area){svg.innerHTML="";$("stTxt").textContent=EMB.some(a=>a.k===cov.k)?"לא ניתן לטעון את נתוני האזור המובנים.":"קובץ האזור חסר. הורד אותו שוב.";return}stNames()}
  const v=stView(),b=bear(),P=(la,lo)=>stXY(v,la,lo),f=n=>n.toFixed(1);let lines="",labels="",hl="";
  for(let i=0;i<ST.area.w.length;i++){const[nmS,hw,g]=ST.area.w[i];let d="",best=null,bx=[1e9,-1e9,1e9,-1e9];
   for(let k=0;k<g.length;k+=2){const p=P(g[k],g[k+1]);bx=[Math.min(bx[0],p[0]),Math.max(bx[1],p[0]),Math.min(bx[2],p[1]),Math.max(bx[3],p[1])];d+=(k?"L":"M")+f(p[0])+","+f(p[1]);
@@ -73,8 +89,11 @@ async function streetMap(){const svg=$("map"),panel=$("stPanel");panel.hidden=fa
    labels+=`<text transform="translate(${f(mx)},${f(my)}) rotate(${f(a)})" y="-5" text-anchor="middle" font-size="11" fill="var(--color-on-surface)" paint-order="stroke" stroke="var(--color-surface)" stroke-width="3">${esc(nmS)}</text>`}}
  if(ST.sel){const g=ST.area.w[ST.sel.i][2],q=P(g[ST.sel.k],g[ST.sel.k+1]),p=P(g[ST.sel.k+2],g[ST.sel.k+3]);
   hl=`<line x1="${f(q[0])}" y1="${f(q[1])}" x2="${f(p[0])}" y2="${f(p[1])}" stroke="var(--color-primary)" stroke-width="7" stroke-linecap="round"/>`}
+ let syn="";if(ST.showSyn)for(const[sn,la,lo]of ST.area.s||[]){const p=P(la,lo);if(p[0]<-10||p[0]>410||p[1]<-10||p[1]>330)continue;
+  syn+=`<g><title>${esc(sn||"בית כנסת")}</title><text x="${f(p[0])}" y="${f(p[1]+5)}" text-anchor="middle" font-size="14" fill="var(--color-primary)" paint-order="stroke" stroke="var(--color-surface)" stroke-width="3">✡</text>`
+   +(zoom>=2&&sn?`<text x="${f(p[0])}" y="${f(p[1]+18)}" text-anchor="middle" font-size="10" fill="var(--color-primary)" paint-order="stroke" stroke="var(--color-surface)" stroke-width="3">${esc(sn)}</text>`:"")+"</g>"}
  const a=P(pos[0],pos[1]),L=150,e=[a[0]+Math.sin(b*R)*L,a[1]-Math.cos(b*R)*L];
- svg.innerHTML=lines+hl+labels+`<line x1="${f(a[0])}" y1="${f(a[1])}" x2="${f(e[0])}" y2="${f(e[1])}" stroke="var(--color-primary)" stroke-width="3" stroke-dasharray="8 4"/><circle cx="${f(e[0])}" cy="${f(e[1])}" r="6" fill="var(--color-primary)"/>`
+ svg.innerHTML=lines+hl+labels+syn+`<line x1="${f(a[0])}" y1="${f(a[1])}" x2="${f(e[0])}" y2="${f(e[1])}" stroke="var(--color-primary)" stroke-width="3" stroke-dasharray="8 4"/><circle cx="${f(e[0])}" cy="${f(e[1])}" r="6" fill="var(--color-primary)"/>`
   +`<text x="${f(e[0])}" y="${f(e[1]-9)}" text-anchor="middle" font-size="12" fill="var(--color-on-surface)" paint-order="stroke" stroke="var(--color-surface)" stroke-width="3">לירושלים</text>`
   +`<circle cx="${f(a[0])}" cy="${f(a[1])}" r="6" fill="var(--color-on-surface)" stroke="var(--color-surface)" stroke-width="2"/>`
   +`<text x="392" y="18" direction="rtl" text-anchor="start" font-size="12" fill="var(--color-on-surface-dim)">↑ צפון · ${Math.round(v.hw*2)} מ' לרוחב</text>`
@@ -94,6 +113,15 @@ function stClick(ev){if(!ST.area||!pos)return;const svg=$("map"),pt=svg.createSV
  let best=null;ST.area.w.forEach(([,,g],i)=>{for(let k=0;k+3<g.length;k+=2){const q=stXY(v,g[k],g[k+1]),p=stXY(v,g[k+2],g[k+3]),dx=p[0]-q[0],dy=p[1]-q[1],
   u=Math.max(0,Math.min(1,((c.x-q[0])*dx+(c.y-q[1])*dy)/(dx*dx+dy*dy||1))),dd=Math.hypot(q[0]+u*dx-c.x,q[1]+u*dy-c.y);if(!best||dd<best[0])best=[dd,i,k]}});
  if(best&&best[0]<14){ST.sel={i:best[1],k:best[2]};streetMap()}}
+/* חיפוש רחוב: מסמן את הקטע הארוך ביותר שלו, מזיז אליו את המפה ונותן הוראה */
+function stNames(){const d=$("stNames");if(!d||!ST.area)return;const n=[...new Set(ST.area.w.map(x=>x[0]).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"he"));
+ d.replaceChildren(...n.map(x=>{const o=document.createElement("option");o.value=x;return o}))}
+function stFind(){const q=$("stQ").value.trim();if(!q||!ST.area)return;const nq=x=>x.replace(/["'״׳\-]/g,"").replace(/\s+/g," ").trim();
+ const Q=nq(q);let ws=ST.area.w.map((x,i)=>[x,i]).filter(([x])=>nq(x[0])===Q);if(!ws.length)ws=ST.area.w.map((x,i)=>[x,i]).filter(([x])=>nq(x[0]).includes(Q));
+ if(!ws.length){$("stTxt").textContent=`לא נמצא רחוב בשם "${q}" באזור הזה.`;return}
+ const[kx,ky]=stM();let best=null;for(const[[,,g],i]of ws)for(let k=0;k+3<g.length;k+=2){const L=Math.hypot((g[k+2]-g[k])*ky,(g[k+3]-g[k+1])*kx);if(!best||L>best[0])best=[L,i,k]}
+ const g=ST.area.w[best[1]][2],k=best[2],mla=(g[k]+g[k+2])/2,mlo=(g[k+1]+g[k+3])/2;ST.sel={i:best[1],k};ST.pan=[(mlo-pos[1])*kx,(mla-pos[0])*ky];
+ const far=Math.max(Math.abs(ST.pan[0]),Math.abs(ST.pan[1]));if(far>300/zoom)zoom=Math.max(.25,300/(far*1.2));streetMap()}
 function zoomKeep(fn){const z=zoom;fn();zoom=z;map()}
 
 /* ---- הגדרות: האזורים השמורים והסבר לעבודה בלי אינטרנט ---- */
@@ -109,6 +137,7 @@ function stSettings(){const l=$("stList");if(!l)return;l.replaceChildren();
 (function(){const prevMap=map;
  map=function(){if($("mapMode").value==="street"&&pos)return streetMap();$("stPanel").hidden=true;return prevMap()};
  $("mapMode").onchange=()=>map(); $("stDl").onclick=stDownload;$("stImp").onclick=stImport;$("stBrw").onclick=stBrowser;$("stCopy").onclick=stCopy;
+ $("stGo").onclick=stFind;$("stQ").onkeydown=e=>{if(e.key==="Enter")stFind()};$("stSyn").onchange=()=>{ST.showSyn=$("stSyn").checked;streetMap()};
  $("stHere").onclick=()=>{ST.setHere=!ST.setHere;$("stHere").classList.toggle("on",ST.setHere);stText()};
  $("stRad").onchange=()=>{ST.radius=+$("stRad").value;try{O&&O.call("storage.set",{key:"kivun-st-radius",value:ST.radius}).catch(()=>{})}catch(e){}};
  $("bSet").onclick=()=>{const o=$("set").hidden;pop("bHelp","help",false);pop("bFb","fb",false);pop("bSet","set",o)};
