@@ -104,7 +104,23 @@ small{color:var(--color-on-surface-dim)}
     <p id="stEmb"></p>
     <p style="margin:.75rem 0 .25rem"><strong>אזורים שהורדת:</strong></p>
     <ul id="stList"></ul>
-    <p><small>נתוני הרחובות: © OpenStreetMap contributors, ברישיון ODbL.</small></p>
+    <h2 style="font-size:1.1rem;margin:.75rem 0 .25rem">מה חדש</h2>
+    <details open><summary><b>1.3.0</b></summary><ul>
+     <li>מצב תפילה: חץ גדול לירושלים בלבד, מסתובב לפי המצפן כשיש.</li>
+     <li>בית הכנסת הקרוב, ולחיצה על ✡ במפה מציגה שם, מרחק וכיוון.</li>
+     <li>הדפסת דף כיוון (למלון, צימר או בית כנסת חדש).</li>
+     <li>חיפוש לפי מיקוד, בארץ ובריכוזי הקהילה בחו"ל (בכפתור "מיקום ידני").</li>
+     <li>10 אזורים מובנים חדשים: נווה יעקב, גבעת שאול, סנהדריה, קרית משה, חריש, טלזסטון, אופקים, קרית אתא, מונטווידאו, פראג.</li>
+     <li>כיוונים גם באנגלית (N, S, E, W).</li>
+     <li>התצוגה (סוג מפה, סיבוב, זום) נשמרת בין פתיחות.</li>
+     <li>החלוניות (זיהוי ידני, הגדרות, הארות) נפתחות בצד ולא מכסות את החוגה והמפה.</li></ul></details>
+    <details><summary><b>1.2.x</b></summary><ul>
+     <li>45 ריכוזי קהילה מובנים, עובדים בלי אינטרנט.</li>
+     <li>סיבוב מפה, "ירושלים למעלה", ולחיצה ארוכה = "אני עומד כאן".</li>
+     <li>חיפוש רחוב, מקומות שמורים, בתי כנסת על המפה.</li>
+     <li>שמות רחובות בחו"ל בעברית; "הרחובות סביבי" כברירת מחדל.</li></ul></details>
+    <div class="row"><button id="newsAgain">הצג שוב את חלונית "מה חדש"</button><button id="setFb">יש לך הערה? שלח הארה</button></div>
+    <p><small>נתוני הרחובות, בתי הכנסת והמיקודים: © OpenStreetMap contributors, ברישיון ODbL.</small></p>
   </div>
   <div id="help" class="pop" hidden>
     <ul id="ways"><li>בחר מיקום כדי לקבל הוראות מדויקות.</li></ul>
@@ -347,6 +363,8 @@ $("bManT").onclick=()=>{const o=$("manBox").hidden;$("manBox").hidden=!o;$("bMan
 /* "מה חדש": מוצג פעם אחת אחרי כל עדכון גרסה */
 async function newsCheck(){let seen=null;try{seen=O?dat(await O.call("storage.get",{key:"kivun-seen-ver"})):localStorage.getItem("kivun-seen-ver")}catch(e){}
  if(seen===VER)return;$("newsVer").textContent=VER;$("news").hidden=false}
+$("newsAgain").onclick=()=>{$("newsVer").textContent=VER;$("news").hidden=false;pop("bSet","set",false);scrollTo(0,0)};
+$("setFb").onclick=()=>{pop("bSet","set",false);$("bFb").onclick()};
 $("newsOk").onclick=()=>{$("news").hidden=true;try{O?O.call("storage.set",{key:"kivun-seen-ver",value:VER}).catch(()=>{}):localStorage.setItem("kivun-seen-ver",VER)}catch(e){}};
 if(!O)newsCheck();
 startCompass()</script>
