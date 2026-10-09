@@ -1,8 +1,8 @@
 {
   "id": "com.shiachrina.kivuntefila",
   "name": "כיוון תפילה",
-  "version": "1.8.0",
-  "description": "הכיוון לירושלים לפי מיקום, עיר, רחוב או פינה: חוגה, מצפן ומפת רחובות בלי אינטרנט (130 ריכוזים), בתי כנסת, ומצב טיסה עם זמני היום בדרך.",
+  "version": "1.9.0",
+  "description": "הכיוון לירושלים לפי מיקום, עיר, רחוב או פינה: חוגה, מצפן ומפת רחובות בלי אינטרנט (130 ריכוזים), בתי כנסת, ומצב טיסה עם זמני היום והתראות.",
   "author": "שיח רינה-עמודי שש",
   "schemaVersion": 1,
   "sdkVersion": "1.x",
@@ -18,7 +18,9 @@
     "plugin.open_other",
     "fs.user_files.read",
     "reader.open",
-    "library.books.read"
+    "library.books.read",
+    "notifications.send",
+    "notifications.system"
   ],
   "network": {
     "enabled": true,
