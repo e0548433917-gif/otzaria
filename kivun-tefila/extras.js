@@ -277,11 +277,21 @@ if (!O) extrasBoot();
 /* כשאזור הרחובות נטען: שורת המיקום מקבלת את שם פינת הרחובות */
 (function () { const sm = streetMap; streetMap = async function () { const r = await sm.apply(this, arguments); try { if (pos) locText() } catch (e) {} return r } })();
 
-/* ---- מעבר מהיר בין המקומות השמורים (בית, בית הכנסת, עבודה): כפתור לכל מקום, עד 8 ---- */
-addEventListener("load", function () {
-  if (typeof plFill !== "function") return;
-  const pf = plFill;
-  plFill = function () { const r = pf.apply(this, arguments); try { const q = $("plQuick"); q.replaceChildren(...places.slice(0, 8).map((p, i) => { const b = document.createElement("button"); b.textContent = "📍 " + p.n; b.title = "עבור אל " + p.n;
-    b.onclick = () => { $("pl").value = String(i); $("pl").dispatchEvent(new Event("change")) }; return b })); q.hidden = places.length < 2 } catch (e) {} return r };
-  try { plFill() } catch (e) {}
-});
+/* ---- המקומות השמורים מסומנים על מפת הרחובות: לחיצה על הסיכה עוברת למקום ---- */
+function plPins() {
+  const svg = $("map"); if (!svg || typeof ST === "undefined" || !ST.area || !pos || $("mapMode").value !== "street" || typeof places === "undefined") return;
+  const old = svg.querySelector("#plPins"); if (old) old.remove();
+  const v = stView(), g = document.createElementNS("http://www.w3.org/2000/svg", "g"); g.id = "plPins";
+  places.forEach((p, i) => {
+    if (!isFinite(p.lat) || !isFinite(p.lon)) return; const [x, y] = stXY(v, p.lat, p.lon);
+    if (x < ST.vb.x0 - 5 || x > ST.vb.x1 + 5 || y < ST.vb.y0 - 5 || y > ST.vb.y1 + 5) return;
+    if (Math.abs(p.lat - pos[0]) < 2e-5 && Math.abs(p.lon - pos[1]) < 2e-5) return;
+    const k = document.createElementNS("http://www.w3.org/2000/svg", "g"); k.setAttribute("transform", `translate(${x.toFixed(1)},${y.toFixed(1)})`); k.style.cursor = "pointer";
+    k.innerHTML = `<title>עבור אל ${esc(p.n)}</title><path d="M0,0 C-6,-8 -7,-11 -7,-14 A7,7 0 1,1 7,-14 C7,-11 6,-8 0,0Z" fill="var(--color-primary)" stroke="var(--color-surface)" stroke-width="1.5"/><circle cy="-14" r="2.6" fill="var(--color-surface)"/><text y="-24" text-anchor="middle" font-size="11" font-weight="700" fill="var(--color-on-surface)" paint-order="stroke" stroke="var(--color-surface)" stroke-width="3">${esc(p.n)}</text>`;
+    k.addEventListener("pointerdown", e => e.stopPropagation());
+    k.addEventListener("click", e => { e.stopPropagation(); $("pl").value = String(i); $("pl").dispatchEvent(new Event("change")) });
+    g.appendChild(k);
+  });
+  svg.appendChild(g);
+}
+(function () { const sm = streetMap; streetMap = async function () { const r = await sm.apply(this, arguments); try { plPins() } catch (e) {} return r } })();
