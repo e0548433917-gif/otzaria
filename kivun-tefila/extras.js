@@ -276,3 +276,12 @@ if (!O) extrasBoot();
 
 /* כשאזור הרחובות נטען: שורת המיקום מקבלת את שם פינת הרחובות */
 (function () { const sm = streetMap; streetMap = async function () { const r = await sm.apply(this, arguments); try { if (pos) locText() } catch (e) {} return r } })();
+
+/* ---- מעבר מהיר בין המקומות השמורים (בית, בית הכנסת, עבודה): כפתור לכל מקום, עד 8 ---- */
+addEventListener("load", function () {
+  if (typeof plFill !== "function") return;
+  const pf = plFill;
+  plFill = function () { const r = pf.apply(this, arguments); try { const q = $("plQuick"); q.replaceChildren(...places.slice(0, 8).map((p, i) => { const b = document.createElement("button"); b.textContent = "📍 " + p.n; b.title = "עבור אל " + p.n;
+    b.onclick = () => { $("pl").value = String(i); $("pl").dispatchEvent(new Event("change")) }; return b })); q.hidden = places.length < 2 } catch (e) {} return r };
+  try { plFill() } catch (e) {}
+});

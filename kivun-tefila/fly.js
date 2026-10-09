@@ -48,6 +48,52 @@ function flyScan(t0, t1, posAt) {
   }
   return out.sort((x, y) => x[0] - y[0]);
 }
+/* זמנים לפי שעות זמניות במקום שבו נמצא המטוס באותו רגע: הנץ ושקיעה ביום של אותו מקום (בגובה הקרקע), ופתרון חוזר כי המקום זז עם הזמן */
+function flyDay(p, t) {
+  let best = -99, tr = t;
+  for (let u = t - 432e5; u <= t + 432e5; u += 3e5) { const a = sun(p[0], p[1], new Date(u)).alt; if (a > best) { best = a; tr = u } }
+  const cross = (from, step, want) => { let prev = sun(p[0], p[1], new Date(from)).alt; for (let u = from + step, i = 0; i < 1000; u += step, i++) { const a = sun(p[0], p[1], new Date(u)).alt; if ((prev - want) * (a - want) <= 0) return u; prev = a } return null };
+  const sr = cross(tr, -6e4, -0.833), ss = cross(tr, 6e4, -0.833);
+  return sr && ss ? { sr, ss } : null;
+}
+const FLY_Z = [["סוף זמן קריאת שמע (מג״א)", d => d.sr - 72 * 6e4 + 3 * (d.ss - d.sr + 144 * 6e4) / 12],
+  ["סוף זמן קריאת שמע (גר״א)", d => d.sr + 3 * (d.ss - d.sr) / 12], ["סוף זמן תפילה (גר״א)", d => d.sr + 4 * (d.ss - d.sr) / 12]];
+function flyZmanim() {
+  const out = [];
+  for (const [n, f] of FLY_Z) for (const s0 of [FLY.t0, (FLY.t0 + FLY.t1) / 2, FLY.t1]) {
+    /* פתרון t = זמן(מקום המטוס ב-t), בהחלשה כדי שיתכנס; תוצאה שלא התכנסה לא מוצגת */
+    let t = s0, ok = false;
+    for (let i = 0; i < 14; i++) { const d = flyDay(flyPos(t), t); if (!d) break; const nt = f(d); if (Math.abs(nt - t) < 6e4) { t = nt; ok = true; break } t = (t + nt) / 2 }
+    if (ok && t >= FLY.t0 && t <= FLY.t1 && !out.some(e => e[1] === n && Math.abs(e[0] - t) < 3 * 36e5)) out.push([t, n, flyPos(t)]);
+  }
+  return out;
+}
+/* התראות: התראת מערכת של אוצריא (מתוזמנת מראש, עובדת גם כשהתוסף סגור) והודעה בתוך התוסף; ברירת מחדל 15 דק׳ לפני */
+const FLY_ALERT = /^(סוף זמן|שקיעה|הנץ)/;
+async function flySchedule(route) {
+  if (!O || !$("flyNotify").checked) return;
+  const lead = +$("flyLead").value * 6e4, now = Date.now();
+  try { await O.call("notifications.cancelAll") } catch (e) {}
+  let id = 6100;
+  for (const e of route) {
+    if (!FLY_ALERT.test(e[1]) || e[0] - lead <= now) continue;
+    try { await O.call("notifications.scheduleSystem", { title: `✈ ${e[1]} בעוד ${$("flyLead").value} דק׳`, body: `בשעה ${flyTm(e[0])} (שעון המכשיר), לפי מיקום המטוס המשוער. כיוון תפילה`, scheduledTime: new Date(e[0] - lead).toISOString(), id: id++ }) } catch (er) {}
+  }
+}
+function flyAlerts(route, now) {
+  const lead = +$("flyLead").value * 6e4, key = route.map(e => e[1] + Math.round(e[0] / 6e4)).join("|") + lead + $("flyNotify").checked;
+  if (key !== FLY.schedKey) { FLY.schedKey = key; flySchedule(route) }
+  FLY.shown = FLY.shown || {};
+  for (const e of route) {
+    if (!FLY_ALERT.test(e[1])) continue;
+    const k = e[1] + Math.round(e[0] / 6e4), left = e[0] - now;
+    if (left > 0 && left <= lead && !FLY.shown[k]) {
+      FLY.shown[k] = 1; const msg = `${e[1]} בעוד ${Math.round(left / 6e4)} דק׳ (${flyTm(e[0])})`;
+      $("flyAlert").textContent = "⏰ " + msg; $("flyAlert").hidden = false;
+      if (O) O.call("notifications.showInApp", { message: "✈ " + msg, type: "info" }).catch(() => {});
+    }
+  }
+}
 function flyRel(d) {
   const r = Math.round(((d % 360) + 360) % 360), clock = Math.round(r / 30) % 12 || 12;
   const side = r <= 15 || r >= 345 ? "ישר לפנים" : r < 165 ? `${r}° מימין לכיוון הטיסה` : r <= 195 ? "מאחור" : `${360 - r}° משמאל לכיוון הטיסה`;
@@ -59,7 +105,7 @@ function flyDraw() {
   const st = f < 0 ? `לפני ההמראה (עוד ${Math.round((FLY.t0 - now) / 6e4)} דק׳). המיקום: נקודת היציאה.` : f > 1 ? "הטיסה הסתיימה לפי השעות שהוזנו." : `באוויר: ${Math.round(100 * dist(FLY.A0, p) / (dist(FLY.A0, p) + dist(p, FLY.b) || 1))}% מהדרך, נותרו כ-${Math.round((FLY.t1 - now) / 6e4)} דק׳.`;
   const bj = bearing(p, J), hd = flyHead(now);
   const here = flyScan(now - 12 * 36e5, now + 12 * 36e5, () => p).filter(e => e[0] > now - 36e5 * 12);
-  const route = flyScan(FLY.t0, FLY.t1, flyPos);
+  const route = flyScan(FLY.t0, FLY.t1, flyPos).concat(flyZmanim()).sort((x, y) => x[0] - y[0]); flyAlerts(route, now);
   const row = e => `<tr><td>${flyTm(e[0])}</td><td>${esc(e[1])}</td><td><small>${flyLL(e[2])}</small></td></tr>`;
   const ak = flyAltKm(now), altTxt = f >= 0 && f <= 1 ? ` · גובה ${FLY.altKm != null && now >= FLY.altAt ? "" : "משוער "}${(ak * 1000).toLocaleString("he-IL", { maximumFractionDigits: 0 })} מ׳ (${Math.round(ak * 3280.84).toLocaleString("he-IL")} רגל)` : "";
   FLY.last = { now, p, bj, hd, here, route };
@@ -109,7 +155,7 @@ function flyPrint() { const S = flySheet(); if (!S) return; const row = r => `<t
     + `<h2>כיוון ירושלים כל חצי שעה</h2><table class="halt">${S.rows.map(r => row([flyTm(r[0]), flyLL(r[1]), "ירושלים " + r[2], r[3] + "°"])).join("")}</table>`
     + `<p><small>השעות לפי השעון במכשיר. חישוב משוער (מסלול ישיר, מהירות קבועה). בשאלה מעשית יש לשאול רב.</small></p>`;
   document.body.classList.add("printfly"); try { window.print() } catch (e) {} setTimeout(() => document.body.classList.remove("printfly"), 1500) }
-function flyStop() { FLY.on = false; clearInterval(FLY.T); FLY.T = null; $("flyStop").hidden = true; $("flyMsg").textContent = "המעקב הופסק. המיקום נשאר האחרון שחושב." }
+function flyStop() { if (O) O.call("notifications.cancelAll").catch(() => {}); $("flyAlert").hidden = true; FLY.on = false; clearInterval(FLY.T); FLY.T = null; $("flyStop").hidden = true; $("flyMsg").textContent = "המעקב הופסק. המיקום נשאר האחרון שחושב." }
 (function () {
   const dl = $("flyList"); dl.replaceChildren(...[...FLY_AP, ...C].map(x => { const o = document.createElement("option"); o.value = x[0]; return o }));
   const loc = d => new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 16), n = new Date();
@@ -118,6 +164,10 @@ function flyStop() { FLY.on = false; clearInterval(FLY.T); FLY.T = null; $("flyS
   $("flyGo").onclick = flyStart; $("flyStop").onclick = flyStop; $("flyUpd").onclick = flyUpdate; $("flyNow").onclick = flyTakeoff;
   $("flyCopy").onclick = () => { const t = flyText(); if (t) copyText(t).then(ok => $("flyMsg").textContent = ok ? "הלוח הועתק. אפשר להדביק בכל מקום." : "ההעתקה לא הצליחה.") };
   $("flyPrint").onclick = flyPrint;
+  $("flyNotify").onchange = async () => {
+    if ($("flyNotify").checked && O) { try { const r = dat(await O.call("notifications.requestPermissions")); if (r && r.granted === false) { $("flyNotify").checked = false; $("flyMsg").textContent = "אוצריא לא קיבלה הרשאה להתראות מערכת. ההודעה בתוך התוסף תמשיך לעבוד." } } catch (e) {} }
+    FLY.schedKey = null; if (FLY.on) flyDraw() };
+  $("flyLead").onchange = () => { FLY.schedKey = null; if (FLY.on) flyDraw() };
   (async () => {
     let v = null;
     try { v = O ? dat(await O.call("storage.get", { key: "kivun-fly" })) : localStorage.getItem("kivun-fly"); v = typeof v === "string" ? JSON.parse(v) : v } catch (e) { v = null }
