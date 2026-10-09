@@ -93,14 +93,35 @@ function trWord(w){if(/^\d+(st|nd|rd|th)?$/.test(w))return w.replace(/\D/g,"");l
   else if(c==="o"||c==="u")o+=st?"או":"ו";else if(c==="y")o+="י";else if(c==="c")o+="eiy".includes(w[i+1]||"#")?"ס":"ק";
   else if(c==="h")o+=end?"":"ה";else o+=TR_ONE[c]||(/\d/.test(c)?c:"");i++}
  return o.replace(/[מנפצכ]$/,x=>TR_FIN[x])}
+/* מילים ושמות יהודיים נפוצים בשמות בתי כנסת ורחובות: תרגום מילוני במקום תעתיק אות-אות (Zichron Yoel = זכרון יואל) */
+const TR_DICT={zichron:"זכרון",zikhron:"זכרון",yoel:"יואל",kollel:"כולל",kolel:"כולל",eliyahu:"אליהו",eliyohu:"אליהו",elijah:"אליהו",
+ beth:"בית",beit:"בית",beis:"בית",bais:"בית",bet:"בית",midrash:"מדרש",medrash:"מדרש",medrosh:"מדרש",midrosh:"מדרש",hamidrash:"המדרש",hamedrash:"המדרש",
+ knesset:"כנסת",kneses:"כנסת",hakneses:"הכנסת",haknesset:"הכנסת",yisroel:"ישראל",yisrael:"ישראל",israel:"ישראל",agudath:"אגודת",agudas:"אגודת",agudat:"אגודת",
+ chabad:"חב\u05f4ד",lubavitch:"ליובאוויטש",yeshiva:"ישיבת",yeshivah:"ישיבת",yeshivas:"ישיבת",yeshivat:"ישיבת",ohel:"אוהל",ohev:"אוהב",ahavas:"אהבת",ahavath:"אהבת",ahavat:"אהבת",
+ torah:"תורה",toras:"תורת",torath:"תורת",torat:"תורת",chaim:"חיים",chayim:"חיים",shalom:"שלום",sholom:"שלום",emes:"אמת",emet:"אמת",tefillah:"תפילה",tefilah:"תפילה",
+ khal:"קהל",kehal:"קהל",kahal:"קהל",kehilas:"קהילת",kehillas:"קהילת",kehillat:"קהילת",kehilat:"קהילת",adas:"עדת",adath:"עדת",anshei:"אנשי",anshe:"אנשי",
+ bnei:"בני",bnai:"בני",bene:"בני",shaarei:"שערי",shaare:"שערי",shaarey:"שערי",tiferes:"תפארת",tiferet:"תפארת",tifereth:"תפארת",chesed:"חסד",chessed:"חסד",
+ chasidei:"חסידי",chassidei:"חסידי",belz:"בעלז",satmar:"סאטמר",bobov:"באבוב",vizhnitz:"ויזניץ",viznitz:"ויזניץ",skver:"סקווירא",sinai:"סיני",zion:"ציון",tzion:"ציון",
+ moshe:"משה",avraham:"אברהם",avrohom:"אברהם",abraham:"אברהם",yitzchok:"יצחק",yitzchak:"יצחק",isaac:"יצחק",yaakov:"יעקב",yakov:"יעקב",jacob:"יעקב",yosef:"יוסף",joseph:"יוסף",
+ david:"דוד",dovid:"דוד",shmuel:"שמואל",samuel:"שמואל",menachem:"מנחם",mendel:"מענדל",levi:"לוי",yehuda:"יהודה",yehudah:"יהודה",aron:"אהרן",aaron:"אהרן",
+ nachalas:"נחלת",nachlas:"נחלת",nachlat:"נחלת",kodesh:"קודש",hakodesh:"הקודש",emanuel:"עמנואל",emmanuel:"עמנואל",mikdash:"מקדש",kesser:"כתר",keter:"כתר",
+ yehoshua:"יהושע",shimon:"שמעון",reuven:"ראובן",binyamin:"בנימין",benjamin:"בנימין",yechezkel:"יחזקאל",elimelech:"אלימלך",naftali:"נפתלי",zvi:"צבי",tzvi:"צבי",
+ shul:"שול",minyan:"מנין",young:"יאנג",congregation:"קהילת",synagogue:"בית הכנסת",rabbi:"הרב",rav:"הרב",rebbe:"הרבי",mitzvah:"מצוה",mikvah:"מקוה",mikveh:"מקוה",
+ chofetz:"חפץ",ner:"נר",lev:"לב",ezras:"עזרת",ezrat:"עזרת",nashim:"נשים",avodas:"עבודת",avodat:"עבודת",bikur:"ביקור",cholim:"חולים",
+ lechem:"לחם",degel:"דגל",pri:"פרי",etz:"עץ",shomrei:"שומרי",shomer:"שומר",shabbos:"שבת",shabbat:"שבת",mevaseret:"מבשרת",netzach:"נצח",ateres:"עטרת",ateret:"עטרת",atereth:"עטרת",tefila:"תפילה",tefilla:"תפילה",ohr:"אור",menorah:"מנורה",sephardic:"ספרדי",sefardi:"ספרדי",ruven:"ראובן",yisocher:"יששכר",yissachar:"יששכר",ami:"עמי",
+ chassidishe:"חסידישע",chasidishe:"חסידישע",chicago:"שיקגו",louis:"לואיס",saint:"סנט",yerushalayim:"ירושלים",jerusalem:"ירושלים",bobover:"באבובער"};
 const TR_CACHE=new Map();
 function trName(n){if(!n||/[֐-׿]/.test(n)||!/[A-Za-zÀ-ÿЀ-ӿ]/.test(n))return n;if(TR_CACHE.has(n))return TR_CACHE.get(n);
  let s=n.toLowerCase().replace(/[Ѐ-ӿ]/g,c=>TR_CYR[c]!=null?TR_CYR[c]:c);
  const typ=[];const words=n.toLowerCase().split(/[\s\-]+/).filter(Boolean);
- s=words.map(w=>{if(TR_TYPE[w]){typ.push(TR_TYPE[w]);return""}
+ const plain=w=>w.normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]/g,""),jew=words.some(w=>TR_DICT[plain(w)]&&!/^(st|saint|louis|chicago|david|levi|young)$/.test(plain(w)));
+ /* כיוון בתחילת השם (North, W) נשמט; St באמצע השם = Saint */
+ if(words.length>2&&/^(n|s|e|w|north|south|east|west)\.?$/.test(words[0]))words.shift();
+ s=words.map((w,wi)=>{if(wi<words.length-1&&words.length>2&&/^(st|ste|saint|sainte)\.?$/.test(w))return"סנט";if(TR_TYPE[w]&&!(jew&&wi<words.length-1&&!["street","st","avenue","ave","road","rd"].includes(w))){if(jew&&!["street","st","avenue","ave","road","rd","lane","drive","boulevard","blvd"].includes(w))return trWord(w);typ.push(TR_TYPE[w]);return""}
   let x=w.normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/ß/g,"ss").replace(/[Ѐ-ӿ]/g,c=>TR_CYR[c]!=null?TR_CYR[c]:c).replace(/^(d|l)'/,"").replace(/[^a-z0-9']/g,"");
   if(TR_TYPE[x]){typ.push(TR_TYPE[x]);return""}
   if(TR_DROP.has(x))return"";
+  if(TR_DICT[x.replace(/'/g,"")])return TR_DICT[x.replace(/'/g,"")];
   for(const f of TR_SUF)if(x.length>f.length+2&&x.endsWith(f)){typ.push(TR_TYPE[f]||"רחוב");x=x.slice(0,-f.length);break}
   return trWord(x.replace(/'/g,""))}).filter(Boolean).join(" ");
  const r=((typ[0]?typ[0]+" ":"")+s).trim()||n;TR_CACHE.set(n,r);return r}
@@ -152,9 +173,16 @@ function stClick(ev){if(!ST.area||!pos)return;const svg=$("map"),pt=svg.createSV
   u=Math.max(0,Math.min(1,((c.x-q[0])*dx+(c.y-q[1])*dy)/(dx*dx+dy*dy||1))),dd=Math.hypot(q[0]+u*dx-c.x,q[1]+u*dy-c.y);if(!best||dd<best[0])best=[dd,i,k]}});
  /* לחיצה על נקודה שאינה על רחוב (בין הרחובות) קובעת שם את המיקום */
  if(ST.setHere||!(best&&best[0]<14)){const[rx,ry]=stRot((c.x-200)*v.hw/200,(160-c.y)*v.hh/160,-ST.rot),x=rx+v.cx,y=ry+v.cy,[kx,ky]=stM(),np=[pos[0]+y/ky,pos[1]+x/kx];
-  ST.setHere=false;$("stHere").classList.remove("on");ST.pan=[0,0];zoomKeep(()=>setPos(np,"נקודה שסומנה במפת הרחובות",null,false));
+  ST.setHere=false;$("stHere").classList.remove("on");ST.pan=[0,0];zoomKeep(()=>setPos(np,stCorner(np)||"נקודה שסומנה במפת הרחובות",null,false));
   mode="m:"+np[0].toFixed(6)+","+np[1].toFixed(6);save(mode);return}
 {ST.sel={i:best[1],k:best[2]};streetMap()}}
+/* שם המקום לפי הרחובות הקרובים: "ארתור פינת סנט לואיס" */
+const TR_PFX=new RegExp("^("+[...new Set(Object.values(TR_TYPE))].join("|")+") ");
+function stCorner(p){if(!ST.area)return"";const kx=111320*Math.cos(p[0]*R),ky=110540,B=new Map();
+ ST.area.w.forEach(([n,,g])=>{const nm=stNm(n).replace(TR_PFX,"");if(!nm)return;for(let k=0;k+3<g.length;k+=2){const ax=(g[k+1]-p[1])*kx,ay=(g[k]-p[0])*ky,bx=(g[k+3]-p[1])*kx,by=(g[k+2]-p[0])*ky,dx=bx-ax,dy=by-ay,
+  u=Math.max(0,Math.min(1,-(ax*dx+ay*dy)/(dx*dx+dy*dy||1))),d=Math.hypot(ax+u*dx,ay+u*dy);if(!B.has(nm)||d<B.get(nm))B.set(nm,d)}});
+ const L=[...B].sort((a,b)=>a[1]-b[1]);if(!L.length||L[0][1]>120)return"";
+ return L[1]&&L[1][1]<60?`${L[0][0]} פינת ${L[1][0]}`:(L[0][1]<25?L[0][0]:"ליד "+L[0][0])}
 /* חיפוש רחוב: מסמן את הקטע הארוך ביותר שלו, מזיז אליו את המפה ונותן הוראה */
 function stNames(){const d=$("stNames");if(!d||!ST.area)return;const n=[...new Set(ST.area.w.map(x=>stNm(x[0])).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"he"));
  d.replaceChildren(...n.map(x=>{const o=document.createElement("option");o.value=x;return o}))}
