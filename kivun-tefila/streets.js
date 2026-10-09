@@ -175,14 +175,20 @@ function stClick(ev){if(!ST.area||!pos)return;const svg=$("map"),pt=svg.createSV
  if(ST.setHere||!(best&&best[0]<14)){const[rx,ry]=stRot((c.x-200)*v.hw/200,(160-c.y)*v.hh/160,-ST.rot),x=rx+v.cx,y=ry+v.cy,[kx,ky]=stM(),np=[pos[0]+y/ky,pos[1]+x/kx];
   ST.setHere=false;$("stHere").classList.remove("on");ST.pan=[0,0];zoomKeep(()=>setPos(np,stCorner(np)||"נקודה שסומנה במפת הרחובות",null,false));
   mode="m:"+np[0].toFixed(6)+","+np[1].toFixed(6);save(mode);return}
-{ST.sel={i:best[1],k:best[2]};streetMap()}}
+{ST.sel={i:best[1],k:best[2]};{const[rx,ry]=stRot((c.x-200)*v.hw/200,(160-c.y)*v.hh/160,-ST.rot),[kx,ky]=stM();ST.sel.pt=[pos[0]+(ry+v.cy)/ky,pos[1]+(rx+v.cx)/kx]}streetMap()}}
 /* שם המקום לפי הרחובות הקרובים: ״ארתור פינת סנט לואיס״ */
 const TR_PFX=new RegExp("^("+[...new Set(Object.values(TR_TYPE))].join("|")+") ");
-function stCorner(p){if(!ST.area)return"";const kx=111320*Math.cos(p[0]*R),ky=110540,B=new Map();
+function stCorner(p,first){if(!ST.area)return"";const kx=111320*Math.cos(p[0]*R),ky=110540,B=new Map();
  ST.area.w.forEach(([n,,g])=>{const nm=stNm(n).replace(TR_PFX,"");if(!nm)return;for(let k=0;k+3<g.length;k+=2){const ax=(g[k+1]-p[1])*kx,ay=(g[k]-p[0])*ky,bx=(g[k+3]-p[1])*kx,by=(g[k+2]-p[0])*ky,dx=bx-ax,dy=by-ay,
   u=Math.max(0,Math.min(1,-(ax*dx+ay*dy)/(dx*dx+dy*dy||1))),d=Math.hypot(ax+u*dx,ay+u*dy);if(!B.has(nm)||d<B.get(nm))B.set(nm,d)}});
- const L=[...B].sort((a,b)=>a[1]-b[1]);if(!L.length||L[0][1]>120)return"";
+ const L=[...B].sort((a,b)=>a[1]-b[1]).filter(x=>x[0]!==first);
+ if(first)return L[0]&&L[0][1]<60?`${first} פינת ${L[0][0]}`:L[0]&&L[0][1]<250?`${first}, ליד ${L[0][0]}`:first;
+ if(!L.length||L[0][1]>120)return"";
  return L[1]&&L[1][1]<60?`${L[0][0]} פינת ${L[1][0]}`:(L[0][1]<25?L[0][0]:"ליד "+L[0][0])}
+/* שם למקום: רחוב שנבחר (בלחיצה או בחיפוש) קודם, עם הרחוב החוצה הקרוב; אחרת פינת הרחובות ליד המיקום */
+function stLabel(){if(!ST.area||!pos)return"";if(ST.sel&&ST.area.w[ST.sel.i]){const[n,,g]=ST.area.w[ST.sel.i],k=ST.sel.k||0;
+  const m=ST.sel.pt||[(g[k]+(g[k+2]??g[k]))/2,(g[k+1]+(g[k+3]??g[k+1]))/2],nm=stNm(n).replace(TR_PFX,"");if(nm)return stCorner(m,nm)}
+ return stCorner(pos)}
 /* חיפוש רחוב: מסמן את הקטע הארוך ביותר שלו, מזיז אליו את המפה ונותן הוראה */
 function stNames(){const d=$("stNames");if(!d||!ST.area)return;const n=[...new Set(ST.area.w.map(x=>stNm(x[0])).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"he"));
  d.replaceChildren(...n.map(x=>{const o=document.createElement("option");o.value=x;return o}))}

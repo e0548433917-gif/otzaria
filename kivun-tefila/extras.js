@@ -172,7 +172,7 @@ function mapFull(o) {
   $("zFull").classList.toggle("on", o); mapVB(); if (pos) map(); $("fTxt").hidden = !o; $("fLoc").hidden = !o; $("fMode").value = $("mapMode").value;
 }
 /* במסך מלא: בועה צפה עם שם המקום (פינת הרחובות) והכיוון */
-function fLocTxt() { if (!pos) return ""; let n = src; try { if (ST.area && !/^(במטוס|נחיתה)/.test(src)) n = stCorner(pos) || src } catch (e) {} return `📍 ${n} · ${Math.round(bear())}°` }
+function fLocTxt() { if (!pos) return ""; let n = src; try { if (ST.area && !/^(במטוס|נחיתה)/.test(src)) n = stLabel() || src } catch (e) {} return `📍 ${n} · ${Math.round(bear())}°` }
 $("fMode").onchange = () => { $("mapMode").value = $("fMode").value; $("mapMode").dispatchEvent(new Event("change", { bubbles: true })) };
 setInterval(() => { if (document.body.classList.contains("mapfull")) { const l = fLocTxt(); if ($("fLoc").textContent !== l) $("fLoc").textContent = l; if ($("fMode").value !== $("mapMode").value) $("fMode").value = $("mapMode").value } }, 400);
 setInterval(() => { if (document.body.classList.contains("mapfull")) { const t = $("mapMode").value === "street" ? $("stTxt").textContent : $("txt").textContent; if ($("fTxt").textContent !== t) $("fTxt").textContent = t } }, 300);
