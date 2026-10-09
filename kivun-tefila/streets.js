@@ -144,7 +144,8 @@ async function streetMap(){const svg=$("map"),panel=$("stPanel");panel.hidden=fa
   for(let k=0;k<g.length;k+=2){const p=P(g[k],g[k+1]);bx=[Math.min(bx[0],p[0]),Math.max(bx[1],p[0]),Math.min(bx[2],p[1]),Math.max(bx[3],p[1])];d+=(k?"L":"M")+f(p[0])+","+f(p[1]);
    if(k){const q=P(g[k-2],g[k-1]),L=Math.hypot(p[0]-q[0],p[1]-q[1]);if(!best||L>best[0])best=[L,q,p]}}
   const VB=ST.vb;if(bx[1]<VB.x0-50||bx[0]>VB.x1+50||bx[3]<VB.y0-50||bx[2]>VB.y1+50)continue;const big=/^(motorway|trunk|primary|secondary)/.test(hw);
-  lines+=`<path d="${d}" fill="none" stroke="var(--color-on-surface-dim)" stroke-opacity=".75" stroke-width="${big?4:2.5}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  /* ביישובים קטנים: גם מבנים (קו דק), שבילים ודרכי עפר (מקווקו) */const bld=hw==="building",pth=/^(path|footway|track|steps|cycleway|bridleway|service)$/.test(hw);
+  lines+=`<path d="${d}" fill="${bld?"var(--color-on-surface-dim)":"none"}" fill-opacity=".12" stroke="var(--color-on-surface-dim)" stroke-opacity=".75" stroke-width="${big?4:bld?1:pth?1.6:2.5}"${pth?' stroke-dasharray="5 3"':""} stroke-linecap="round" stroke-linejoin="round"/>`;
   if(best&&best[0]>70&&nmS){let a=Math.atan2(best[2][1]-best[1][1],best[2][0]-best[1][0])/R;if(a>90)a-=180;if(a<-90)a+=180;
    const cl=x=>Math.max(VB.x0+15,Math.min(VB.x1-15,x)),mx=cl((best[1][0]+best[2][0])/2),my=Math.max(VB.y0+15,Math.min(VB.y1-20,(best[1][1]+best[2][1])/2));
    labels+=`<text transform="translate(${f(mx)},${f(my)}) rotate(${f(a)})" y="-5" text-anchor="middle" font-size="11" fill="var(--color-on-surface)" paint-order="stroke" stroke="var(--color-surface)" stroke-width="3">${esc(stNm(nmS))}</text>`}}
@@ -164,9 +165,9 @@ async function streetMap(){const svg=$("map"),panel=$("stPanel");panel.hidden=fa
 /* ההוראה: לאורך איזה רחוב לעמוד, ובכמה מעלות להסתובב ממנו */
 function stText(){const t=$("stTxt");if(!ST.sel){t.textContent=ST.setHere?"לחץ במפה על המקום שבו אתה נמצא.":"לחץ במפה על הרחוב שלידך, ותקבל הוראה ביחס לכיוון שלו.";return}
  const g=ST.area.w[ST.sel.i][2],k=ST.sel.k,s=bearing([g[k],g[k+1]],[g[k+2],g[k+3]]),b=bear(),
-  d1=((b-s+540)%360)-180,d2=((b-s+360)%360)-180,[sd,d]=Math.abs(d1)<=Math.abs(d2)?[s,d1]:[(s+180)%360,d2],n=stNm(ST.area.w[ST.sel.i][0])||"הרחוב";
+  d1=((b-s+540)%360)-180,d2=((b-s+360)%360)-180,[sd,d]=Math.abs(d1)<=Math.abs(d2)?[s,d1]:[(s+180)%360,d2],hwS=ST.area.w[ST.sel.i][1],n=stNm(ST.area.w[ST.sel.i][0])||(hwS==="building"?"המבנה":/^(path|footway|track|steps|cycleway|bridleway)$/.test(hwS)?"השביל":"הרחוב");
  const turnS=Math.abs(d)<5?"וזה הכיוון.":`והסתובב ${Math.round(Math.abs(d))}° ${d>0?"ימינה":"שמאלה"}.`;
- t.textContent=`עמוד במקביל ל${n}, כשפניך לאורך הרחוב לכיוון ${nm(sd)}, ${turnS}`+(Math.abs(Math.abs(d)-90)<8?` (כמעט ניצב לרחוב: פנים אל הבתים שבצד ה${nm(b)} שלו.)`:"")}
+ t.textContent=`עמוד במקביל ל${n}, כשפניך לאורך ${hwS==="building"?"הקיר":"הרחוב"} לכיוון ${nm(sd)}, ${turnS}`+(Math.abs(Math.abs(d)-90)<8?` (כמעט ניצב לרחוב: פנים אל הבתים שבצד ה${nm(b)} שלו.)`:"")}
 function stClick(ev){if(!ST.area||!pos)return;const svg=$("map"),pt=svg.createSVGPoint();pt.x=ev.clientX;pt.y=ev.clientY;
  const c=pt.matrixTransform(svg.getScreenCTM().inverse()),v=stView();
  let best=null;if(!ST.setHere)ST.area.w.forEach(([,,g],i)=>{for(let k=0;k+3<g.length;k+=2){const q=stXY(v,g[k],g[k+1]),p=stXY(v,g[k+2],g[k+3]),dx=p[0]-q[0],dy=p[1]-q[1],
@@ -192,7 +193,24 @@ function stLabel(){if(!ST.area||!pos)return"";if(ST.sel&&ST.area.w[ST.sel.i]){co
 /* חיפוש רחוב: מסמן את הקטע הארוך ביותר שלו, מזיז אליו את המפה ונותן הוראה */
 function stNames(){const d=$("stNames");if(!d||!ST.area)return;const n=[...new Set(ST.area.w.map(x=>stNm(x[0])).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"he"));
  d.replaceChildren(...n.map(x=>{const o=document.createElement("option");o.value=x;return o}))}
-function stFind(){const q=$("stQ").value.trim();if(!q||!ST.area)return;const nq=x=>x.replace(/["'״׳\-]/g,"").replace(/\s+/g," ").trim();
+/* חיפוש פינה: ״סנט לואיס פינת ארתור״ (או עם / או &) — המיקום נקבע בנקודת המפגש של שני הרחובות */
+function stWays(q){const nq=x=>x.replace(/["'״׳\-]/g,"").replace(/\s+/g," ").trim().toLowerCase(),Q=nq(q),P=x=>[nq(x[0]),nq(stNm(x[0])),nq(stNm(x[0]).replace(TR_PFX,""))];
+ let ws=ST.area.w.map((x,i)=>[x,i]).filter(([x])=>P(x).some(v=>v===Q));if(!ws.length)ws=ST.area.w.map((x,i)=>[x,i]).filter(([x])=>P(x).some(v=>v.includes(Q)));return ws}
+function stFindCorner(a,b){const A=stWays(a),B=stWays(b),t=$("stTxt");
+ if(!A.length||!B.length){t.textContent=`לא נמצא רחוב בשם "${A.length?b:a}" באזור הזה.`;return}
+ const o=[ST.area.lat,ST.area.lon],kx=111320*Math.cos(o[0]*R),ky=110540,xy=(la,lo)=>[(lo-o[1])*kx,(la-o[0])*ky];
+ const near=(p,q1,q2)=>{const dx=q2[0]-q1[0],dy=q2[1]-q1[1],u=Math.max(0,Math.min(1,((p[0]-q1[0])*dx+(p[1]-q1[1])*dy)/(dx*dx+dy*dy||1)));return[q1[0]+u*dx,q1[1]+u*dy]};
+ let best=null;
+ for(const[[,,g],i]of A)for(let k=0;k+3<g.length;k+=2){const a1=xy(g[k],g[k+1]),a2=xy(g[k+2],g[k+3]);
+  for(const[[,,h]]of B)for(let j=0;j+3<h.length;j+=2){const b1=xy(h[j],h[j+1]),b2=xy(h[j+2],h[j+3]);
+   for(const[p,q1,q2,f]of[[a1,b1,b2,0],[a2,b1,b2,0],[b1,a1,a2,1],[b2,a1,a2,1]]){const n=near(p,q1,q2),d=Math.hypot(n[0]-p[0],n[1]-p[1]);
+    if(!best||d<best[0])best=[d,(p[0]+n[0])/2,(p[1]+n[1])/2,i,k]}}}
+ if(best[0]>150){t.textContent=`הרחובות "${a}" ו"${b}" אינם נפגשים באזור הזה (המרחק הקטן ביניהם כ-${Math.round(best[0])} מ').`;return}
+ const np=[+(o[0]+best[2]/ky).toFixed(6),+(o[1]+best[1]/kx).toFixed(6)],area=ST.area,nA=stNm(area.w[best[3]][0]).replace(TR_PFX,""),nB=stNm(B[0][0][0]).replace(TR_PFX,"");
+ $("city").value="";ST.pan=[0,0];zoomKeep(()=>setPos(np,`${nA} פינת ${nB}`,null,false));
+ mode="m:"+np[0]+","+np[1];save(mode);ST.area=area;ST.sel={i:best[3],k:best[4],pt:np};$("plName").value=`${nA} פינת ${nB}`;streetMap()}
+function stFind(){const q=$("stQ").value.trim();if(!q||!ST.area)return;
+ {const c=q.split(/\s+פינת\s+|\s+פינה\s+|\s*[\/&]\s*/).filter(Boolean);if(c.length===2)return stFindCorner(c[0],c[1])}const nq=x=>x.replace(/["'״׳\-]/g,"").replace(/\s+/g," ").trim();
  const Q=nq(q);const nm2=x=>[nq(x[0]),nq(stNm(x[0]))];let ws=ST.area.w.map((x,i)=>[x,i]).filter(([x])=>nm2(x).some(v=>v===Q));if(!ws.length)ws=ST.area.w.map((x,i)=>[x,i]).filter(([x])=>nm2(x).some(v=>v.toLowerCase().includes(Q.toLowerCase())));
  if(!ws.length){$("stTxt").textContent=`לא נמצא רחוב בשם "${q}" באזור הזה.`;return}
  const[kx,ky]=stM();let best=null;for(const[[,,g],i]of ws)for(let k=0;k+3<g.length;k+=2){const L=Math.hypot((g[k+2]-g[k])*ky,(g[k+3]-g[k+1])*kx);if(!best||L>best[0])best=[L,i,k]}
