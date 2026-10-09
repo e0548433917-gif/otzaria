@@ -125,14 +125,20 @@ async function pcFind() {
 }
 
 /* ---- מראי מקומות: פתיחה בספריית אוצריא ---- */
+/* בוחרים את הספר עצמו ולא פירוש עליו (למשל חק יעקב ״על שולחן ערוך אורח חיים״): כל מילות השאילתה בכותרת, והכותרת הקצרה ביותר */
+const srcNorm = t => (t || "").replace(/[^\u05d0-\u05eaA-Za-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
 async function openSrc(q, r) {
   if (!O) return;
-  try {
-    const l = dat(await O.call("library.findBooks", { query: q, limit: 10 })) || [];
-    const b = l.find(x => x.title === q || x.bookId === q) || l.find(x => (x.title || "").includes(q)) || l[0];
-    if (b) { const ok = dat(await O.call("reader.openBookAtRef", { bookId: b.bookId, ref: r, highlight: true })); if (ok !== false) return }
-  } catch (e) {}
-  try { await O.call("reader.openSearchTab", { query: q + " " + r }) } catch (e) {}
+  for (const qq of q.split("|")) {
+    try {
+      const l = dat(await O.call("library.findBooks", { query: qq, limit: 30 })) || [], w = srcNorm(qq).split(" ");
+      const m = l.filter(x => { const t = " " + srcNorm(x.title) + " "; return w.every(y => t.includes(" " + y + " ")) })
+        .sort((a, b) => srcNorm(a.title).length - srcNorm(b.title).length);
+      const b = m[0];
+      if (b) { const ok = dat(await O.call("reader.openBookAtRef", { bookId: b.bookId, ref: r, highlight: true })); if (ok !== false) return }
+    } catch (e) {}
+  }
+  try { await O.call("reader.openSearchTab", { query: q.split("|")[0] + " " + r }) } catch (e) {}
 }
 document.querySelectorAll("button.src").forEach(b => b.onclick = () => openSrc(b.dataset.q, b.dataset.r));
 if (!O) document.querySelectorAll("button.src").forEach(b => b.disabled = true);
@@ -172,8 +178,6 @@ $("fX").onclick = () => mapFull(false);
 const fFind = () => { $("stQ").value = $("fQ").value; stFind() };
 $("fGo").onclick = fFind; $("fQ").onkeydown = e => { if (e.key === "Enter") fFind() };
 $("fIn").onclick = () => $("zIn").click(); $("fOut").onclick = () => $("zOut").click();
-$("fJup").onclick = () => { if ($("mapMode").value === "street") $("stJup").click() };
-$("fN").onclick = () => { if ($("mapMode").value === "street") $("stN").click() };
 addEventListener("keydown", e => { if (e.key === "Escape" && document.body.classList.contains("mapfull")) mapFull(false) });
 
 /* ---- מיקוד: השלמה תוך כדי הקלדה (קוד — קהילה — רחוב ראשי) ---- */
@@ -221,7 +225,9 @@ $("prayX").onclick = () => prayOpen(false);
 addEventListener("keydown", e => { if (e.key === "Escape" && !$("pray").hidden) prayOpen(false) });
 $("stSynNear").onclick = synNearest;
 $("bPrint").onclick = printSheet;
-$("bHal").onclick = () => pop("bHal", "hal", $("hal").hidden);
+$("bHal").onclick = () => {
+  if (pos) $("halHere").textContent = `במקום שלך: הקו הקצר ${Math.round(bearing(pos, J))}°, הכיוון הקבוע ${Math.round(rhumb(pos, J))}° (מהצפון, עם כיוון השעון).`;
+  pop("bHal", "hal", $("hal").hidden) };
 $("pcGo").onclick = pcFind;
 $("pc").onkeydown = e => { if (e.key === "Enter") pcFind() };
 $("mapMode").addEventListener("change", () => { ST.synSel = null });
@@ -229,3 +235,34 @@ $("mapMode").addEventListener("change", () => { ST.synSel = null });
 function pcCheck() { pcLoad().then(d => { $("pcNote").textContent = d ? "בארץ: 7 ספרות. בחו\u05f4ל: כפי שהוא, בריכוזי הקהילה." : "טבלת המיקודים בבנייה ותצורף בגרסה 1.3.0." }) }
 function extrasBoot() { viewRestore(); pcCheck() }
 if (!O) extrasBoot();
+
+/* ---- רשימות נפתחות בעכבר: ב-Windows הרשימה המקורית נסגרת ברגע שהעכבר נכנס אליה, ולכן מציגים רשימה משלנו. במגע — הרשימה המקורית ---- */
+(function () {
+  let dd = null, pt = "mouse";
+  document.addEventListener("pointerdown", e => { pt = e.pointerType }, true);
+  const close = () => { if (dd) { dd.remove(); dd = null } };
+  document.addEventListener("mousedown", e => {
+    const s = e.target.closest && e.target.closest("select");
+    if (dd && !dd.contains(e.target)) { close(); if (s) { e.preventDefault(); return } }
+    if (!s || s.disabled || s.multiple || e.button !== 0 || pt === "touch" || pt === "pen") return;
+    e.preventDefault(); s.focus();
+    const r = s.getBoundingClientRect(); dd = document.createElement("div"); dd.className = "dd"; dd.setAttribute("role", "listbox");
+    [...s.options].forEach((o, i) => {
+      if (o.hidden) return;
+      const d = document.createElement("div"); d.textContent = o.text; d.setAttribute("role", "option");
+      if (o.disabled) d.style.opacity = ".5"; if (i === s.selectedIndex) d.className = "sel on";
+      d.onmousedown = ev => ev.preventDefault();
+      d.onclick = () => { if (o.disabled) return; close(); if (s.selectedIndex !== i) { s.selectedIndex = i; s.dispatchEvent(new Event("input", { bubbles: true })); s.dispatchEvent(new Event("change", { bubbles: true })) } };
+      dd.appendChild(d);
+    });
+    document.body.appendChild(dd);
+    const below = innerHeight - r.bottom - 8, above = r.top - 8, up = below < 160 && above > below;
+    dd.style.maxHeight = Math.max(120, up ? above : below) + "px"; dd.style.minWidth = r.width + "px";
+    dd.style.left = Math.max(4, Math.min(r.left, innerWidth - dd.offsetWidth - 4)) + "px";
+    dd.style.top = (up ? r.top - dd.offsetHeight : r.bottom) + "px";
+    const on = dd.querySelector(".sel"); if (on) on.scrollIntoView({ block: "nearest" });
+  }, true);
+  addEventListener("keydown", e => { if (dd && e.key === "Escape") { e.stopPropagation(); close() } }, true);
+  addEventListener("resize", close); addEventListener("blur", close);
+  document.addEventListener("scroll", e => { if (dd && !dd.contains(e.target)) close() }, true);
+})();
