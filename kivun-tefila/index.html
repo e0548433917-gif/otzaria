@@ -85,7 +85,15 @@ body.hascompass #bPray{display:inline-block}
 body.mapfull #map{position:fixed;inset:var(--bar-h,2.6rem) 0 0 0;width:100%;height:calc(100vh - var(--bar-h,2.6rem));max-height:none;z-index:30;border-radius:0;border:0}
 #mapFullBar{position:fixed;top:calc(var(--bar-h,2.6rem) + .5rem);inset-inline-end:.5rem;z-index:31;display:flex;gap:.3rem;flex-wrap:wrap}
 #mapFullBar[hidden],#fTxt[hidden]{display:none}
-#fTxt{position:fixed;bottom:1.6rem;left:50%;transform:translateX(-50%);z-index:31;max-width:min(46rem,92vw);background:var(--color-surface);border:1px solid var(--color-outline);border-radius:var(--radius-md);padding:.35rem .8rem;font-weight:600;text-align:center}
+/* במסך מלא: שורת הסיבוב והכפתורים שמתחת למפה צפה בתחתית, כמו השורה העליונה */
+body.mapfull #stRotRow{position:fixed;bottom:.5rem;left:50%;transform:translateX(-50%);z-index:31;margin:0;max-width:96vw;flex-wrap:wrap;justify-content:center;gap:.3rem}
+body.mapfull #stRotRow[hidden]{display:none}
+body.mapfull #stRotRow>label{background:var(--color-surface);border:1px solid var(--color-outline);border-radius:var(--radius-sm);padding:.15rem .45rem;display:flex;align-items:center;gap:.2rem}
+body.mapfull #stRotRow .sep{display:none}
+/* רשימה נפתחת חלופית (Windows): הרשימה המקורית נסגרת כשהעכבר זז אליה */
+.dd{position:fixed;z-index:60;background:var(--color-surface);border:1px solid var(--color-outline);border-radius:var(--radius-sm);box-shadow:0 4px 14px color-mix(in srgb,var(--color-on-surface) 20%,transparent);overflow-y:auto;padding:.15rem 0}
+.dd div{padding:.25rem .7rem;cursor:pointer;white-space:nowrap}.dd div:hover,.dd div.on{background:color-mix(in srgb,var(--color-primary) 18%,transparent)}.dd div.sel{font-weight:600}
+#fTxt{position:fixed;bottom:3.6rem;left:50%;transform:translateX(-50%);z-index:31;max-width:min(46rem,92vw);background:var(--color-surface);border:1px solid var(--color-outline);border-radius:var(--radius-md);padding:.35rem .8rem;font-weight:600;text-align:center}
 .nocomp{grid-column:1/-1;font-size:.8rem;color:var(--color-on-surface-dim);text-align:center;margin:.4rem 0 .2rem;border:1px dashed var(--color-outline);border-radius:var(--radius-sm);padding:.25rem .5rem}
 .setrow{display:flex;margin:.35rem 0}.setrow label{display:flex;gap:.5rem;align-items:center;width:100%;justify-content:space-between}.setrow select{min-width:12rem}
 .newsbox{background:var(--color-surface);border:1px solid var(--color-primary);border-radius:var(--radius-md);padding:.4rem .8rem;margin:.4rem 0}
@@ -234,7 +242,7 @@ body.mapfull #map{position:fixed;inset:var(--bar-h,2.6rem) 0 0 0;width:100%;heig
   <div id="hal" class="pop" hidden>
     <h2 style="font-size:1.1rem;margin:.25rem 0">הלכות כיוון התפילה (מראי מקומות)</h2>
     <ul class="hal">
-     <li>העומד בחוץ לארץ מכוון את לבו כנגד ארץ ישראל; בארץ ישראל כנגד ירושלים; בירושלים כנגד המקדש. <button class="src" data-q="ברכות" data-r="ל א">תלמוד בבלי, ברכות ל ע״א</button> <button class="src" data-q="שולחן ערוך אורח חיים" data-r="צד">שולחן ערוך, אורח חיים סימן צד</button> <button class="src" data-q="הלכות תפילה ונשיאת כפים" data-r="ה">רמב״ם, הלכות תפילה פרק ה</button></li>
+     <li>העומד בחוץ לארץ מכוון את לבו כנגד ארץ ישראל; בארץ ישראל כנגד ירושלים; בירושלים כנגד המקדש. <button class="src" data-q="ברכות" data-r="ל א">תלמוד בבלי, ברכות ל ע״א</button> <button class="src" data-q="שולחן ערוך אורח חיים" data-r="צד">שולחן ערוך, אורח חיים סימן צד</button> <button class="src" data-q="הלכות תפילה ונשיאת כפים|תפילה ונשיאת כפים|משנה תורה תפילה" data-r="ה">רמב״ם, הלכות תפילה פרק ה</button></li>
      <li>מי שאינו יכול לכוון את הרוחות, יכוון את לבו לאביו שבשמים. <button class="src" data-q="שולחן ערוך אורח חיים" data-r="צד">שולחן ערוך, שם</button></li>
      <li><b>שתי שיטות החישוב בתוסף:</b> "הקו הקצר על הכדור" הוא הכיוון של הדרך הקצרה ביותר על פני כדור הארץ; "כיוון קבוע על המפה" הוא קו שזווית הכיוון שלו קבועה לאורך כל הדרך, כפי שהוא נראה על מפה שטוחה. בארץ ההבדל זניח; בחו״ל הוא עשוי להגיע לעשרות מעלות (למשל בצפון אמריקה), ויש בזה דיון בפוסקים.</li>
     </ul>
@@ -255,7 +263,7 @@ body.mapfull #map{position:fixed;inset:var(--bar-h,2.6rem) 0 0 0;width:100%;heig
  <svg viewBox="-120 -120 240 240" aria-hidden="true"><circle r="112" fill="none" stroke="var(--color-outline)" stroke-width="2"/>
   <g id="prayArrow"><path d="M0,-100 L26,-40 L9,-46 L9,92 L-9,92 L-9,-46 L-26,-40Z" fill="var(--color-primary)"/></g></svg>
  <p id="prayDeg"></p><p id="prayTxt"></p></div>
-<div id="mapFullBar" hidden><input id="fQ" list="stNames" placeholder="חיפוש רחוב" aria-label="חיפוש רחוב" style="width:10em"><button id="fGo">מצא</button><button id="fIn" aria-label="הגדל">+</button><button id="fOut" aria-label="הקטן">−</button><button id="fJup">ירושלים למעלה</button><button id="fN">צפון למעלה</button><button id="fX">✕ סגור מסך מלא</button></div>
+<div id="mapFullBar" hidden><input id="fQ" list="stNames" placeholder="חיפוש רחוב" aria-label="חיפוש רחוב" style="width:10em"><button id="fGo">מצא</button><button id="fIn" aria-label="הגדל">+</button><button id="fOut" aria-label="הקטן">−</button><button id="fX">✕ סגור מסך מלא</button></div>
 <div id="fTxt" hidden></div>
 <div id="printHead"></div>
 <main>
