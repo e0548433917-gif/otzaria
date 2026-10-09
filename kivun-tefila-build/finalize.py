@@ -23,7 +23,8 @@ allareas = main + [a for a in vac if a["name"] not in names]
 wide = {a["name"]: a for a in areas_of(show("kivun-abroad-wide", "kivun/streets-data.js"))}
 allareas = [wide.get(a["name"], a) for a in allareas]  # חו"ל: רדיוס מורחב
 head = "/* רחובות מובנים: © OpenStreetMap contributors, ODbL. */"
-open(f"{S}/merged.js", "w", encoding="utf-8").write(head + "\nconst EMB_STREETS=" + json.dumps(allareas, ensure_ascii=False, separators=(",", ":")) + ";\n")
+emb = [a for a in allareas if len(a["w"]) >= 3]  # אזור בלי רחובות (הבנייה לא מצאה) לא נכלל כמובנה, אבל נשאר ברשימת הערים
+open(f"{S}/merged.js", "w", encoding="utf-8").write(head + "\nconst EMB_STREETS=" + json.dumps(emb, ensure_ascii=False, separators=(",", ":")) + ";\n")
 subprocess.run([sys.executable, f"{S}/split.py", f"{S}/merged.js", KT], check=True)
 
 # postcodes
@@ -66,12 +67,12 @@ if miss: planned.append("אזורים מובנים נוספים: " + ", ".join(m
 wantvac2 = ["חספין", "עין גב", "מעלות", "שלומי", "מטולה", 'נווה אטי"ב', "עין גדי", "מצפה רמון", "ארוזה (שווייץ)", "דאבוס", "לוגאנו", "מיאמי ביץ'", "דיל (ניו ג'רזי)", "מונטיצ'לו (הקטסקילס)"]
 missv += [n for n in wantvac2 if n not in got]
 if missv: planned.append("אזורי נופש: " + ", ".join(missv) + ".")
-else: planned.append("רשימה מורחבת של אזורי נופש וצימרים, בארץ ובחו״ל.")
+else: planned.append("מצב טיסה: הכיוון לירושלים וזמני היום לאורך הטיסה.")
 if not pc["f"]: planned.append("חיפוש לפי מיקוד בארץ.")
 if not (pc["x"] or pc["y"]): planned.append("חיפוש לפי מיקוד בריכוזי הקהילה בחו״ל.")
 li = "".join(f"<li>{p}</li>" for p in planned)
 idx = re.sub(r'<ul id="planned">.*?</ul>', f'<ul id="planned">{li}</ul>', idx, flags=re.S)
-idx = re.sub(r"\d+ ריכוזי קהילה מובנים בתוסף", f"{len(allareas)} ריכוזי קהילה מובנים בתוסף", idx)
+idx = re.sub(r"\d+ ריכוזי קהילה מובנים בתוסף", f"{len(emb)} ריכוזי קהילה מובנים בתוסף", idx)
 open(f"{KT}/index.html", "w", encoding="utf-8").write(idx)
 print(f"areas {len(allareas)} (+{len(add)} to city list), postcodes IL {len(pc['f'])} prefix {len(pc['p'])} abroad {len(pc['x'])} by-area {len(pc['y'])}")
 print("planned:", planned)

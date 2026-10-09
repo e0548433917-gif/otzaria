@@ -176,7 +176,7 @@ function stClick(ev){if(!ST.area||!pos)return;const svg=$("map"),pt=svg.createSV
   ST.setHere=false;$("stHere").classList.remove("on");ST.pan=[0,0];zoomKeep(()=>setPos(np,stCorner(np)||"נקודה שסומנה במפת הרחובות",null,false));
   mode="m:"+np[0].toFixed(6)+","+np[1].toFixed(6);save(mode);return}
 {ST.sel={i:best[1],k:best[2]};streetMap()}}
-/* שם המקום לפי הרחובות הקרובים: "ארתור פינת סנט לואיס" */
+/* שם המקום לפי הרחובות הקרובים: ״ארתור פינת סנט לואיס״ */
 const TR_PFX=new RegExp("^("+[...new Set(Object.values(TR_TYPE))].join("|")+") ");
 function stCorner(p){if(!ST.area)return"";const kx=111320*Math.cos(p[0]*R),ky=110540,B=new Map();
  ST.area.w.forEach(([n,,g])=>{const nm=stNm(n).replace(TR_PFX,"");if(!nm)return;for(let k=0;k+3<g.length;k+=2){const ax=(g[k+1]-p[1])*kx,ay=(g[k]-p[0])*ky,bx=(g[k+3]-p[1])*kx,by=(g[k+2]-p[0])*ky,dx=bx-ax,dy=by-ay,
