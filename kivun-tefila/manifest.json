@@ -19,7 +19,6 @@
     "fs.user_files.read",
     "reader.open",
     "library.books.read",
-    "notifications.send",
     "notifications.system"
   ],
   "network": {
