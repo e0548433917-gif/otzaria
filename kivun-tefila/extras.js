@@ -50,6 +50,10 @@ function prayDraw() {
   $("prayArrow").setAttribute("transform", `rotate(${a.toFixed(1)})`);
   $("prayDeg").textContent = Math.round(b) + "° · " + nm(b);
   $("prayTxt").textContent = hd != null ? "החץ מצביע לירושלים. הפנה את פניך לכיוונו." : "בלי מצפן: למעלה = צפון. סובב את עצמך כך שהחץ יהיה לפניך, לפי החוגה או המפה.";
+  let lab = src; try { lab = stLabel() || src } catch (e) {}
+  $("prayHow").textContent = (lab ? "המקום: " + lab + ". " : "") + "השיטה: " + (meth() === "rh" ? "כיוון קבוע על המפה" : "הקו הקצר על הכדור") + " (משנים בשורה העליונה). "
+    + (hd != null ? "המצפן כולל תיקון לסטייה המגנטית. החזק את המכשיר שטוח, הרחק ממתכת וממגנטים; אם החץ קופץ, הנע את המכשיר בצורת 8 לכיול." : "במכשיר אנדרואיד עם מצפן מובנה החץ מסתובב מעצמו לפי המצפן.")
+    + (dist(pos, J) > 19000 ? " שים לב: המקום קרוב לצד השני של הכדור מול ירושלים; ראה בהלכות." : "");
 }
 function prayOpen(o) {
   $("pray").hidden = !o; clearInterval(prayT); prayT = null;
@@ -233,14 +237,22 @@ addEventListener("keydown", e => { if (e.key === "Escape" && !$("pray").hidden) 
 $("stSynNear").onclick = synNearest;
 $("bPrint").onclick = () => printSheet();
 $("bHal").onclick = () => {
-  if (pos) $("halHere").textContent = `במקום שלך: הקו הקצר ${Math.round(bearing(pos, J))}°, הכיוון הקבוע ${Math.round(rhumb(pos, J))}° (מהצפון, עם כיוון השעון).`;
+  if (pos) $("halHere").textContent = `במקום שלך: הקו הקצר ${Math.round(bearing(pos, J))}°, הכיוון הקבוע ${Math.round(rhumb(pos, J))}° (מהצפון, עם כיוון השעון).` + (dist(pos, J) > 19000 ? " המקום שלך קרוב לנקודה שמול ירושלים בצד השני של הכדור (ראה למטה)." : "");
   pop("bHal", "hal", $("hal").hidden) };
 $("pcGo").onclick = pcFind;
 $("pc").onkeydown = e => { if (e.key === "Enter") pcFind() };
 $("mapMode").addEventListener("change", () => { ST.synSel = null });
 /* הסבר קצר ליד שדה המיקוד, לפי מה שיש בחבילה */
 function pcCheck() { pcLoad().then(d => { $("pcNote").textContent = d ? "בארץ: 7 ספרות. בחו\u05f4ל: כפי שהוא, בריכוזי הקהילה." : "טבלת המיקודים בבנייה ותצורף בגרסה 1.3.0." }) }
-function extrasBoot() { viewRestore(); pcCheck() }
+function extrasBoot() { viewRestore(); pcCheck(); prayLoad() }
+/* כפתור מצב תפילה: מוסתר כברירת מחדל, מופיע מעצמו כשמתגלה מצפן מובנה; בהגדרות אפשר להפעיל או לכבות */
+let prayPref = null;
+function prayBtn() { const on = prayPref === "1" || (prayPref == null && heading != null); $("bPray").hidden = !on; $("prayShow").checked = on }
+async function prayLoad() { try { prayPref = O ? dat(await O.call("storage.get", { key: "kivun-pray" })) : localStorage.getItem("kivun-pray") } catch (e) {} if (prayPref !== "1" && prayPref !== "0") prayPref = null; prayBtn() }
+$("prayShow").onchange = () => { prayPref = $("prayShow").checked ? "1" : "0"; try { O ? O.call("storage.set", { key: "kivun-pray", value: prayPref }).catch(() => {}) : localStorage.setItem("kivun-pray", prayPref) } catch (e) {} prayBtn() };
+if (!O) prayLoad();
+const FORUM_URL = "https://tora-forum.co.il/threads/%D7%9C%D7%90%D7%99%D7%96%D7%94-%D7%A6%D7%93-%D7%9E%D7%AA%D7%A4%D7%9C%D7%9C%D7%99%D7%9D-%D7%91%D7%90%D7%99%D7%99-%D7%94%D7%95%D7%95%D7%90%D7%99.5898/";
+$("halForum").onclick = () => { copyText(FORUM_URL).then(ok => $("halForumMsg").textContent = ok ? "הכתובת הועתקה ללוח." : FORUM_URL); let w = null; try { w = window.open(FORUM_URL, "_blank", "noopener") } catch (e) {} if (!w && O) O.call("app.openUrl", { url: FORUM_URL }).catch(() => {}) };
 if (!O) extrasBoot();
 
 /* ---- רשימות נפתחות בעכבר: ב-Windows הרשימה המקורית נסגרת ברגע שהעכבר נכנס אליה, ולכן מציגים רשימה משלנו. במגע — הרשימה המקורית ---- */

@@ -114,7 +114,34 @@ function flyDraw() {
     + `<h3>זמני היום במיקום הנוכחי</h3>` + (here.length ? `<table class="halt">${here.map(row).join("")}</table>` : "<p>אין שינוי בשעות הקרובות.</p>")
     + `<h3>לאורך הטיסה${FLY.re ? " (מהעדכון האחרון)" : ""}</h3>` + (route.length ? `<table class="halt">${route.map(row).join("")}</table>` : "<p>אין זריחה, שקיעה או צאת הכוכבים בזמן הטיסה.</p>")
     + `<p><small>השעות לפי השעון במכשיר שלך. חישוב משוער (מסלול ישיר, מהירות קבועה), בדיוק של דקות ספורות. ${FLY.alt ? "הזריחה והשקיעה לפי גובה המטוס בכל רגע." : "הזריחה והשקיעה לפי גובה פני הקרקע שמתחת למטוס."} האם להתחשב בגובה המטוס, ובכלל הזמנים בטיסה, היא שאלה לרב.</small></p>`;
+  $("flyGlobe").innerHTML = flyGlobe(FLY.A0, FLY.b, f >= 0 && f <= 1 ? p : null);
   if (FLY.on && f >= 0) setPos(p, f > 1 ? "נחיתה: " + FLY.b[2] : "במטוס, בדרך ל" + FLY.b[2], null, false);
+}
+/* כדור הארץ: המסלול (קו קצר), המטוס וירושלים, בהטלה אורתוגרפית סביב אמצע המסלול */
+let FLY_RINGS = null;
+function flyRings() {
+  if (FLY_RINGS) return FLY_RINGS; FLY_RINGS = [];
+  if (typeof WORLD_PATH !== "undefined") for (const s of WORLD_PATH.split("M")) if (s) FLY_RINGS.push(s.replace(/Z/g, "").split("L").map(q => { const [x, y] = q.split(",").map(Number); return [-y, x] }).filter(q => isFinite(q[0]) && isFinite(q[1])));
+  return FLY_RINGS;
+}
+function flyGlobe(a, b, p) {
+  const m = gc(a, b, .5), c0 = m[0] * R, l0 = m[1] * R, r = 100;
+  const pr = q => { const f = q[0] * R, l = q[1] * R - l0; return [r * Math.cos(f) * Math.sin(l), -r * (Math.cos(c0) * Math.sin(f) - Math.sin(c0) * Math.cos(f) * Math.cos(l)), Math.sin(c0) * Math.sin(f) + Math.cos(c0) * Math.cos(f) * Math.cos(l) > 0] };
+  const line = pts => { let d = "", on = false; for (const q of pts) { const [x, y, v] = pr(q); if (v) { d += (on ? "L" : "M") + x.toFixed(1) + "," + y.toFixed(1); on = true } else on = false } return d };
+  let land = ""; for (const g of flyRings()) land += line(g);
+  const rt = []; for (let i = 0; i <= 80; i++) rt.push(gc(a, b, i / 80));
+  const dot = (q, c, s, t) => { const [x, y, v] = pr(q); return v ? `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${s}" class="${c}"/>` + (t ? `<text x="${x.toFixed(1)}" y="${(y - 5).toFixed(1)}" text-anchor="middle">${esc(t)}</text>` : "") : "" };
+  return `<svg class="flyglobe" viewBox="-104 -104 208 208" role="img" aria-label="מסלול הטיסה על כדור הארץ"><circle r="100" class="sea"/><path class="gl" d="${land}"/><path class="rt" d="${line(rt)}"/>${dot(a, "pa", 2.5)}${dot(b, "pa", 2.5)}${dot(J, "pj", 3, "ירושלים")}${p ? dot(p, "pp", 4) : ""}</svg>`;
+}
+/* זמן טיסה משוער לפי המרחק: מהירות שיוט ממוצעת כ-830 קמ״ש ועוד כחצי שעה להמראה ולנחיתה */
+const flyEstMin = (a, b) => Math.round(dist(a, b) / 830 * 60 + 30);
+function flyPrev() {
+  const a = flyPlace($("flyA").value), b = flyPlace($("flyB").value), t = $("flyEstTxt");
+  if (!a || !b) { t.textContent = ""; if (!FLY.on) $("flyGlobe").innerHTML = ""; return }
+  const mn = flyEstMin(a, b);
+  t.innerHTML = `מרחק: ${Math.round(dist(a, b)).toLocaleString("he-IL")} ק״מ · זמן טיסה משוער: כ-${Math.floor(mn / 60)}:${String(mn % 60).padStart(2, "0")} שעות <button id="flyEst" type="button">קבע נחיתה לפי ההערכה</button> <small>(הזמן בפועל תלוי ברוחות ובנתיב)</small>`;
+  $("flyEst").onclick = () => { const t0 = Date.parse($("flyT0").value); if (!isFinite(t0)) return; const d = new Date(t0 + mn * 6e4); $("flyT1").value = new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 16) };
+  if (!FLY.on) $("flyGlobe").innerHTML = flyGlobe(a, b, null);
 }
 function flyStart() {
   const a = flyPlace($("flyA").value), b = flyPlace($("flyB").value), t0 = Date.parse($("flyT0").value), t1 = Date.parse($("flyT1").value), m = $("flyMsg");
@@ -161,6 +188,7 @@ function flyStop() { if (O) O.call("notifications.cancelAll").catch(() => {}); $
   const loc = d => new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 16), n = new Date();
   $("flyT0").value = loc(n); $("flyT1").value = loc(new Date(+n + 4 * 36e5));
   $("bFly").onclick = () => pop("bFly", "fly", $("fly").hidden);
+  for (const k of ["flyA", "flyB"]) { $(k).addEventListener("change", flyPrev); $(k).addEventListener("input", flyPrev) }
   $("flyGo").onclick = flyStart; $("flyStop").onclick = flyStop; $("flyUpd").onclick = flyUpdate; $("flyNow").onclick = flyTakeoff;
   $("flyCopy").onclick = () => { const t = flyText(); if (t) copyText(t).then(ok => $("flyMsg").textContent = ok ? "הלוח הועתק. אפשר להדביק בכל מקום." : "ההעתקה לא הצליחה.") };
   $("flyPrint").onclick = flyPrint;
@@ -172,5 +200,6 @@ function flyStop() { if (O) O.call("notifications.cancelAll").catch(() => {}); $
     let v = null;
     try { v = O ? dat(await O.call("storage.get", { key: "kivun-fly" })) : localStorage.getItem("kivun-fly"); v = typeof v === "string" ? JSON.parse(v) : v } catch (e) { v = null }
     if (v && typeof v === "object") { $("flyA").value = v.a || ""; $("flyB").value = v.b || ""; if (v.t0) $("flyT0").value = v.t0; if (v.t1) $("flyT1").value = v.t1; $("flyAlt").checked = !!v.alt; if (v.h) $("flyH").value = v.h; if (v.hu) $("flyHU").value = v.hu }
+    flyPrev();
   })();
 })();
