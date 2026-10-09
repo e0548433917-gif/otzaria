@@ -225,7 +225,9 @@ $("prayX").onclick = () => prayOpen(false);
 addEventListener("keydown", e => { if (e.key === "Escape" && !$("pray").hidden) prayOpen(false) });
 $("stSynNear").onclick = synNearest;
 $("bPrint").onclick = printSheet;
-$("bHal").onclick = () => pop("bHal", "hal", $("hal").hidden);
+$("bHal").onclick = () => {
+  if (pos) $("halHere").textContent = `במקום שלך: הקו הקצר ${Math.round(bearing(pos, J))}°, הכיוון הקבוע ${Math.round(rhumb(pos, J))}° (מהצפון, עם כיוון השעון).`;
+  pop("bHal", "hal", $("hal").hidden) };
 $("pcGo").onclick = pcFind;
 $("pc").onkeydown = e => { if (e.key === "Enter") pcFind() };
 $("mapMode").addEventListener("change", () => { ST.synSel = null });
