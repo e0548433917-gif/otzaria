@@ -148,12 +148,13 @@ function stText(){const t=$("stTxt");if(!ST.sel){t.textContent=ST.setHere?"לח�
  t.textContent=`עמוד במקביל ל${n}, כשפניך לאורך הרחוב לכיוון ${nm(sd)}, ${turnS}`+(Math.abs(Math.abs(d)-90)<8?` (כמעט ניצב לרחוב: פנים אל הבתים שבצד ה${nm(b)} שלו.)`:"")}
 function stClick(ev){if(!ST.area||!pos)return;const svg=$("map"),pt=svg.createSVGPoint();pt.x=ev.clientX;pt.y=ev.clientY;
  const c=pt.matrixTransform(svg.getScreenCTM().inverse()),v=stView();
- if(ST.setHere){const[rx,ry]=stRot((c.x-200)*v.hw/200,(160-c.y)*v.hh/160,-ST.rot),x=rx+v.cx,y=ry+v.cy,[kx,ky]=stM(),np=[pos[0]+y/ky,pos[1]+x/kx];
+ let best=null;if(!ST.setHere)ST.area.w.forEach(([,,g],i)=>{for(let k=0;k+3<g.length;k+=2){const q=stXY(v,g[k],g[k+1]),p=stXY(v,g[k+2],g[k+3]),dx=p[0]-q[0],dy=p[1]-q[1],
+  u=Math.max(0,Math.min(1,((c.x-q[0])*dx+(c.y-q[1])*dy)/(dx*dx+dy*dy||1))),dd=Math.hypot(q[0]+u*dx-c.x,q[1]+u*dy-c.y);if(!best||dd<best[0])best=[dd,i,k]}});
+ /* לחיצה על נקודה שאינה על רחוב (בין הרחובות) קובעת שם את המיקום */
+ if(ST.setHere||!(best&&best[0]<14)){const[rx,ry]=stRot((c.x-200)*v.hw/200,(160-c.y)*v.hh/160,-ST.rot),x=rx+v.cx,y=ry+v.cy,[kx,ky]=stM(),np=[pos[0]+y/ky,pos[1]+x/kx];
   ST.setHere=false;$("stHere").classList.remove("on");ST.pan=[0,0];zoomKeep(()=>setPos(np,"נקודה שסומנה במפת הרחובות",null,false));
   mode="m:"+np[0].toFixed(6)+","+np[1].toFixed(6);save(mode);return}
- let best=null;ST.area.w.forEach(([,,g],i)=>{for(let k=0;k+3<g.length;k+=2){const q=stXY(v,g[k],g[k+1]),p=stXY(v,g[k+2],g[k+3]),dx=p[0]-q[0],dy=p[1]-q[1],
-  u=Math.max(0,Math.min(1,((c.x-q[0])*dx+(c.y-q[1])*dy)/(dx*dx+dy*dy||1))),dd=Math.hypot(q[0]+u*dx-c.x,q[1]+u*dy-c.y);if(!best||dd<best[0])best=[dd,i,k]}});
- if(best&&best[0]<14){ST.sel={i:best[1],k:best[2]};streetMap()}}
+{ST.sel={i:best[1],k:best[2]};streetMap()}}
 /* חיפוש רחוב: מסמן את הקטע הארוך ביותר שלו, מזיז אליו את המפה ונותן הוראה */
 function stNames(){const d=$("stNames");if(!d||!ST.area)return;const n=[...new Set(ST.area.w.map(x=>stNm(x[0])).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"he"));
  d.replaceChildren(...n.map(x=>{const o=document.createElement("option");o.value=x;return o}))}
