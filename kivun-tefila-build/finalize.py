@@ -67,7 +67,7 @@ if miss: planned.append("אזורים מובנים נוספים: " + ", ".join(m
 wantvac2 = ["חספין", "עין גב", "מעלות", "שלומי", "מטולה", 'נווה אטי"ב', "עין גדי", "מצפה רמון", "ארוזה (שווייץ)", "דאבוס", "לוגאנו", "מיאמי ביץ'", "דיל (ניו ג'רזי)", "מונטיצ'לו (הקטסקילס)"]
 missv += [n for n in wantvac2 if n not in got]
 if missv: planned.append("אזורי נופש: " + ", ".join(missv) + ".")
-else: planned.append("מצב טיסה: הכיוון לירושלים וזמני היום לאורך הטיסה.")
+else: planned.append("רקע של הכותל מתמונה אמיתית.")
 if not pc["f"]: planned.append("חיפוש לפי מיקוד בארץ.")
 if not (pc["x"] or pc["y"]): planned.append("חיפוש לפי מיקוד בריכוזי הקהילה בחו״ל.")
 li = "".join(f"<li>{p}</li>" for p in planned)
