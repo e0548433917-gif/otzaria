@@ -57,11 +57,14 @@ function prayOpen(o) {
 }
 
 /* ---- הדפסת דף כיוון ---- */
-function printSheet() {
+/* הדפסה: דף כיוון עם מפת האזור שנבחר (הרחובות סביבי, כשיש מפה) והקו המקווקו לירושלים */
+function printSheet(again) {
   if (!pos) return;
+  if (!again && $("mapMode").value !== "street" && typeof ST !== "undefined" && ST.area) { $("mapMode").value = "street"; map(); return setTimeout(() => printSheet(true), 500) }
+  let lab = src; try { lab = stLabel() || src } catch (e) {}
   const b = bear(), when = new Date().toLocaleDateString("he-IL");
-  $("printHead").innerHTML = `<h1>כיוון התפילה לירושלים</h1><p><b>${esc(src || "המיקום")}</b> (${pos[0].toFixed(5)}, ${pos[1].toFixed(5)})</p>`
-    + `<p class="pbig">${Math.round(b)}° מהצפון · ${esc(nm(b))}</p><p>${esc($("stTxt").textContent || "")}</p><p><small>הודפס ב-${when} מתוך התוסף "כיוון תפילה" לאוצריא. החישוב אל הר הבית; בשאלה מעשית יש להתייעץ עם רב.</small></p>`;
+  $("printHead").innerHTML = `<h1>כיוון התפילה לירושלים</h1><p><b>${esc(lab || "המיקום")}</b> (${pos[0].toFixed(5)}, ${pos[1].toFixed(5)})</p>`
+    + `<p class="pbig">${Math.round(b)}° מהצפון · ${esc(nm(b))}</p><p>${esc($("stTxt").textContent || "")}</p><p><small>במפה: הנקודה השחורה היא המקום, והקו המקווקו מוביל לכיוון ירושלים. הודפס ב-${when} מתוך התוסף "כיוון תפילה" לאוצריא. החישוב אל הר הבית; בשאלה מעשית יש להתייעץ עם רב.</small></p>`;
   try { window.print() } catch (e) { $("stMsg").textContent = "ההדפסה אינה זמינה כאן." }
 }
 
@@ -228,7 +231,7 @@ $("bPray").onclick = () => prayOpen(true);
 $("prayX").onclick = () => prayOpen(false);
 addEventListener("keydown", e => { if (e.key === "Escape" && !$("pray").hidden) prayOpen(false) });
 $("stSynNear").onclick = synNearest;
-$("bPrint").onclick = printSheet;
+$("bPrint").onclick = () => printSheet();
 $("bHal").onclick = () => {
   if (pos) $("halHere").textContent = `במקום שלך: הקו הקצר ${Math.round(bearing(pos, J))}°, הכיוון הקבוע ${Math.round(rhumb(pos, J))}° (מהצפון, עם כיוון השעון).`;
   pop("bHal", "hal", $("hal").hidden) };

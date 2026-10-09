@@ -17,9 +17,9 @@ def areas_of(txt):
 
 
 main = areas_of(show("kivun-streets-build", "kivun/streets-data.js"))
-vac = areas_of(show("kivun-vacation-build", "kivun/streets-data.js")) + areas_of(show("kivun-vacation2-build", "kivun/streets-data.js")) + areas_of(show("kivun-vacation3-build", "kivun/streets-data.js")) + areas_of(show("kivun-vacation4-build", "kivun/streets-data.js"))
+vac = areas_of(show("kivun-small-build", "kivun/streets-data.js")) + areas_of(show("kivun-vacation-build", "kivun/streets-data.js")) + areas_of(show("kivun-vacation2-build", "kivun/streets-data.js")) + areas_of(show("kivun-vacation3-build", "kivun/streets-data.js")) + areas_of(show("kivun-vacation4-build", "kivun/streets-data.js"))
 names = {a["name"] for a in main}
-allareas = main + [a for a in vac if a["name"] not in names]
+allareas = main + [a for a in vac if a["name"] not in names and not names.add(a["name"])]  # שם כפול: הראשון (יישובים קטנים) גובר
 wide = {a["name"]: a for a in areas_of(show("kivun-abroad-wide", "kivun/streets-data.js"))}
 allareas = [wide.get(a["name"], a) for a in allareas]  # חו"ל: רדיוס מורחב
 head = "/* רחובות מובנים: © OpenStreetMap contributors, ODbL. */"
