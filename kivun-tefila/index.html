@@ -85,7 +85,7 @@ body.hascompass #bPray{display:inline-block}
 body.mapfull #map{position:fixed;inset:var(--bar-h,2.6rem) 0 0 0;width:100%;height:calc(100vh - var(--bar-h,2.6rem));max-height:none;z-index:30;border-radius:0;border:0}
 #mapFullBar{position:fixed;top:calc(var(--bar-h,2.6rem) + .5rem);inset-inline-end:.5rem;z-index:31;display:flex;gap:.3rem;flex-wrap:wrap}
 #mapFullBar[hidden],#fTxt[hidden],#fLoc[hidden]{display:none}
-#fLoc{position:fixed;top:calc(var(--bar-h,2.6rem) + .5rem);inset-inline-start:3rem;z-index:31;max-width:min(26rem,45vw);background:var(--color-surface);border:1px solid var(--color-primary);border-radius:999px;padding:.3rem .9rem;font-weight:700;box-shadow:0 2px 8px color-mix(in srgb,var(--color-on-surface) 18%,transparent)}
+#fLoc{position:fixed;top:calc(var(--bar-h,2.6rem) + .5rem);inset-inline-start:3rem;z-index:31;max-width:min(26rem,45vw);background:var(--color-surface);border:1px solid var(--color-primary);border-radius:var(--radius-pill);padding:.3rem .9rem;font-weight:700;box-shadow:0 2px 8px color-mix(in srgb,var(--color-on-surface) 18%,transparent)}
 /* במסך מלא: שורת הסיבוב והכפתורים שמתחת למפה צפה בתחתית, כמו השורה העליונה */
 body.mapfull #stRotRow{position:fixed;bottom:.5rem;left:50%;transform:translateX(-50%);z-index:31;margin:0;max-width:96vw;flex-wrap:wrap;justify-content:center;gap:.3rem}
 body.mapfull #stRotRow[hidden]{display:none}
