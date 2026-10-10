@@ -12,6 +12,7 @@ function globeMap() {
   const pr = q => { const f = q[0] * R, l = q[1] * R - l0; return [cx + r * Math.cos(f) * Math.sin(l), cy - r * (Math.cos(c0) * Math.sin(f) - Math.sin(c0) * Math.cos(f) * Math.cos(l)), Math.sin(c0) * Math.sin(f) + Math.cos(c0) * Math.cos(f) * Math.cos(l) > 0] };
   const line = pts => { let d = "", on = false; for (const q of pts) { const [x, y, v] = pr(q); if (v) { d += (on ? "L" : "M") + x.toFixed(1) + "," + y.toFixed(1); on = true } else on = false } return d };
   let land = ""; for (const g of flyRings()) land += line(g);
+  if (typeof RIVERS_PATH !== "undefined") { GL.w = GL.w || [RIVERS_PATH, LAKES_PATH].map(t => t.split("M").filter(Boolean).map(s => s.replace(/Z/g, "").split("L").map(q => { const [x, y] = q.split(",").map(Number); return [-y, x] }))); var wat = GL.w.map(rs => rs.map(line).join("")) }
   let grat = ""; for (let lo = -180; lo < 180; lo += 30) { const p = []; for (let la = -90; la <= 90; la += 5) p.push([la, lo]); grat += line(p) }
   for (let la = -60; la <= 60; la += 30) { const p = []; for (let lo = -180; lo <= 180; lo += 5) p.push([la, lo]); grat += line(p) }
   const g = []; for (let i = 0; i <= 96; i++) g.push(gc(pos, J, i / 96));
@@ -22,6 +23,7 @@ function globeMap() {
   let h = `<circle cx="${cx}" cy="${cy}" r="${r.toFixed(1)}" fill="var(--color-surface-container-highest)" stroke="var(--color-outline)"/>`
     + `<path d="${grat}" fill="none" stroke="var(--color-outline)" stroke-width=".4" opacity=".6"/>`
     + `<path d="${land}" fill="none" stroke="var(--color-on-surface-dim)" stroke-width=".7"/>`
+    + (wat ? `<path d="${wat[1]}" fill="none" stroke="#5b9bd5" stroke-width=".8"/><path d="${wat[0]}" fill="none" stroke="#5b9bd5" stroke-opacity=".8" stroke-width=".7"/>` : "")
     + `<path d="${line(g)}" fill="none" ${st("gc")}/><path d="${line(rh)}" fill="none" ${st("rh")}/>`;
   if (typeof FLY !== "undefined" && FLY.on && FLY.A0) {
     const fr = []; for (let i = 0; i <= 80; i++) fr.push(gc(FLY.A0, FLY.b, i / 80));

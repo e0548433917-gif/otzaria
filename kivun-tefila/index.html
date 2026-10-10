@@ -411,6 +411,7 @@ body.mapfull #stRotRow .sep{display:none}
 <p class="foot"><small><span id="stHint" hidden>גרירה מזיזה · לחיצה על רחוב בוחרת אותו · לחיצה בין רחובות קובעת מיקום · לחיצה ארוכה: "אני עומד כאן"<br></span>החישוב אל הר הבית לפי השיטה שנבחרה. בשאלה מעשית יש להתייעץ עם רב.</small></p>
 </main>
 <script src="world.js"></script>
+<script src="geo.js"></script>
 <script>const VER="2.0.2"</script>
 <script>
 const J=[31.7781,35.2359],R=Math.PI/180,O=window.Otzaria;
@@ -493,7 +494,7 @@ function map(){const b=bear(),near=$("mapMode").value==="near";let pts=[],x0,x1,
  const s=Math.min(380/(x1-x0),300/(y1-y0)),ox=200-(x1-x0)*s/2,oy=160-(y1-y0)*s/2,
   P=p=>[ox+(p[1]-x0)*s,oy+(y1-p[0])*s].map(v=>v.toFixed(1)),a=P(pos),
   M=`matrix(${s},0,0,${s},${ox-x0*s},${oy+y1*s})`,small=(x1-x0)<45&&typeof REGION_PATH!=="undefined";
- let h=typeof WORLD_PATH!=="undefined"?`<g transform="${M}"><path class="land" vector-effect="non-scaling-stroke" d="${WORLD_PATH}"/>${small?`<path class="land" vector-effect="non-scaling-stroke" d="${REGION_PATH}"/>`:""}</g>`:"";
+ let h=typeof WORLD_PATH!=="undefined"?`<g transform="${M}"><path class="land" vector-effect="non-scaling-stroke" d="${WORLD_PATH}"/>${small?`<path class="land" vector-effect="non-scaling-stroke" d="${REGION_PATH}"/>`:""}${typeof LAKES_PATH!=="undefined"?`<path vector-effect="non-scaling-stroke" fill="#5b9bd5" fill-opacity=".25" stroke="#5b9bd5" stroke-width=".6" d="${LAKES_PATH}"/><path vector-effect="non-scaling-stroke" fill="none" stroke="#5b9bd5" stroke-opacity=".8" stroke-width=".9" d="${RIVERS_PATH}"/>${small?`<path vector-effect="non-scaling-stroke" fill="none" stroke="#c08a3e" stroke-opacity=".75" stroke-width=".8" d="${ROADS_PATH}"/>`:""}`:""}</g>`:"";
  const T=(p,t,c)=>`<text x="${p[0]}" y="${p[1]-8}" text-anchor="middle" font-size="12" fill="var(--color-${c})">${t}</text>`;
  if(near){const e=P(arrow);h+=`<line x1="${a[0]}" y1="${a[1]}" x2="${e[0]}" y2="${e[1]}" stroke="var(--color-primary)" stroke-width="3"/><circle cx="${e[0]}" cy="${e[1]}" r="6" fill="var(--color-primary)"/>`+T(e,"לירושלים","on-surface");
   for(const d of dots){const q=P([d[1],d[2]]);h+=`<circle cx="${q[0]}" cy="${q[1]}" r="3.5" fill="var(--color-on-surface-dim)"/>`+T(q,d[0],"on-surface-dim")}}
