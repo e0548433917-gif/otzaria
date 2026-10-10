@@ -84,7 +84,7 @@ async function viewRestore() {
   try { v = O ? dat(await O.call("storage.get", { key: "kivun-view" })) : localStorage.getItem("kivun-view") } catch (e) {}
   try { v = typeof v === "string" ? JSON.parse(v) : v } catch (e) { v = null }
   if (v && typeof v === "object") {
-    if (["street", "near", "far"].includes(v.m)) $("mapMode").value = v.m;
+    if (["street", "near", "far", "globe"].includes(v.m)) $("mapMode").value = v.m;
     if (isFinite(v.r)) ST.rot = v.r;
     if (isFinite(v.z) && v.z > 0) zoom = v.z;
     viewLast = JSON.stringify(v);
@@ -252,6 +252,7 @@ async function prayLoad() { try { prayPref = O ? dat(await O.call("storage.get",
 $("prayShow").onchange = () => { prayPref = $("prayShow").checked ? "1" : "0"; try { O ? O.call("storage.set", { key: "kivun-pray", value: prayPref }).catch(() => {}) : localStorage.setItem("kivun-pray", prayPref) } catch (e) {} prayBtn() };
 if (!O) prayLoad();
 const FORUM_URL = "https://tora-forum.co.il/threads/%D7%9C%D7%90%D7%99%D7%96%D7%94-%D7%A6%D7%93-%D7%9E%D7%AA%D7%A4%D7%9C%D7%9C%D7%99%D7%9D-%D7%91%D7%90%D7%99%D7%99-%D7%94%D7%95%D7%95%D7%90%D7%99.5898/";
+document.querySelectorAll("button.fl").forEach(b => b.onclick = () => { copyText(b.dataset.u); let w = null; try { w = window.open(b.dataset.u, "_blank", "noopener") } catch (x) {} if (!w && O) O.call("app.openUrl", { url: b.dataset.u }).catch(() => {}); $("halForumMsg").textContent = "הכתובת הועתקה ללוח." });
 $("halForum").onclick = () => { copyText(FORUM_URL).then(ok => $("halForumMsg").textContent = ok ? "הכתובת הועתקה ללוח." : FORUM_URL); let w = null; try { w = window.open(FORUM_URL, "_blank", "noopener") } catch (e) {} if (!w && O) O.call("app.openUrl", { url: FORUM_URL }).catch(() => {}) };
 if (!O) extrasBoot();
 

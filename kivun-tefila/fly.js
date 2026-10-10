@@ -150,7 +150,7 @@ function flyStart() {
   if (t1 - t0 > 22 * 36e5) { m.textContent = "טיסה ארוכה מ-22 שעות? כדאי לבדוק את התאריכים."; return }
   m.textContent = ""; Object.assign(FLY, { a, b, A0: a, t0, t1, T0: t0, on: true, alt: $("flyAlt").checked, altKm: null, altAt: 0, re: false }); flyReadAlt();
   try { const v = JSON.stringify({ a: $("flyA").value, b: $("flyB").value, t0: $("flyT0").value, t1: $("flyT1").value, alt: FLY.alt, h: $("flyH").value, hu: $("flyHU").value }); O ? O.call("storage.set", { key: "kivun-fly", value: v }).catch(() => {}) : localStorage.setItem("kivun-fly", v) } catch (e) {}
-  $("mapMode").value = "far"; flyDraw(); clearInterval(FLY.T); FLY.T = setInterval(flyDraw, 60000); $("flyStop").hidden = false;
+  $("mapMode").value = "globe"; flyDraw(); clearInterval(FLY.T); FLY.T = setInterval(flyDraw, 60000); $("flyStop").hidden = false;
 }
 /* גובה שהוזן ידנית (מהמסך במושב): ברגל או במטרים */
 function flyReadAlt() { const v = parseFloat($("flyH").value); if (isFinite(v) && v > 0) { FLY.altKm = $("flyHU").value === "ft" ? v * .0003048 : v / 1000; FLY.altAt = Date.now() } else FLY.altKm = null }

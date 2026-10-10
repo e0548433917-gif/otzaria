@@ -47,6 +47,8 @@ small{color:var(--color-on-surface-dim)}
 .feat ul{margin:.1rem 0 .4rem;padding-inline-start:1.2rem}.feat p{margin:.4rem 0 0}
 .hal li{margin:.35rem 0}#fly.pop{overflow-y:auto}#fly h3{font-size:1rem;margin:.6rem 0 .2rem}.flybig{font-size:1.15rem;font-weight:700;color:var(--color-primary);margin:.4rem 0}.halt{border-collapse:collapse;margin:.2rem 0;font-size:.9rem}.halt td,.halt th{border:1px solid var(--color-outline);padding:.1rem .5rem;text-align:center}
 .flyglobe{width:min(100%,300px);display:block;margin:.4rem auto}.flyglobe .sea{fill:var(--color-surface-container-highest)}.flyglobe .gl{fill:none;stroke:var(--color-on-surface-dim);stroke-width:.5}.flyglobe .rt{fill:none;stroke:var(--color-primary);stroke-width:1.6;stroke-dasharray:4 2}.flyglobe .pj{fill:var(--color-primary)}.flyglobe .pp{fill:var(--color-on-surface);stroke:var(--color-bg)}.flyglobe .pa{fill:var(--color-outline)}.flyglobe text{font-size:.45rem;fill:var(--color-on-surface)}
+details.sd{margin:.4rem 0}details.sd>summary{cursor:pointer;padding:.2rem 0}
+.hsec{border:1px solid var(--color-outline);border-radius:.5rem;padding:.3rem .6rem;margin:.5rem 0}.hsec h3{font-size:1rem;margin:.2rem 0}.hsec blockquote{margin:.3rem 0;padding-inline-start:.6rem;border-inline-start:3px solid var(--color-primary)}
 button.src{padding:.05rem .4rem;font-size:.8rem;margin:.1rem 0}
 /* מצב תפילה: רק במכשירי מגע (טלפון, טאבלט), שם יש מצפן */
 
@@ -123,6 +125,7 @@ body.mapfull #stRotRow .sep{display:none}
   <button id="bPray" title="חץ גדול לירושלים בלבד" hidden>מצב תפילה</button>
   <button id="bHelp" aria-expanded="false" aria-controls="help" title="זיהוי הכיוון לפי שמש, צל, כוכב הצפון ומקום מוכר">זיהוי ידני</button>
   <button id="bSet" aria-expanded="false" aria-controls="set">הגדרות</button>
+  <button id="bLang" title="English / עברית" aria-label="English / עברית">E</button>
   <button id="bFb" aria-expanded="false" aria-controls="fb">הארות</button>
   <div id="fb" class="pop" hidden>
     <label>סוג: <select id="fbType"><option value="bug">תקלה</option><option value="content">טעות בכיוון או בעיר</option><option value="other">הצעה או אחר</option></select></label>
@@ -131,7 +134,8 @@ body.mapfull #stRotRow .sep{display:none}
   </div>
   <div id="set" class="pop" hidden>
     <div class="row"><button id="setDl">הורד את האזור של המיקום הנוכחי (פעם אחת, עם אינטרנט)</button></div>
-    <h2 style="font-size:1.1rem;margin:.25rem 0">מפת רחובות — גם בלי אינטרנט</h2>
+    <details class="sd"><summary><b>מפת רחובות — גם בלי אינטרנט (הסבר)</b></summary>
+    
     <p>בתצוגת "הרחובות סביבי" רואים את הרחובות סביבך עם שמותיהם, ואת הקו לירושלים. לוחצים על הרחוב שלידך, ומקבלים הוראה כמו "עמוד במקביל לרחוב, כשפניך לכיוון צפון, והסתובב 23° ימינה". כך אפשר לכוון בלי מצפן, במחשב או בטלפון.</p>
     <p><strong>ריכוזי הקהילה ואזורי הנופש מובנים בתוסף</strong> (שכונות ירושלים, בני ברק, בית שמש, מודיעין עילית, ביתר, אלעד, ברוקלין, לייקווד, לונדון ועוד; ומקומות נופש כמו מירון, צפת, טבריה, הגולן, ים המלח, אילת והקטסקילס) ועובדים בלי אינטרנט כבר מההתקנה.</p>
     <p><strong>לכל מקום אחר, פעם אחת צריך אינטרנט, ואחר כך לא.</strong> כשבוחרים מיקום, לוחצים "הורד את האזור". הרחובות שברדיוס שנבחר נשמרים במחשב, ומאותו רגע האזור עובד בלי אינטרנט בכלל. אפשר לשמור כמה אזורים (בית, ישיבה, הורים).</p>
@@ -141,16 +145,16 @@ body.mapfull #stRotRow .sep{display:none}
       <li>הדפדפן מציג טקסט ארוך. שומרים אותו כקובץ (Ctrl+S, או "שמירה בשם").</li>
       <li>מעבירים את הקובץ למחשב הזה אם צריך (למשל בדיסק און קי), ולוחצים כאן "טען קובץ". הקובץ נשמר בתוסף, ואין צורך לשמור עליו אחר כך.</li>
     </ol>
+    </details>
     <div class="setrow"><label>רדיוס להורדה: <select id="stRad"><option value="700">700 מ' (קטן ומהיר)</option><option value="1500">1.5 ק"מ</option><option value="3000">3 ק"מ (שכונות סמוכות)</option></select></label></div>
     <div class="setrow"><label>שמות רחובות בחו"ל: <select id="stLang"><option value="he">תעתיק לעברית</option><option value="orig">בשפת המקום (אנגלית וכו׳)</option></select></label></div>
     <p><strong>טיפים:</strong> לחיצה בין הרחובות קובעת שם את המיקום, ולחיצה ארוכה על מפת הרחובות מסמנת "אני עומד כאן" ומסובבת את המפה כך שירושלים למעלה. גרירה מזיזה את המפה, גלגלת מגדילה, ו-Shift + גלגלת מסובבת. בשדה "חיפוש רחוב" אפשר להקליד שם רחוב ולקבל הוראה לפיו.</p>
     <p id="stEmb"></p>
-    <h2 style="font-size:1.1rem;margin:.75rem 0 .25rem">מתוכנן בגרסאות הבאות</h2>
-    <ul id="planned"><li>הצעות מהפורום יתווספו כאן.</li></ul>
+    <details class="sd"><summary><b>מתוכנן בגרסאות הבאות</b></summary>
+    <ul id="planned"><li>הצעות מהפורום יתווספו כאן.</li></ul></details>
     <p style="margin:.75rem 0 .25rem"><strong>אזורים שהורדת:</strong></p>
     <ul id="stList"></ul>
-    <h2 style="font-size:1.1rem;margin:.75rem 0 .25rem">כל היכולות של התוסף</h2>
-    <details class="feat"><summary>הצג את הרשימה המלאה</summary>
+    <details class="feat sd"><summary><b>כל היכולות של התוסף</b></summary>
      <p><b>מיקום</b></p><ul>
       <li>זיהוי מיקום אוטומטי (כשאוצריא מאפשרת), ובחירה לפי העיר שמוגדרת בלוח השנה של אוצריא.</li>
       <li>רשימת ריכוזי קהילה בארץ ובעולם, שכונות ירושלים, וכל עיר מלוח השנה.</li>
@@ -184,8 +188,8 @@ body.mapfull #stRotRow .sep{display:none}
       <li>מתאים את עצמו לערכת הנושא של אוצריא, כולל מצב כהה; חלוניות צד שאינן מכסות את החוגה והמפה; ממשק שנכנס גם במסך 13.3 אינץ׳ ובטלפון.</li>
       <li>חלונית "מה חדש" אחרי כל עדכון, וטיפים בהגדרות.</li></ul>
     </details>
-    <h2 style="font-size:1.1rem;margin:.75rem 0 .25rem">מה חדש</h2>
-    <details open><summary><b>2.0.2</b></summary><ul>
+    <details class="sd"><summary><b>מה חדש</b></summary>
+        <details open><summary><b>2.0.2</b></summary><ul>
      <li><b>מצב תפילה:</b> הכפתור מופיע מעצמו רק במכשיר עם מצפן מובנה (טלפון או טאבלט אנדרואיד); בשאר המכשירים מפעילים אותו בהגדרות. מתחת לחץ נוסף הסבר.</li>
      <li><b>״הארות״ חזר לשורה העליונה.</b></li>
      <li><b>ברירת המחדל: כיוון קבוע על המפה.</b> את הקו הקצר על הכדור בוחרים בשורה העליונה.</li>
@@ -279,6 +283,7 @@ body.mapfull #stRotRow .sep{display:none}
     <details><summary><b>1.1.0 ו-1.0.0</b></summary><ul>
      <li>מפת רחובות עם הורדה אחת לכל אזור; מצפן המכשיר מיד בפתיחה.</li>
      <li>חוגה, שתי שיטות חישוב, מפות הסביבה ועד ירושלים, וזיהוי ידני לפי שמש, צל, כוכב הצפון ומקום מוכר.</li></ul></details>
+    </details>
     <p>הגרסה העדכנית תמיד בחנות התוספים של אוצריא, וגם כאן: <button id="dlLink">דף ההורדה של כיוון תפילה</button></p>
     <div class="setrow"><label><span><input type="checkbox" id="prayShow"> כפתור ״מצב תפילה״ בשורה העליונה</span></label> <small>(מופעל מעצמו רק כשמתגלה מצפן מובנה במכשיר)</small></div>
     <div class="row"><button id="newsAgain">הצג שוב את חלונית "מה חדש"</button><button id="setFb">יש לך הערה? שלח הארה</button></div>
@@ -305,26 +310,39 @@ body.mapfull #stRotRow .sep{display:none}
     <div id="flyOut"></div>
   </div>
   <div id="hal" class="pop" hidden>
-    <h2 style="font-size:1.1rem;margin:.25rem 0">הלכות כיוון התפילה (מראי מקומות)</h2>
-    <ul class="hal">
-     <li>העומד בחוץ לארץ מכוון את לבו כנגד ארץ ישראל; בארץ ישראל כנגד ירושלים; בירושלים כנגד המקדש. <button class="src" data-q="ברכות" data-r="ל א">תלמוד בבלי, ברכות ל ע״א</button> <button class="src" data-q="שולחן ערוך אורח חיים" data-r="צד">שולחן ערוך, אורח חיים סימן צד</button> <button class="src" data-q="הלכות תפילה ונשיאת כפים|תפילה ונשיאת כפים|משנה תורה תפילה" data-r="ה">רמב״ם, הלכות תפילה פרק ה</button></li>
-     <li>מי שאינו יכול לכוון את הרוחות, יכוון את לבו לאביו שבשמים. <button class="src" data-q="שולחן ערוך אורח חיים" data-r="צד">שולחן ערוך, שם</button></li>
-     <li><b>שתי שיטות החישוב בתוסף:</b> "הקו הקצר על הכדור" הוא הכיוון של הדרך הקצרה ביותר על פני כדור הארץ; "כיוון קבוע על המפה" הוא קו שזווית הכיוון שלו קבועה לאורך כל הדרך, כפי שהוא נראה על מפה שטוחה. בארץ ההבדל זניח; בחו״ל הוא עשוי להגיע לעשרות מעלות (למשל בצפון אמריקה), ויש בזה דיון בפוסקים.</li>
-     <li><b>הסבר מורחב: הקו הקצר על הכדור או קו ישר על המפה</b> (הסבר בלבד, לא פסיקה).
-      <p style="margin:.3rem 0">הגמרא אומרת שהעומד בחוץ לארץ מכוון את לבו "כנגד" ארץ ישראל (ברכות ל ע״א, וכן ברמב״ם ובשולחן ערוך שלמעלה). כשמדובר במרחק גדול נשאלת השאלה מה פירוש "כנגד", כי על כדור יש שני קווים שכל אחד מהם נקרא "ישר":</p>
-      <ol style="margin:.2rem 0;padding-inline-start:1.3rem">
-       <li><b>הקו הקצר על הכדור</b> (מעגל גדול): הדרך הקצרה ביותר בפועל על פני כדור הארץ, כמו נתיב טיסה. הכיוון שבו מתחילים ללכת משתנה לאורך הדרך.</li>
-       <li><b>כיוון קבוע על המפה</b> (קו לוקסודרומי): שומרים על אותה זווית מהצפון כל הדרך. במפה שטוחה רגילה הוא נראה קו ישר, אבל בפועל זו דרך ארוכה יותר.</li></ol>
-      <p style="margin:.3rem 0">בארץ ההבדל זניח. ככל שמתרחקים, ובעיקר בקווי רוחב צפוניים, הוא גדל:</p>
-      <table class="halt"><tr><th>מקום</th><th>קו קצר</th><th>כיוון קבוע</th></tr>
-       <tr><td>בני ברק</td><td>132°</td><td>132°</td></tr><tr><td>לונדון</td><td>114°</td><td>127°</td></tr>
-       <tr><td>ניו יורק</td><td>54°</td><td>96°</td></tr><tr><td>לוס אנג׳לס</td><td>24°</td><td>91°</td></tr><tr><td>מלבורן</td><td>287°</td><td>304°</td></tr></table>
-      <p id="halHere" style="margin:.3rem 0;font-weight:600"></p>
-      <p style="margin:.3rem 0">הנושא נדון אצל הפוסקים האחרונים, ונהגו בו בדרכים שונות. בשאלה מעשית יש לשאול רב. את השיטה בוחרים בשורה העליונה של התוסף (ברירת המחדל: כיוון קבוע).</p></li>
-     <li><b>מי שעומד בדיוק מול ירושלים בצד השני של הכדור</b> (נקודת הנגד, באוקיינוס השקט, כ-20,000 ק״מ): לפי הקו הקצר על הכדור כל כיוון מוביל לירושלים באותו מרחק, כך שהשיטה הזו אינה נותנת כיוון; וגם בסביבת הנקודה הזו תזוזה קטנה משנה מאוד את הכיוון. לפי הכיוון הקבוע על המפה יש כיוון מוגדר. מה עושים למעשה היא שאלה לרב.</li>
-     <li><b>איי הוואי וקו התאריך:</b> בהונולולו הקו הקצר על הכדור פונה כמעט צפונה (346°); בכיוון קבוע על המפה, מערבה דרך קו התאריך (274°) הדרך קצרה יותר, ומזרחה בלי לחצות את קו התאריך (87°) היא ארוכה יותר. האם הולכים אחר מה שקרוב יותר לירושלים או מתחשבים בקו התאריך — נידון בין הלומדים, ויש לשאול רב. התוסף מחשב את הכיוון הקבוע בדרך הקצרה יותר (בהוואי: מערבה).</li>
-    </ul>
-    <p><button id="halForum">דיון בפורום ״לתורה״: לאיזה צד מתפללים באיי הוואי</button> <small id="halForumMsg">(הכתובת מועתקת ללוח)</small></p>
+    <h2 style="font-size:1.1rem;margin:.25rem 0">הלכות כיוון התפילה</h2>
+    <section class="hsec"><h3>א. המקור</h3>
+     <blockquote>״היה עומד בחוץ לארץ יכוין את לבו כנגד ארץ ישראל... היה עומד בארץ ישראל יכוין את לבו כנגד ירושלים... היה עומד בירושלים יכוין את לבו כנגד בית המקדש״ <button class="src" data-q="ברכות" data-r="ל א">ברכות ל ע״א</button></blockquote>
+     <blockquote>״היה עומד בחוצה לארץ מחזיר פניו נכח ארץ ישראל ומתפלל... סומא ומי שלא יכול לכוין את הרוחות והמהלך בספינה יכוין את לבו כנגד השכינה ויתפלל״ <button class="src" data-q="הלכות תפילה ונשיאת כפים|תפילה ונשיאת כפים|משנה תורה תפילה" data-r="ה">רמב״ם, תפילה ה, ג</button></blockquote>
+     <blockquote>״בקומו להתפלל אם היה עומד בח״ל יחזיר פניו כנגד ארץ ישראל ויכוין גם לירושלים ולמקדש ולבית קדשי הקדשים״ <button class="src" data-q="שולחן ערוך אורח חיים" data-r="צד">שו״ע או״ח צד, א</button></blockquote>
+     <blockquote>״מי שאינו יכול לכוין הרוחות יכוין לבו לאביו שבשמים״ <button class="src" data-q="שולחן ערוך אורח חיים" data-r="צד">שו״ע שם, ג</button></blockquote>
+    </section>
+    <section class="hsec"><h3>ב. צורת החישוב: קו קצר על הכדור או כיוון קבוע על המפה</h3>
+     <p>על כדור יש שני קווים שכל אחד מהם נקרא ״ישר״:</p>
+     <ol style="margin:.2rem 0;padding-inline-start:1.3rem">
+      <li><b>הקו הקצר על הכדור</b> (מעגל גדול): הדרך הקצרה ביותר בפועל, כמו נתיב טיסה. מאמריקה הוא פונה צפונה־מזרחה.</li>
+      <li><b>כיוון קבוע על המפה</b> (קו לוקסודרומי): אותה זווית מהצפון לכל אורך הדרך; במפה שטוחה הוא נראה ישר. מאירופה ומאמריקה הוא פונה מזרחה ודרומה מעט.</li></ol>
+     <blockquote>״ואנו שמחזירין פנינו למזרח מפני שאנו יושבים במערבה של א״י ונמצא פנינו לא״י״ <button class="src" data-q="שולחן ערוך אורח חיים" data-r="צד">רמ״א, צד, ב</button></blockquote>
+     <blockquote>״ועיין באחרונים שהסכימו כולם לדברי הלבוש דבמדינותינו שאין אנו יושבין במערבה של א״י מכוון רק נוטה ג״כ לצפונו שיעמידו כותל בהכ״נ נוטה קצת לצד מזרחית דרומית של העולם שאז תעמוד מכוון כנגד א״י ובהמ״ק וקדשי קדשים״ <button class="src" data-q="משנה ברורה" data-r="צד">משנה ברורה צד, ס״ק יא</button></blockquote>
+     <p>בפורום ״לתורה״ הובאו שתי הגישות: יש שכתבו לכוון לפי הדרך הקצרה בפועל (הוזכר שם מאמר בקובץ ״בית אהרן וישראל״ — לא אומת), ויש שנהגו לפי הכיוון על המפה, מזרחה ונוטה לדרום.</p>
+     <table class="halt"><tr><th>מקום</th><th>קו קצר</th><th>כיוון קבוע</th></tr>
+      <tr><td>בני ברק</td><td>132°</td><td>132°</td></tr><tr><td>לונדון</td><td>114°</td><td>127°</td></tr>
+      <tr><td>ניו יורק</td><td>54°</td><td>96°</td></tr><tr><td>לוס אנג׳לס</td><td>24°</td><td>91°</td></tr><tr><td>מלבורן</td><td>287°</td><td>304°</td></tr></table>
+     <p id="halHere" style="margin:.3rem 0;font-weight:600"></p>
+     <p>את השיטה בוחרים בשורה העליונה (ברירת המחדל: כיוון קבוע). בתצוגת ״כדור הארץ״ במפה רואים את שני הקווים זה לצד זה.</p>
+    </section>
+    <section class="hsec"><h3>ג. האם צריך לכוון בדיוק לירושלים</h3>
+     <blockquote>״ויכוין וכו׳ — ר״ל יכוין לבו אע״פ שא״א לו להחזיר פניו נגדם ור״ל שיחשוב בלבו ורעיונו כאלו הוא עומד במקדש אשר בירושלים במקום קודש הקדשים״ <button class="src" data-q="משנה ברורה" data-r="צד">משנה ברורה צד, ס״ק ג</button></blockquote>
+     <p>מדברי המשנה ברורה (ס״ק יא, שהובא למעלה) עולה שיש להעמיד את הכותל ״נוטה קצת לצד מזרחית דרומית... שאז תעמוד מכוון כנגד א״י ובהמ״ק וקדשי קדשים״, כלומר לכוון את הכיוון עצמו ולא רק את הצד הכללי. ושם בס״ק יב:</p>
+     <blockquote>״ורש״י פירש איפכא שיעמוד למזרח ויצדד פניו לדרום או לצפון וכן מנהגנו ונכון הוא כדי שלא יהא חלוק בעמידתו מן הצבור״ <button class="src" data-q="משנה ברורה" data-r="צד">משנה ברורה צד, ס״ק יב</button></blockquote>
+     <blockquote>״אם מתפלל לרוח משאר רוחות יצדד פניו לצד א״י אם הוא בח״ל ולירושלים אם הוא בא״י ולמקדש אם הוא בירושלים״ <button class="src" data-q="שולחן ערוך אורח חיים" data-r="צד">שו״ע או״ח צד, ב</button></blockquote>
+    </section>
+    <section class="hsec"><h3>ד. איי הוואי, קו התאריך, ומי שעומד מול ירושלים</h3>
+     <p><b>הוואי:</b> בהונולולו הקו הקצר על הכדור פונה כמעט צפונה (346°). בכיוון קבוע על המפה: מערבה דרך קו התאריך (274°) הדרך קצרה יותר, ומזרחה בלי לחצות אותו (87°) היא ארוכה יותר. התוסף מחשב את הכיוון הקבוע בדרך הקצרה יותר (בהוואי: מערבה).</p>
+     <p><b>האם זה תלוי בקו התאריך?</b> בפורום ״לתורה״ נכתב שקו התאריך נוגע לחשבון הימים ולא לכיוון התפילה, ויש שכתבו ללכת אחר הדרך הקצרה לירושלים (צפונה ומעט מערבה); אחרים כתבו שהמנהג באמריקה מזרחה. הדברים הובאו שם בשם פוסקים בלי מקור מדויק (לא אומת).</p>
+     <p><b>מי שעומד בדיוק מול ירושלים בצד השני של הכדור</b> (באוקיינוס השקט, כ-20,000 ק״מ): לפי הקו הקצר כל כיוון מוביל לירושלים באותו מרחק, וגם בסביבת הנקודה תזוזה קטנה משנה מאוד את הכיוון; לפי הכיוון הקבוע על המפה יש כיוון מוגדר.</p>
+    </section>
+    <p><button class="fl" data-u="https://tora-forum.co.il/threads/%D7%9E%D7%93%D7%95%D7%A2-%D7%91%D7%90%D7%99%D7%A8%D7%95%D7%A4%D7%94-%D7%94%D7%AA%D7%A4%D7%9C%D7%9C%D7%95-%D7%9C%D7%9B%D7%99%D7%95%D7%9F-%D7%9E%D7%96%D7%A8%D7%97.36057/#post-662912">פורום ״לתורה״: מדוע באירופה התפללו לכיוון מזרח</button> <button id="halForum">פורום ״לתורה״: לאיזה צד מתפללים באיי הוואי</button> <small id="halForumMsg">(הכתובת מועתקת ללוח)</small></p>
     <p><small>זהו סיכום לעיון בלבד, ואינו פסק הלכה. בשאלה מעשית יש להתייעץ עם רב. הלחיצה על מראה מקום פותחת אותו בספריית אוצריא.</small></p>
   </div>
   <div id="help" class="pop" hidden>
@@ -343,7 +361,7 @@ body.mapfull #stRotRow .sep{display:none}
  <svg viewBox="-120 -120 240 240" aria-hidden="true"><circle r="112" fill="none" stroke="var(--color-outline)" stroke-width="2"/>
   <g id="prayArrow"><path d="M0,-100 L26,-40 L9,-46 L9,92 L-9,92 L-9,-46 L-26,-40Z" fill="var(--color-primary)"/></g></svg>
  <p id="prayDeg"></p><p id="prayTxt"></p><p id="prayHow" style="max-width:32rem;font-size:.9rem;color:var(--color-on-surface-dim)"></p></div>
-<div id="mapFullBar" hidden><select id="fMode" aria-label="תצוגת מפה"><option value="street">הרחובות סביבי</option><option value="near">הסביבה הקרובה</option><option value="far">עד ירושלים</option></select><input id="fQ" list="stNames" placeholder="רחוב, או רחוב פינת רחוב" aria-label="חיפוש רחוב" style="width:10em"><button id="fGo">מצא</button><button id="fIn" aria-label="הגדל">+</button><button id="fOut" aria-label="הקטן">−</button><button id="fX">✕ סגור מסך מלא</button></div>
+<div id="mapFullBar" hidden><select id="fMode" aria-label="תצוגת מפה"><option value="street">הרחובות סביבי</option><option value="near">הסביבה הקרובה</option><option value="far">עד ירושלים</option><option value="globe">כדור הארץ</option></select><input id="fQ" list="stNames" placeholder="רחוב, או רחוב פינת רחוב" aria-label="חיפוש רחוב" style="width:10em"><button id="fGo">מצא</button><button id="fIn" aria-label="הגדל">+</button><button id="fOut" aria-label="הקטן">−</button><button id="fX">✕ סגור מסך מלא</button></div>
 <div id="fTxt" hidden></div>
 <div id="fLoc" hidden></div>
 <div id="printHead"></div>
@@ -374,7 +392,7 @@ body.mapfull #stRotRow .sep{display:none}
 <p id="txt">בחר עיר, הזן קואורדינטות או לחץ על מיקום אוטומטי</p>
 <div class="row"><label class="grow">סיבוב ידני של החוגה<input id="rot" type="range" min="0" max="359" value="0"></label><button id="rotReset" title="החזר את החוגה למצב צפון למעלה">איפוס</button></div>
 </div>
-<div><select id="mapMode" aria-label="תצוגת מפה"><option value="street" selected>הרחובות סביבי</option><option value="near">הסביבה הקרובה</option><option value="far">עד ירושלים</option></select>
+<div><select id="mapMode" aria-label="תצוגת מפה"><option value="street" selected>הרחובות סביבי</option><option value="near">הסביבה הקרובה</option><option value="far">עד ירושלים</option><option value="globe">כדור הארץ</option></select>
 <button id="zIn" aria-label="הגדל מפה">+</button><button id="zOut" aria-label="הקטן מפה">−</button><button id="zReset">איפוס תצוגה</button><button id="zFull" title="מפה על כל התוסף (Esc לסגירה)">⛶ מסך מלא</button>
 <svg id="map" viewBox="0 0 400 320" aria-label="מפה"></svg>
  <div class="row tight" id="stRotRow" hidden><button id="stRL" title="סובב נגד כיוון השעון" aria-label="סובב 15 מעלות נגד כיוון השעון">⟲</button><button id="stRR" title="סובב עם כיוון השעון" aria-label="סובב 15 מעלות עם כיוון השעון">⟳</button><button id="stR90" title="סובב 90°">90°</button><button id="stJup" title="סובב את המפה כך שירושלים למעלה">ירושלים ↑</button><button id="stN" title="צפון למעלה">צפון ↑</button><button id="stHere" title="סמן במפה את המקום שבו אתה עומד">סמן את מקומי</button><span class="sep"></span><label><input type="checkbox" id="stSyn" checked> ✡</label><button id="stSynNear" title="בית הכנסת הקרוב">הקרוב</button></div>
@@ -554,7 +572,7 @@ async function loadCal(){try{const l=dat(await O.call("calendar.getCities"));if(
  buildSel()}
 async function sidLink(){try{const l=dat(await O.call("plugin.listInstalled"))||[],sd=l.find(x=>/siduron/i.test(x.pluginId||""));
  if(sd){$("bSid").hidden=false;$("bSid").onclick=()=>O.call("plugin.openOther",{pluginId:sd.pluginId}).catch(()=>{})}}catch(e){}}
-if(O){O.on("plugin.boot",async p=>{applyTheme(p&&p.theme);await loadCal();let v=null;try{v=dat(await O.call("storage.get",{key:"kivun-city"}))}catch(e){}restore(v);sidLink();if(typeof plLoad==="function")plLoad();if(typeof newsCheck==="function")newsCheck();if(typeof extrasBoot==="function")extrasBoot()});
+if(O){O.on("plugin.boot",async p=>{applyTheme(p&&p.theme);await loadCal();let v=null;try{v=dat(await O.call("storage.get",{key:"kivun-city"}))}catch(e){}restore(v);sidLink();if(typeof plLoad==="function")plLoad();if(typeof newsCheck==="function")newsCheck();if(typeof extrasBoot==="function")extrasBoot(p)});
  O.on("calendar.city_changed",p=>{if(p&&p.city){calName=p.city;buildSel();if(mode==="cal"||mode==null)useCal()}});
  O.on("theme.changed",applyTheme);O.call("app.getTheme").then(r=>r&&applyTheme(r.data)).catch(()=>{})}
 else try{restore(localStorage.getItem("kivun-city"))}catch(e){}
@@ -563,6 +581,8 @@ else try{restore(localStorage.getItem("kivun-city"))}catch(e){}
 <script src="streets.js"></script>
 <script src="extras.js"></script>
 <script src="fly.js"></script>
+<script src="globe.js"></script>
+<script src="i18n.js"></script>
 <script>
 /* מקומות שמורים: שם + קואורדינטות, נשמרים באחסון התוסף */
 let places=[];
