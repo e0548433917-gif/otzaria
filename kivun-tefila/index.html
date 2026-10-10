@@ -39,7 +39,7 @@ input.c{width:6em}
 .pop{position:fixed;top:3.2rem;inset-inline:.75rem;margin:auto;max-width:44rem;max-height:70vh;overflow:auto;background:var(--color-surface);border:1px solid var(--color-outline);border-radius:var(--radius-md);padding:.5rem 1rem;white-space:normal}
 #fbText{display:block;width:100%;margin:.5rem 0;font:inherit;color:var(--color-on-surface);background:var(--color-surface);border:1px solid var(--color-outline);border-radius:var(--radius-sm);padding:.4rem}
 #ways{padding-inline-start:1.25rem;margin:.25rem 0}
-#ways li{margin:.5rem 0}
+#ways li{margin:.4rem 0;list-style:none}#ways{padding-inline-start:0}details.way{border:1px solid var(--color-outline);border-radius:.5rem;padding:.2rem .6rem}details.way>summary{cursor:pointer;font-weight:700}details.way p{margin:.3rem 0}.wayx{display:flex;gap:.6rem;align-items:center;font-size:.9rem}.wayx svg{width:5.5rem;height:5.5rem;flex:none}
 #ways .off{color:var(--color-on-surface-dim)}
 #map{width:100%;max-height:47vh;height:auto;border:1px solid var(--color-outline);background:color-mix(in srgb,var(--color-primary) 8%,var(--color-surface));border-radius:var(--radius-md)}
 .land{fill:color-mix(in srgb,var(--color-primary) 22%,var(--color-surface));stroke:color-mix(in srgb,var(--color-primary) 55%,var(--color-surface));stroke-width:1}
@@ -285,6 +285,8 @@ body.mapfull #stRotRow .sep{display:none}
      <li>חוגה, שתי שיטות חישוב, מפות הסביבה ועד ירושלים, וזיהוי ידני לפי שמש, צל, כוכב הצפון ומקום מוכר.</li></ul></details>
     </details>
     <p>הגרסה העדכנית תמיד בחנות התוספים של אוצריא, וגם כאן: <button id="dlLink">דף ההורדה של כיוון תפילה</button></p>
+    <p><small>מיקודים: יש בתוסף כ-580 מיקודים בארץ וכ-20,000 בריכוזי הקהילה בחו״ל, ולא את כל המיקודים.</small></p>
+    <div class="row"><button id="sidDl">הורד סידורון 3.7.1 עם כפתור לכיוון תפילה</button> <small id="sidMsg"></small></div>
     <div class="row"><button id="geoDl">הורד נהרות, אגמים וכבישים מפורטים (פעם אחת, כ-3MB, עם אינטרנט)</button> <small id="geoMsg"></small></div>
     <div class="setrow"><label><span><input type="checkbox" id="prayShow"> כפתור ״מצב תפילה״ בשורה העליונה</span></label> <small>(מופעל מעצמו רק כשמתגלה מצפן מובנה במכשיר)</small></div>
     <div class="row"><button id="newsAgain">הצג שוב את חלונית "מה חדש"</button><button id="setFb">יש לך הערה? שלח הארה</button></div>
@@ -325,7 +327,6 @@ body.mapfull #stRotRow .sep{display:none}
       <li><b>כיוון קבוע על המפה</b> (קו לוקסודרומי): אותה זווית מהצפון לכל אורך הדרך; במפה שטוחה הוא נראה ישר. מאירופה ומאמריקה הוא פונה מזרחה ודרומה מעט.</li></ol>
      <blockquote>״ואנו שמחזירין פנינו למזרח מפני שאנו יושבים במערבה של א״י ונמצא פנינו לא״י״ <button class="src" data-q="שולחן ערוך אורח חיים" data-r="צד">רמ״א, צד, ב</button></blockquote>
      <blockquote>״ועיין באחרונים שהסכימו כולם לדברי הלבוש דבמדינותינו שאין אנו יושבין במערבה של א״י מכוון רק נוטה ג״כ לצפונו שיעמידו כותל בהכ״נ נוטה קצת לצד מזרחית דרומית של העולם שאז תעמוד מכוון כנגד א״י ובהמ״ק וקדשי קדשים״ <button class="src" data-q="משנה ברורה" data-r="צד">משנה ברורה צד, ס״ק יא</button></blockquote>
-     <p>בפורום ״לתורה״ הובאו שתי הגישות: יש שכתבו לכוון לפי הדרך הקצרה בפועל (הוזכר שם מאמר בקובץ ״בית אהרן וישראל״ — לא אומת), ויש שנהגו לפי הכיוון על המפה, מזרחה ונוטה לדרום.</p>
      <table class="halt"><tr><th>מקום</th><th>קו קצר</th><th>כיוון קבוע</th></tr>
       <tr><td>בני ברק</td><td>132°</td><td>132°</td></tr><tr><td>לונדון</td><td>114°</td><td>127°</td></tr>
       <tr><td>ניו יורק</td><td>54°</td><td>96°</td></tr><tr><td>לוס אנג׳לס</td><td>24°</td><td>91°</td></tr><tr><td>מלבורן</td><td>287°</td><td>304°</td></tr></table>
@@ -356,7 +357,7 @@ body.mapfull #stRotRow .sep{display:none}
   <div id="manBox" class="strip" hidden><input id="lat" class="c" inputmode="decimal" placeholder="קו רוחב" aria-label="קו רוחב">
   <input id="lon" class="c" inputmode="decimal" placeholder="קו אורך" aria-label="קו אורך">
   <button id="bMan">חשב</button></div>
-  <div id="pcBox" class="strip" hidden><input id="pc" list="pcList" autocomplete="off" placeholder="מיקוד, למשל 5120000 או 11219" aria-label="מיקוד" maxlength="10" style="width:14em"><datalist id="pcList"></datalist><button id="pcGo">חפש</button><small id="pcNote"></small><span id="pcPick" class="row" style="margin:0"></span></div>
+  <div id="pcBox" class="strip" hidden><input id="pc" list="pcList" autocomplete="off" placeholder="מיקוד, למשל 5120000 או 11219" aria-label="מיקוד" maxlength="10" style="width:14em"><datalist id="pcList"></datalist><button id="pcGo">חפש</button><small id="pcNote"></small><small>לא כל המיקודים בארץ ובחו״ל נמצאים בתוסף.</small><span id="pcPick" class="row" style="margin:0"></span></div>
 
 <div id="pray" hidden><button id="prayX" aria-label="סגור את מצב התפילה">✕ סגור</button>
  <svg viewBox="-120 -120 240 240" aria-hidden="true"><circle r="112" fill="none" stroke="var(--color-outline)" stroke-width="2"/>
@@ -467,7 +468,9 @@ function ways(b){const s=sun(pos[0],pos[1]),D=decl(),rf=refText(b),day=s.alt>0,n
  add("סיבוב ידני של החוגה",`הזז את המחוון שמתחת לחוגה עד ש${day?"העיגול הזהוב מכוון לשמש האמיתית":"האות צ מכוונת לצפון, למשל לכוכב הצפון"}. מאותו רגע החץ מצביע לירושלים.`);
  add("לפי הרחוב",`בחר בתצוגת המפה "הרחובות סביבי" ולחץ על הרחוב שלידך. אחרי הורדה אחת האזור עובד גם בלי אינטרנט (ראה "הגדרות").`);
  add("מפת לוויין",`דורש אינטרנט. במפה הצפון למעלה, והכיוון הוא ${Math.round(b)}° בכיוון השעון מהצפון. התאם אותו לרחוב או לבניין שאתה מזהה סביבך.`);
- $("ways").replaceChildren(...w.map(([t,x,on])=>{const li=document.createElement("li"),h=document.createElement("strong");h.textContent=t+": ";li.append(h,x);if(!on)li.className="off";return li}));
+ const op=new Set([...$("ways").querySelectorAll("details[open]")].map(d=>d.dataset.t));
+ $("ways").replaceChildren(...w.map(([t,x,on])=>{const li=document.createElement("li"),d=document.createElement("details"),sm=document.createElement("summary"),p=document.createElement("p");d.className="way";d.dataset.t=t;if(op.has(t))d.open=true;sm.textContent=t;p.textContent=x;d.append(sm,p);
+  const ex=typeof wayExtra==="function"?wayExtra(t,b,s):null;if(ex){const q=document.createElement("div");q.className="wayx";q.innerHTML=ex;d.append(q)}li.append(d);if(!on)li.className="off";return li}));
  $("bSat").hidden=false;$("sun").style.display=day&&heading==null?"":"none";$("sun").setAttribute("transform",`rotate(${s.az})`)}
 function draw(){if(!pos)return;locText();const b=bear();
  $("big").textContent=Math.round(b)+"°";
@@ -530,7 +533,7 @@ $("bOn").onclick=()=>{$("txt").textContent="מאתר מיקום…";
  if(!navigator.geolocation)return ipLoc();
  navigator.geolocation.getCurrentPosition(p=>{setPos([p.coords.latitude,p.coords.longitude],"מיקום מזוהה",p.coords.accuracy,true);startCompass();rev()},ipLoc,{timeout:8000})};
 $("bSat").onclick=()=>{if(!pos)return;const url=`https://www.google.com/maps/@${pos[0].toFixed(6)},${pos[1].toFixed(6)},19z/data=!3m1!1e3`;
- $("satUrl").textContent="";
+ try{copyText(url)}catch(e){}$("satUrl").textContent="הכתובת הועתקה ללוח. אפשר להדביק אותה בדפדפן.";
  const fail=()=>{let w=null;try{w=window.open(url,"_blank")}catch(e){}if(!w)$("satUrl").textContent="המפה לא נפתחה. אפשר להעתיק את הכתובת לדפדפן: "+url};
  (O?O.call("app.openUrl",{url}):Promise.reject()).then(r=>{if(r&&r.success===false)fail()}).catch(fail)};
 $("rot").oninput=()=>{manual=+$("rot").value;draw()};

@@ -308,3 +308,23 @@ function plPins() {
   svg.appendChild(g);
 }
 (function () { const sm = streetMap; streetMap = async function () { const r = await sm.apply(this, arguments); try { plPins() } catch (e) {} return r } })();
+
+/* זיהוי ידני: הסבר מורחב ואיור לכל דרך. למעלה באיור = הכיוון לירושלים; השמש, הצל והצפון מתעדכנים לפי השעה והמיקום */
+function wayIll(a, mark) {
+  const x = (50 + 34 * Math.sin(a * R)).toFixed(1), y = (50 - 34 * Math.cos(a * R)).toFixed(1);
+  return `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="40" fill="none" stroke="var(--color-outline)"/><path d="M50,50 L50,14" stroke="var(--color-primary)" stroke-width="3"/><path d="M44,22 L50,10 L56,22Z" fill="var(--color-primary)"/><circle cx="50" cy="50" r="4" fill="var(--color-on-surface)"/>${mark(x, y)}</svg>`;
+}
+function wayExtra(t, b, s) {
+  const N = "<small>החץ באיור = הכיוון לירושלים. האיור והמספרים מתעדכנים לפי השעה והמיקום.</small>";
+  const sunM = (x, y) => `<circle cx="${x}" cy="${y}" r="7" fill="#e0a526"/>`;
+  const dot = (c, txt) => (x, y) => `<circle cx="${x}" cy="${y}" r="4" fill="${c}"/><text x="${x}" y="${(+y - 7).toFixed(1)}" text-anchor="middle" font-size="11" fill="var(--color-on-surface)">${txt}</text>`;
+  if (t === "מצפן רגיל" || t === "מצפן המכשיר") return wayIll(-b, dot("var(--color-on-surface)", "צ")) + `<span>הצפון נמצא במקום שמסומן ״צ״ ביחס לכיוון שאליו אתה פונה. מצפן מושפע ממתכת, ממגנטים ומרמקולים; בדוק אותו בשני מקומות. ${N}</span>`;
+  if (t === "לפי השמש") return wayIll(s.az - b, sunM) + `<span>העיגול הזהוב הוא מקום השמש ביחס אליך כשאתה פונה לירושלים. השמש זזה כ-15° בשעה, ולכן ההוראה נכונה לרגע זה בלבד. ${N}</span>`;
+  if (t === "לפי הצל") return wayIll(s.az + 180 - b, (x, y) => `<path d="M50,50 L${x},${y}" stroke="var(--color-on-surface-dim)" stroke-width="5" stroke-linecap="round" opacity=".6"/>`) + `<span>הפס האפור הוא הצל שלך כשאתה פונה לירושלים. אפשר גם לנעוץ מקל באדמה ולהסתכל על הצל שלו. ${N}</span>`;
+  if (t === "לפי כוכב הצפון") return wayIll(-b, dot("#e0a526", "★")) + `<span>כוכב הצפון כמעט אינו זז במשך הלילה, וגובהו מעל האופק שווה בערך לקו הרוחב שלך. ${N}</span>`;
+  if (t === "מקום מוכר") return `<span>בחר מקום מוכר בעיר (מגדל, הר, כביש ראשי) שהכיוון אליו ידוע לך, והשווה לחוגה.</span>`;
+  if (t === "סיבוב ידני של החוגה") return `<span>מתאים למחשב בלי מצפן: מסובבים את החוגה עד שהיא תואמת את המציאות, ומאותו רגע החץ מראה את ירושלים.</span>`;
+  return null;
+}
+const SID_URL = "https://github.com/e0548433917-gif/otzaria/raw/%D7%9B%D7%99%D7%95%D7%95%D7%9F-%D7%AA%D7%A4%D7%99%D7%9C%D7%94/siduron/com.moshenahari.siduron-3.7.1.otzplugin";
+$("sidDl").onclick = () => { copyText(SID_URL); let w = null; try { w = window.open(SID_URL, "_blank", "noopener") } catch (x) {} if (!w && O) O.call("app.openUrl", { url: SID_URL }).catch(() => {}); $("sidMsg").textContent = "הכתובת הועתקה ללוח. אחרי ההורדה: התקנה מקובץ בחנות התוספים של אוצריא." };
