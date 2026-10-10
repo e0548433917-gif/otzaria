@@ -226,7 +226,7 @@ function zoomKeep(fn){const z=zoom;fn();zoom=z;map()}
 
 /* ---- הגדרות: האזורים השמורים והסבר לעבודה בלי אינטרנט ---- */
 function stSettings(){const l=$("stList");if(!l)return;l.replaceChildren();
- const eb=$("stEmb");if(eb)eb.textContent=EMB.length?`מובנים בתוסף, בלי הורדה (${EMB.length} אזורים): `+EMB.map(a=>a.name).join(", ")+".":"";
+ const eb=$("stEmb");if(eb){const bx=$("stEmbBox");if(bx)bx.hidden=!EMB.length;const sm=$("stEmbSum");if(sm)sm.textContent=`מובנים בתוסף, בלי הורדה (${EMB.length} אזורים)`;eb.textContent=EMB.map(a=>a.name).join(", ")+".";}
  if(!ST.idx.length){const li=document.createElement("li");li.textContent="עדיין לא נשמר אף אזור.";l.append(li)}
  for(const a of ST.idx){const li=document.createElement("li"),x=document.createElement("button");
   li.textContent=`${a.name||a.lat+", "+a.lon} — ${a.n} רחובות, ברדיוס ${a.r>=1000?(a.r/1000)+' ק"מ':a.r+" מ'"} (${a.d}) `;
