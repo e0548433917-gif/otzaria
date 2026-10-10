@@ -33,7 +33,7 @@ const I18N = {
   "מקומות שמורים": "Saved places", "שם: בית, בית הכנסת…": "Name: home, shul…", "שם למקום": "Place name", "רחוב, או: רחוב פינת רחוב": "Street, or: street corner street",
   "הגדל מפה": "Zoom in", "הקטן מפה": "Zoom out", "מפה על כל התוסף (Esc לסגירה)": "Full-size map (Esc to close)", "סובב 90°": "Rotate 90°",
   "סובב את המפה כך שירושלים למעלה": "Rotate so Jerusalem is up", "צפון למעלה": "North up", "סמן במפה את המקום שבו אתה עומד": "Mark where you stand", "בית הכנסת הקרוב": "Nearest synagogue",
-  "ירושלים": "Jerusalem", "אתה": "You", "לירושלים": "to Jerusalem", "↑ צפון": "↑ North", "הר הבית": "Temple Mount", "גרירה מסובבת את הכדור": "Drag to rotate the globe"
+  "הורד נהרות, אגמים וכבישים מפורטים (פעם אחת, כ-3MB, עם אינטרנט)": "Download detailed rivers, lakes and roads (once, ~3MB, online)", "ירושלים": "Jerusalem", "אתה": "You", "לירושלים": "to Jerusalem", "↑ צפון": "↑ North", "הר הבית": "Temple Mount", "גרירה מסובבת את הכדור": "Drag to rotate the globe"
 };
 const I18N_SKIP = "#hal, #news, details.sd, #help, #stList, #planned, script, style";
 let LANG = "he", LANG_PREF = null, LANG_OTZ = null;

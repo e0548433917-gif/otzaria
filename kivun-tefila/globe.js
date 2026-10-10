@@ -48,3 +48,18 @@ function globeMap() {
   $("mapMode").addEventListener("change", () => { GL.dla = 0; GL.dlo = 0 });
   const zr = $("zReset"); if (zr) zr.addEventListener("click", () => { GL.dla = 0; GL.dlo = 0; if ($("mapMode").value === "globe" && pos) globeMap() });
 }
+
+/* הורדה אופציונלית: נהרות, אגמים וכבישים מפורטים (Natural Earth 1:10m), נשמרים במחשב */
+let GEOX = null;
+const GEOX_URL = "https://raw.githubusercontent.com/e0548433917-gif/otzaria/%D7%9B%D7%99%D7%95%D7%95%D7%9F-%D7%AA%D7%A4%D7%99%D7%9C%D7%94/kivun-tefila-data/geo-extra.json";
+async function geoxLoad() {
+  let t = null; try { t = O ? dat(await O.call("fs.readFile", { path: "geo-extra.json" })) : localStorage.getItem("kivun-geo-extra") } catch (e) {}
+  try { if (t) { GEOX = typeof t === "string" ? JSON.parse(t) : t; $("geoMsg").textContent = "הורד ✓"; if (pos) map() } } catch (e) {}
+}
+$("geoDl").onclick = async () => {
+  const m = $("geoMsg"); m.textContent = "מוריד…";
+  try { const j = await getJ(GEOX_URL); if (!j || !j.r) throw 0; GEOX = j; const s = JSON.stringify(j);
+    try { O ? await O.call("fs.writeFile", { path: "geo-extra.json", content: s }) : localStorage.setItem("kivun-geo-extra", s) } catch (e) {}
+    m.textContent = "הורד ✓"; if (pos) map() } catch (e) { m.textContent = "ההורדה נכשלה. צריך חיבור לאינטרנט." }
+};
+setTimeout(geoxLoad, 1500);
